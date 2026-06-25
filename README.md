@@ -41,11 +41,39 @@ other way round.
 > kernel internal the public surface doesn't expose, and the kernel imports no
 > framework. `test/boundary.test.ts` proves it.
 
+## Drivers & the projection
+
+Every surface is a driver over the same four verbs and the same gate. Humans and
+chords call the verbs directly; protocol bridges (an MCP server, a raw LLM loop)
+consume the **projection** — those same verbs serialized as a tiny generic
+tool surface (`createProjection`), so *any* agent drives the kernel with no
+bespoke glue. A bridge like MCP is ~50 lines of protocol on top — 100% optional.
+
+```
+                    ┌───────────────────────────────────┐
+                    │      @command-kernel/core + gate    │   the hero
+                    └───────────────────────────────────┘
+                                     │
+            four verbs:  search · resolve · execute · discover
+                                     │
+   ┌───────────────┬─────────────┬───┴────────────┬────────────────┐
+  human palette   chords      agent panel       MCP bridge      raw LLM loop
+  (direct calls)  (direct)    (direct)          (projection)    (projection)
+   └───────────────┴─────────────┴────────────────┴────────────────┘
+   every surface is a DRIVER · the gate is shared · one source of truth
+```
+
+The projection is the **hybrid** the prior art recommends: 4 generic navigator
+tools (so an agent walks the whole tree) **plus** auto-promoted named tools for
+the high-traffic commands (so tool-calling stays reliable) — both off the one
+registry, both through the one gate. `execute` returns a `gate` when human
+approval is owed; the model **cannot self-approve**.
+
 ## Packages
 
 | Package | What | Depends on |
 |---|---|---|
-| [`@command-kernel/core`](packages/core) | the headless engine + the five extension seams — **the hero** | nothing |
+| [`@command-kernel/core`](packages/core) | the headless engine + the six extension seams — **the hero** | nothing |
 | [`@command-kernel/ui`](packages/ui) | driver #1, the React command palette | core |
 | [`@command-kernel/agent`](packages/agent) | driver #2, the headless kernel-as-tool-surface | core |
 | [`examples/playground`](examples/playground) | the full palette + agent demo, composed from the packages | all |

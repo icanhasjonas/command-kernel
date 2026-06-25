@@ -1,4 +1,9 @@
-import { type CommandNode, type Ctx, type JsonSchema, toJsonSchema } from "@command-kernel/core";
+import {
+  type CommandNode,
+  type Ctx,
+  type JsonSchemaObject,
+  toJsonSchema,
+} from "@command-kernel/core";
 
 /**
  * MCP-shaped tool projection.
@@ -23,7 +28,7 @@ export interface McpTool {
   /** what the tool does, for the model to read */
   description: string;
   /** JSON Schema for the args (MCP `inputSchema`) */
-  inputSchema: JsonSchema;
+  inputSchema: JsonSchemaObject;
 }
 
 /** Project a single node into an MCP tool definition. */

@@ -9,6 +9,7 @@
  * Allow -> grant -> re-issue) -> result. That loop is identical for the palette,
  * the agent, a deeplink, or this console.
  */
+import { createProjection } from "@command-kernel/agent";
 import { type Ctx, createKernel, parseDeeplink, serializePath } from "@command-kernel/core";
 
 // A typed-entity catalog: register a `person` type once; any arg can reference it.
@@ -128,3 +129,23 @@ if (needsPerson.kind === "args") {
 }
 const resolved = await kernel.entities?.search("person", "jon", ctx);
 console.log("agent resolves 'jon' ->", resolved?.[0]?.id);
+
+// 10. THE PROJECTION — what an AGENT sees: a handful of generic tools (the same
+//     verbs the human palette calls), NOT one tool per command. Any bridge (MCP,
+//     a raw LLM loop) drives the kernel through these.
+const projection = createProjection(kernel);
+console.log(
+  "agent's whole toolset ->",
+  projection.tools.map((t) => t.name),
+);
+const searched = await projection.call("search", { query: "message" }, ctx);
+console.log(
+  "agent search 'message' ->",
+  searched.kind === "completions" ? searched.items.map((i) => i.id) : searched.kind,
+);
+const blocked = await projection.call(
+  "execute",
+  { path: "danger.reset", args: { user: "x@y.io" } },
+  ctx,
+);
+console.log("agent execute (gated) ->", blocked.kind); // "gate" — the model can't self-approve

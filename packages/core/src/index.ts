@@ -82,6 +82,8 @@ export { createRegistry, type Provider, type Registry } from "./registry";
 export {
   type ArgError,
   type JsonSchema,
+  type JsonSchemaNode,
+  type JsonSchemaObject,
   type JsonSchemaProperty,
   toJsonSchema,
   validateArgs,

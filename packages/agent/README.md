@@ -37,7 +37,42 @@ model tool-call. Swap it for an LLM call that returns `{ node, values }` — the
 tool schemas come from each node's `title` + `summary` + `args`, and everything
 downstream (the `command()` walk, the gate, the grant) is unchanged.
 
-## MCP-shaped tool definitions
+## The projection (recommended)
+
+Don't emit one tool per command — emit a handful of generic tools and let the
+agent walk the same tree a human does. `createProjection` is that surface, and
+it's model- and protocol-agnostic (MCP, a raw LLM loop, a test all consume it):
+
+```ts
+import { createProjection } from "@command-kernel/agent";
+
+const projection = createProjection(kernel, { promote: [sendEmail] }); // hybrid
+projection.tools;        // -> [search, resolve, execute, discover, email_send]
+await projection.call("search",   { query: "reset" }, ctx);            // -> completions
+await projection.call("discover", { entityType: "person", query: "jon" }, ctx); // -> entities
+await projection.call("execute",  { path: "users/users.send_reset", args: { user } }, ctx);
+//   -> { kind: "result" } | { kind: "gate" } | { kind: "needs-args" }
+```
+
+Four generic tools cover the whole kernel:
+
+| tool | does | returns |
+|---|---|---|
+| `search(query, path?)` | rank/find commands | `completions` |
+| `resolve(path)` | drill / enumerate a node | `completions` |
+| `execute(path, args)` | run the tip | `result` \| `gate` \| `needs-args` |
+| `discover(entityType, query, constraint?)` | resolve an entity reference | `entities` |
+
+`promote` adds first-class named tools for hot commands — the **hybrid** that
+keeps tool-calling reliable (a purely generic navigator tends to make a model
+worse). All off the one registry, all through the one gate.
+
+**Trust line:** `execute` returns `gate` when human approval is owed; it never
+mints a grant. The model cannot self-approve — a bridge surfaces the gate to its
+operator and re-issues approval out of band. An **MCP server** is then a thin
+shell: map `tools/list` → `projection.tools` and `tools/call` → `projection.call`.
+
+## MCP-shaped tool definitions (lower level)
 
 For a real model, project nodes into the standard MCP tool shape
 (`{ name, description, inputSchema }`, JSON Schema params) and hand them to any

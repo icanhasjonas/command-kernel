@@ -21,6 +21,9 @@ It walks the whole loop a driver implements:
    URL; a gated deeplink still lands at the gate (a URL can't carry a grant)
 8. **validation** — a hallucinated email is rejected before the gate, as an `args`
    response carrying the error
+9. **entities** (seam #6) — an entity-typed arg completes from a registered catalog
+10. **the projection** — what an *agent* sees: 4 generic tools (`search`/`resolve`/
+    `execute`/`discover`), the same verbs the human palette calls, via `createProjection`
 
 That loop is identical for the palette, the agent, a deeplink, or this console —
 which is the whole point. For the rich version, see

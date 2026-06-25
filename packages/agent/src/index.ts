@@ -8,4 +8,10 @@
  */
 
 export { pickTool, type ToolPick } from "./adapter";
+export {
+  createProjection,
+  type Projection,
+  type ProjectionOptions,
+  type ProjectionResult,
+} from "./projection";
 export { collectTools, type McpTool, toMcpTool } from "./tools";

@@ -5,7 +5,7 @@ Each example consumes the published packages exactly as a third-party app would
 
 | Example | What it shows | Stack |
 |---|---|---|
-| [`minimal`](minimal) | the smallest loop: register one command, browse → execute → gate → grant → result | core only, console |
+| [`minimal`](minimal) | the whole loop end to end: register → browse → execute → gate → grant → deeplink → validate → entities → the agent projection | core + agent, console |
 | [`playground`](playground) | the full palette + agent demo: drill nav, arg pills, chords, the agent driving the same gate, the self-describing scout | core + ui + agent, React + Vite + Cloudflare |
 
 Run the minimal one:

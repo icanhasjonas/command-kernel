@@ -29,6 +29,31 @@ export interface JsonSchema {
   additionalProperties: false;
 }
 
+/**
+ * A permissive JSON Schema node — for HAND-AUTHORED tool params (the agent
+ * projection's generic navigator tools, which legitimately need an object/array
+ * param). The strict `JsonSchema` above (all-string, for derived command args)
+ * is a subtype of `JsonSchemaObject`.
+ */
+export type JsonSchemaNode =
+  | { type: "string"; description?: string; enum?: string[]; format?: string }
+  | { type: "number" | "integer" | "boolean"; description?: string }
+  | {
+      type: "object";
+      description?: string;
+      properties?: Record<string, JsonSchemaNode>;
+      required?: string[];
+      additionalProperties?: boolean;
+    }
+  | { type: "array"; description?: string; items?: JsonSchemaNode };
+
+export interface JsonSchemaObject {
+  type: "object";
+  properties: Record<string, JsonSchemaNode>;
+  required?: string[];
+  additionalProperties?: boolean;
+}
+
 export interface ArgError {
   argId: string;
   message: string;
