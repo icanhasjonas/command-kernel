@@ -1,4 +1,4 @@
-import type { CommandNode, CommandResult } from "@command-kernel/core";
+import { argText, type CommandNode, type CommandResult } from "@command-kernel/core";
 import { searchUsers, type User } from "./data";
 
 const toast = (message: string): Promise<CommandResult> =>
@@ -102,7 +102,7 @@ const usersSearch: CommandNode = {
         })),
     },
   ],
-  resolve: async (a) => (await searchUsers(a.q ?? "")).map(userEntity),
+  resolve: async (a) => (await searchUsers(argText(a.q))).map(userEntity),
   run: async (a) => ({ kind: "page", message: `Results page · users matching “${a.q ?? ""}”` }),
 };
 

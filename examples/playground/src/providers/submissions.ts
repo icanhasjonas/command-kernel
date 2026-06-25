@@ -1,4 +1,4 @@
-import type { CommandNode, CommandResult } from "@command-kernel/core";
+import { argText, type CommandNode, type CommandResult } from "@command-kernel/core";
 import { type Submission, searchSubmissions } from "./data";
 
 const toast = (message: string): Promise<CommandResult> =>
@@ -64,7 +64,7 @@ const submissionsSearch: CommandNode = {
       placeholder: "id, email or status…",
     },
   ],
-  resolve: async (a) => (await searchSubmissions(a.q ?? "")).map(submissionEntity),
+  resolve: async (a) => (await searchSubmissions(argText(a.q))).map(submissionEntity),
   run: async (a) => ({
     kind: "page",
     message: `Results page · submissions matching “${a.q ?? ""}”`,

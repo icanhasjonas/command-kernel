@@ -131,12 +131,13 @@ function str(v: unknown): string {
   return typeof v === "string" ? v : "";
 }
 
-/** Coerce a model-supplied args object to the kernel's string-valued ArgValues. */
+/** Coerce a model-supplied args object to the kernel's ArgValues (arrays preserved). */
 function toArgValues(v: unknown): ArgValues {
   if (!v || typeof v !== "object") return {};
   const out: ArgValues = {};
   for (const [k, val] of Object.entries(v as Record<string, unknown>)) {
-    if (val !== undefined && val !== null) out[k] = String(val);
+    if (val === undefined || val === null) continue;
+    out[k] = Array.isArray(val) ? val.map(String) : String(val);
   }
   return out;
 }

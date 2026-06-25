@@ -1,4 +1,4 @@
-import type { CommandNode, CommandResult } from "@command-kernel/core";
+import { argText, type CommandNode, type CommandResult } from "@command-kernel/core";
 import { type Form, searchForms } from "./data";
 
 const toast = (message: string): Promise<CommandResult> =>
@@ -70,7 +70,7 @@ const formsSearch: CommandNode = {
       placeholder: "title or slug…",
     },
   ],
-  resolve: async (a) => (await searchForms(a.q ?? "")).map(formEntity),
+  resolve: async (a) => (await searchForms(argText(a.q))).map(formEntity),
   run: async (a) => ({ kind: "page", message: `Results page · forms matching “${a.q ?? ""}”` }),
 };
 

@@ -15,6 +15,7 @@ import type {
   PathSegment,
   Role,
 } from "./types";
+import { isFilled } from "./values";
 
 /**
  * The ONE verb.
@@ -121,7 +122,7 @@ async function argCompletions(
   const out: Completion[] = [];
   for (const a of node.args ?? []) {
     if (a.positional) continue;
-    const filled = Boolean(values[a.id]?.trim());
+    const filled = isFilled(values[a.id]);
     let options: ArgOption[] = [];
     if (!filled) {
       // resolution order: closed enum -> registered entity catalog -> one-off complete

@@ -25,11 +25,17 @@ export interface DeeplinkOptions {
 }
 
 function encodeQuery(args: ArgValues): string {
-  return Object.keys(args)
-    .sort()
-    .filter((k) => (args[k] ?? "") !== "")
-    .map((k) => `${encodeURIComponent(k)}=${encodeURIComponent(args[k] as string)}`)
-    .join("&");
+  const parts: string[] = [];
+  for (const k of Object.keys(args).sort()) {
+    const v = args[k];
+    // a list value repeats the key: ?to=a&to=b
+    for (const item of Array.isArray(v) ? v : [v]) {
+      if (item !== undefined && item !== "") {
+        parts.push(`${encodeURIComponent(k)}=${encodeURIComponent(item)}`);
+      }
+    }
+  }
+  return parts.join("&");
 }
 
 function decodeQuery(qs: string): ArgValues {
@@ -38,7 +44,12 @@ function decodeQuery(qs: string): ArgValues {
     if (!pair) continue;
     const eq = pair.indexOf("=");
     const key = decodeURIComponent(eq === -1 ? pair : pair.slice(0, eq));
-    if (key) out[key] = eq === -1 ? "" : decodeURIComponent(pair.slice(eq + 1));
+    if (!key) continue;
+    const val = eq === -1 ? "" : decodeURIComponent(pair.slice(eq + 1));
+    // a repeated key accumulates into a list
+    const existing = out[key];
+    if (existing === undefined) out[key] = val;
+    else out[key] = Array.isArray(existing) ? [...existing, val] : [existing, val];
   }
   return out;
 }

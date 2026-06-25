@@ -12,6 +12,7 @@ import type {
   Grant,
   Ranked,
 } from "./types";
+import { isFilled } from "./values";
 
 /**
  * The kernel verbs. Renderers (palette, agent, chords) call these — usually via
@@ -135,7 +136,7 @@ export function collectChords(nodes: CommandNode[]): Map<string, CommandNode> {
 
 /** Required args still missing a value. Drives the "2 of 3" arg counter. */
 export function missingArgs(node: CommandNode, values: ArgValues): string[] {
-  return (node.args ?? []).filter((a) => a.required && !values[a.id]?.trim()).map((a) => a.id);
+  return (node.args ?? []).filter((a) => a.required && !isFilled(values[a.id])).map((a) => a.id);
 }
 
 export function bumpFrecency(frecency: Record<string, number>, id: string): Record<string, number> {

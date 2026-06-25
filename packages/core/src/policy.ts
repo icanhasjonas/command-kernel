@@ -1,4 +1,5 @@
 import type { ArgValues, CommandNode } from "./types";
+import { argList, isFilled } from "./values";
 
 /**
  * Policy — SEAM #4, the standing-exception half of the TRUST CORE.
@@ -67,8 +68,9 @@ export function createMemoryPolicyStore(): PolicyStore {
         if (r.commandId !== commandId) continue;
         const s = r.scope;
         if (s.kind === "command") return r;
-        if (s.kind === "arg" && args[s.argId] === s.value) return r;
-        if (s.kind === "prefix" && (args[s.argId] ?? "").startsWith(s.prefix)) return r;
+        if (s.kind === "arg" && argList(args[s.argId]).includes(s.value)) return r;
+        if (s.kind === "prefix" && argList(args[s.argId]).some((v) => v.startsWith(s.prefix)))
+          return r;
       }
       return null;
     },
@@ -82,12 +84,12 @@ export function createMemoryPolicyStore(): PolicyStore {
  */
 export function ruleForNode(node: CommandNode, args: ArgValues): AllowRule {
   const ent = node.args?.find(
-    (a) => (a.kind === "email" || a.kind === "entity") && args[a.id]?.trim(),
+    (a) => (a.kind === "email" || a.kind === "entity") && isFilled(args[a.id]),
   );
   if (ent) {
     return {
       commandId: node.id,
-      scope: { kind: "arg", argId: ent.id, value: args[ent.id] as string },
+      scope: { kind: "arg", argId: ent.id, value: argList(args[ent.id])[0] ?? "" },
     };
   }
   return { commandId: node.id, scope: { kind: "command" } };

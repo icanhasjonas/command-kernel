@@ -88,12 +88,12 @@ export {
   toJsonSchema,
   validateArgs,
 } from "./schema";
-
 // the data model
 export type {
   ArgKind,
   ArgOption,
   ArgSpec,
+  ArgValue,
   ArgValues,
   CommandNode,
   CommandResult,
@@ -110,3 +110,5 @@ export type {
   ResultKind,
   Role,
 } from "./types";
+// arg-value helpers (single | list — for `multiple` args)
+export { argList, argText, isFilled } from "./values";
