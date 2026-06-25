@@ -52,7 +52,9 @@ function importSpecifiers(file: string): string[] {
   const src = readFileSync(file, "utf8");
   const specs: string[] = [];
   for (const m of src.matchAll(/(?:from|import)\s*\(?\s*["']([^"']+)["']/g)) {
-    if (m[1]) specs.push(m[1]);
+    // a real module specifier has no whitespace — this rejects the word "from"
+    // appearing inside a string literal (e.g. a test description ending in "from")
+    if (m[1] && !/\s/.test(m[1])) specs.push(m[1]);
   }
   return specs;
 }
