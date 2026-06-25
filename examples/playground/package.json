@@ -1,0 +1,31 @@
+{
+  "name": "@command-kernel/playground",
+  "private": true,
+  "version": "0.1.0",
+  "description": "The playground example: composes @command-kernel/core + /ui + /agent into the full palette + agent demo. Deploys as an assets-only Cloudflare Worker.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "deploy": "bun run build && bun scripts/wrangler.ts deploy"
+  },
+  "dependencies": {
+    "@command-kernel/agent": "workspace:*",
+    "@command-kernel/core": "workspace:*",
+    "@command-kernel/ui": "workspace:*",
+    "framer-motion": "^11.15.0",
+    "lucide-react": "^0.468.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.0",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "@vitejs/plugin-react": "^6.0.0",
+    "tailwindcss": "^4.3.0",
+    "vite": "^8.1.0",
+    "wrangler": "^4.104.0"
+  }
+}

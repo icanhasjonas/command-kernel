@@ -1,0 +1,32 @@
+{
+  "name": "@command-kernel/agent",
+  "version": "0.1.0",
+  "description": "Driver #2 (headless): project the command kernel as an LLM tool surface. Pure TS, depends only on @command-kernel/core.",
+  "type": "module",
+  "license": "MIT",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "publishConfig": {
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      }
+    }
+  },
+  "files": ["dist", "src"],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json"
+  },
+  "peerDependencies": {
+    "@command-kernel/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@command-kernel/core": "workspace:*"
+  }
+}
