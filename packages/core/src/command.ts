@@ -2,6 +2,7 @@ import { describeNode, type NodeDescriptor } from "./describe";
 import { pathKey } from "./evidence";
 import { type ExecuteDeps, executeNode, missingArgs, resolveChildren } from "./kernel";
 import type { Ranker } from "./rank";
+import type { ArgError } from "./schema";
 import type {
   ArgOption,
   ArgSpec,
@@ -71,7 +72,7 @@ export type Completion =
 
 export type CommandResponse =
   | { kind: "completions"; at: CommandNode | null; items: Completion[] }
-  | { kind: "args"; node: CommandNode; missing: string[]; items: Completion[] }
+  | { kind: "args"; node: CommandNode; missing: string[]; errors: ArgError[]; items: Completion[] }
   | { kind: "gate"; node: CommandNode; verdict: GateVerdict }
   | { kind: "result"; node: CommandNode; result: CommandResult };
 
@@ -120,9 +121,16 @@ export async function command(
 
   // EXECUTE the tip
   if (req.execute && tip) {
+    // missing required args -> collect them (the "2 of 3" counter) before running
     const missing = missingArgs(tip, values);
     if (missing.length > 0) {
-      return { kind: "args", node: tip, missing, items: await argCompletions(tip, values, ectx) };
+      return {
+        kind: "args",
+        node: tip,
+        missing,
+        errors: [],
+        items: await argCompletions(tip, values, ectx),
+      };
     }
     // the grant on the tip segment is bound to everything before it
     const segments = req.path ?? [];
@@ -132,6 +140,16 @@ export async function command(
       grant: tipSeg?.evidence,
       priorKey,
     });
+    // the kernel validated inside executeNode — surface bad values as `args`
+    if (outcome.argErrors.length > 0) {
+      return {
+        kind: "args",
+        node: tip,
+        missing: [],
+        errors: outcome.argErrors,
+        items: await argCompletions(tip, values, ectx),
+      };
+    }
     if (!outcome.verdict.allowed || outcome.awaitingConfirm) {
       return { kind: "gate", node: tip, verdict: outcome.verdict };
     }

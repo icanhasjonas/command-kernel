@@ -2,6 +2,7 @@ import type { EvidenceStore } from "./evidence";
 import type { GatePolicy } from "./gate";
 import type { PolicyStore } from "./policy";
 import { type Ranker, rank } from "./rank";
+import { type ArgError, validateArgs } from "./schema";
 import type {
   ArgValues,
   CommandNode,
@@ -51,6 +52,8 @@ export interface ExecuteOutcome {
   awaitingConfirm: boolean;
   /** a standing always-allow rule satisfied the confirm (we never asked) */
   autoAllowed: boolean;
+  /** present-but-invalid args (bad email/enum/custom); non-empty => did not run */
+  argErrors: ArgError[];
 }
 
 /**
@@ -80,10 +83,27 @@ export async function executeNode(
   deps: ExecuteDeps,
   confirmation: Confirmation = {},
 ): Promise<ExecuteOutcome> {
-  const verdict = deps.gate(node, ctx);
+  // VALIDATE first — the kernel checks what ANY driver sends, before the gate.
+  // A node never runs with a present-but-invalid arg (a hallucinated email/enum).
+  const argErrors = validateArgs(node, args);
+  if (argErrors.length > 0) {
+    return {
+      verdict: {
+        allowed: false,
+        needsConfirm: false,
+        checks: argErrors.map((e) => ({ label: e.message, ok: false })),
+      },
+      result: null,
+      awaitingConfirm: false,
+      autoAllowed: false,
+      argErrors,
+    };
+  }
+
+  const verdict = await deps.gate(node, ctx);
 
   if (!verdict.allowed) {
-    return { verdict, result: null, awaitingConfirm: false, autoAllowed: false };
+    return { verdict, result: null, awaitingConfirm: false, autoAllowed: false, argErrors: [] };
   }
 
   let autoAllowed = false;
@@ -93,15 +113,15 @@ export async function executeNode(
       autoAllowed ||
       deps.evidence.verify(confirmation.grant, node.id, args, confirmation.priorKey ?? "");
     if (!proven) {
-      return { verdict, result: null, awaitingConfirm: true, autoAllowed: false };
+      return { verdict, result: null, awaitingConfirm: true, autoAllowed: false, argErrors: [] };
     }
   }
   if (!node.run) {
-    return { verdict, result: null, awaitingConfirm: false, autoAllowed };
+    return { verdict, result: null, awaitingConfirm: false, autoAllowed, argErrors: [] };
   }
 
   const result = await node.run(args, ctx);
-  return { verdict, result, awaitingConfirm: false, autoAllowed };
+  return { verdict, result, awaitingConfirm: false, autoAllowed, argErrors: [] };
 }
 
 /** Flatten a node tree's chord bindings into a lookup for the chord leader. */

@@ -9,7 +9,7 @@
  * Allow -> grant -> re-issue) -> result. That loop is identical for the palette,
  * the agent, a deeplink, or this console.
  */
-import { type Ctx, createKernel } from "@command-kernel/core";
+import { type Ctx, createKernel, parseDeeplink, serializePath } from "@command-kernel/core";
 
 // 1. REGISTER commands. The kernel hard-codes none; you bring the nodes.
 const kernel = createKernel({
@@ -71,3 +71,22 @@ const forged = await kernel.command(
   ctx,
 );
 console.log("reset (forged grant) ->", forged.kind); // "gate" — approval can't be fabricated
+
+// 7. DRIVER #4 — deeplinks. The SAME path serializes to a URL and back, driven by
+//    the same arg schema. A URL can carry args but never a grant, so a deeplink
+//    into a gated command still lands at the gate.
+const link = serializePath([seg]);
+const fromUrl = await kernel.command({ path: parseDeeplink(link), execute: true }, ctx);
+console.log("deeplink ->", link, "->", fromUrl.kind); // "...?user=..." -> "gate"
+
+// 8. The kernel validates what any driver sends — a hallucinated email is rejected
+//    BEFORE the gate, as an "args" response carrying the error.
+const bad = await kernel.command(
+  { path: [{ id: "danger.reset", args: { user: "not-an-email" } }], execute: true },
+  ctx,
+);
+console.log(
+  "reset (bad email) ->",
+  bad.kind,
+  bad.kind === "args" ? bad.errors.map((e) => e.message) : "",
+);

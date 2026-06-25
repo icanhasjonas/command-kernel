@@ -70,6 +70,18 @@ describe("command() — the one verb", () => {
     if (r.kind === "args") expect(r.missing).toContain("user");
   });
 
+  it("rejects present-but-invalid args before the gate (agent hallucination guard)", async () => {
+    const r = await k.command(
+      { path: [{ id: "users" }, { id: "reset", args: { user: "not-an-email" } }], execute: true },
+      ctx("admin"),
+    );
+    expect(r.kind).toBe("args");
+    if (r.kind === "args") {
+      expect(r.errors.map((e) => e.argId)).toContain("user");
+      expect(r.missing).toEqual([]); // it's present, just invalid
+    }
+  });
+
   it("returns a gate when evidence is insufficient (confirm owed)", async () => {
     const r = await k.command(
       { path: [{ id: "users" }, { id: "reset", args: { user: "a@b.io" } }], execute: true },

@@ -1,3 +1,4 @@
+import { type CommandRecord, toRecord } from "./audit";
 import { type CommandDeps, type CommandRequest, type CommandResponse, command } from "./command";
 import { createMemoryEvidenceStore, type EvidenceStore } from "./evidence";
 import { evaluateGate, type GatePolicy } from "./gate";
@@ -50,6 +51,8 @@ export interface KernelConfig {
   evidence?: EvidenceStore;
   /** always-allow store (default: in-memory session-scoped) */
   policy?: PolicyStore;
+  /** observability hook — fires after every successful run (audit / telemetry / undo) */
+  onExecute?: (record: CommandRecord, response: CommandResponse) => void;
 }
 
 export interface Kernel {
@@ -87,9 +90,14 @@ export function createKernel(config: KernelConfig = {}): Kernel {
   const deps: CommandDeps = { ranker, gate, evidence, policy };
 
   const roots = (ctx?: Ctx): CommandNode[] => (registry ? registry.roots(ctx) : staticRoots);
+  const onExecute = config.onExecute;
 
   return {
-    command: (req, ctx, r) => command(r ?? roots(ctx), req, ctx, deps),
+    command: async (req, ctx, r) => {
+      const res = await command(r ?? roots(ctx), req, ctx, deps);
+      if (res.kind === "result" && onExecute) onExecute(toRecord(req, ctx), res);
+      return res;
+    },
     search: (nodes, query, ctx) => searchNodes(nodes, query, ctx, ranker),
     resolveChildren,
     executeNode: (node, args, ctx, confirmation) =>

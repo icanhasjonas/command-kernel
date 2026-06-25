@@ -17,6 +17,10 @@ It walks the whole loop a driver implements:
 4. **execute** a gated command with no evidence → a `gate`
 5. **Allow** → mint a grant via `kernel.evidence.grantForPath` → re-issue → result
 6. a **forged** grant → bounces back to the gate (approval can't be fabricated)
+7. **deeplink** (driver #4) — `serializePath` / `parseDeeplink`: the same path as a
+   URL; a gated deeplink still lands at the gate (a URL can't carry a grant)
+8. **validation** — a hallucinated email is rejected before the gate, as an `args`
+   response carrying the error
 
 That loop is identical for the palette, the agent, a deeplink, or this console —
 which is the whole point. For the rich version, see
