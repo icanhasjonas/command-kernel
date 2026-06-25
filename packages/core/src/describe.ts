@@ -1,5 +1,14 @@
 import { isGated } from "./gate";
-import type { ArgKind, ArgSpec, CommandNode, Ctx, EffectMode, EnumerateMode, Gate } from "./types";
+import type {
+  ArgKind,
+  ArgSpec,
+  CommandNode,
+  Ctx,
+  EffectMode,
+  EntityRef,
+  EnumerateMode,
+  Gate,
+} from "./types";
 
 /**
  * Self-description — the layer that lets an AGENT navigate the command tree
@@ -26,8 +35,10 @@ export interface ArgDescriptor {
   kind: ArgKind;
   required: boolean;
   positional: boolean;
-  /** how values are offered: a closed enum, an async lookup, or free text */
-  options: "enum" | "async" | "free";
+  /** how values are offered: a closed enum, a typed entity catalog, an async lookup, or free text */
+  options: "enum" | "entity" | "async" | "free";
+  /** when options === "entity", the type + constraint an agent queries to resolve a value */
+  entity?: EntityRef;
 }
 
 export interface NodeDescriptor {
@@ -69,7 +80,8 @@ function describeArg(a: ArgSpec): ArgDescriptor {
     kind: a.kind,
     required: Boolean(a.required),
     positional: Boolean(a.positional),
-    options: a.enumValues ? "enum" : a.complete ? "async" : "free",
+    options: a.enumValues ? "enum" : a.entity ? "entity" : a.complete ? "async" : "free",
+    entity: a.entity,
   };
 }
 

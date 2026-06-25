@@ -1,4 +1,5 @@
 import { describeNode, type NodeDescriptor } from "./describe";
+import { type EntityRegistry, entityOption } from "./entity";
 import { pathKey } from "./evidence";
 import { type ExecuteDeps, executeNode, missingArgs, resolveChildren } from "./kernel";
 import type { Ranker } from "./rank";
@@ -55,9 +56,11 @@ export interface CommandRequest {
   role?: Role;
 }
 
-/** What `command` needs wired in: the ranker plus the trust core. */
+/** What `command` needs wired in: the ranker, the trust core, and entities. */
 export interface CommandDeps extends ExecuteDeps {
   ranker: Ranker;
+  /** the entity catalog backing entity-typed args (optional) */
+  entities?: EntityRegistry;
 }
 
 export type Completion =
@@ -80,6 +83,7 @@ async function argCompletions(
   node: CommandNode,
   values: ArgValues,
   ctx: Ctx,
+  entities?: EntityRegistry,
 ): Promise<Completion[]> {
   const out: Completion[] = [];
   for (const a of node.args ?? []) {
@@ -87,8 +91,14 @@ async function argCompletions(
     const filled = Boolean(values[a.id]?.trim());
     let options: ArgOption[] = [];
     if (!filled) {
+      // resolution order: closed enum -> registered entity catalog -> one-off complete
       if (a.enumValues) options = a.enumValues;
-      else if (a.complete) options = await a.complete("", ctx);
+      else if (a.entity && entities) {
+        const found = await entities.search(a.entity.type, "", ctx, {
+          constraint: a.entity.constraint,
+        });
+        options = found.map(entityOption);
+      } else if (a.complete) options = await a.complete("", ctx);
     }
     out.push({ kind: "arg", arg: a, options, filled });
   }
@@ -129,7 +139,7 @@ export async function command(
         node: tip,
         missing,
         errors: [],
-        items: await argCompletions(tip, values, ectx),
+        items: await argCompletions(tip, values, ectx, deps.entities),
       };
     }
     // the grant on the tip segment is bound to everything before it
@@ -147,7 +157,7 @@ export async function command(
         node: tip,
         missing: [],
         errors: outcome.argErrors,
-        items: await argCompletions(tip, values, ectx),
+        items: await argCompletions(tip, values, ectx, deps.entities),
       };
     }
     if (!outcome.verdict.allowed || outcome.awaitingConfirm) {

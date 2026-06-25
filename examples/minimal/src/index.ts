@@ -11,14 +11,41 @@
  */
 import { type Ctx, createKernel, parseDeeplink, serializePath } from "@command-kernel/core";
 
+// A typed-entity catalog: register a `person` type once; any arg can reference it.
+const PEOPLE = [
+  { id: "jon@wall.north", name: "Jon Snow" },
+  { id: "sam@castle.black", name: "Sam Tarly" },
+];
+
 // 1. REGISTER commands. The kernel hard-codes none; you bring the nodes.
 const kernel = createKernel({
+  entities: [
+    {
+      name: "person",
+      search: async (q) =>
+        PEOPLE.filter((p) => p.name.toLowerCase().includes(q.toLowerCase())).map((p) => ({
+          id: p.id,
+          label: p.name,
+        })),
+      get: async (id) => {
+        const p = PEOPLE.find((x) => x.id === id);
+        return p ? { id: p.id, label: p.name } : null;
+      },
+    },
+  ],
   roots: [
     {
       id: "greet",
       title: "Greet a user",
       args: [{ id: "name", label: "name", kind: "string", required: true }],
       run: async ({ name }) => ({ kind: "toast", message: `Hello, ${name}!` }),
+    },
+    {
+      id: "message",
+      title: "Message a person",
+      // `to` is a Person reference — the entity catalog is its completion source
+      args: [{ id: "to", label: "to", kind: "entity", required: true, entity: { type: "person" } }],
+      run: async ({ to }) => ({ kind: "toast", message: `messaged ${to}` }),
     },
     {
       id: "danger.reset",
@@ -90,3 +117,14 @@ console.log(
   bad.kind,
   bad.kind === "args" ? bad.errors.map((e) => e.message) : "",
 );
+
+// 9. SEAM 6 — typed entities. Executing `message` with no `to` returns an `args`
+//    response whose options come from the registered person catalog. The same
+//    catalog is what an agent queries to resolve "message jon" -> an id.
+const needsPerson = await kernel.command({ path: [{ id: "message" }], execute: true }, ctx);
+if (needsPerson.kind === "args") {
+  const toArg = needsPerson.items.find((i) => i.kind === "arg" && i.arg.id === "to");
+  if (toArg?.kind === "arg") console.log("message -> pick a person ->", toArg.options);
+}
+const resolved = await kernel.entities?.search("person", "jon", ctx);
+console.log("agent resolves 'jon' ->", resolved?.[0]?.id);

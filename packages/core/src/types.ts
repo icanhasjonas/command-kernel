@@ -24,6 +24,19 @@ export interface ArgOption {
   icon?: string;
 }
 
+/**
+ * A reference from an arg to a registered entity TYPE (see entity.ts), with an
+ * optional opaque constraint — the runtime form of `Person<'with-email-address'>`.
+ * The arg's value is the chosen entity's id; the registered `EntityType` is the
+ * completion source and the agent-queryable catalog.
+ */
+export interface EntityRef {
+  /** the registered entity type name, e.g. "person" */
+  type: string;
+  /** opaque refinement the entity provider interprets, e.g. "with-email-address" */
+  constraint?: string;
+}
+
 export interface ArgSpec {
   id: string;
   label: string;
@@ -33,7 +46,13 @@ export interface ArgSpec {
   positional?: boolean;
   placeholder?: string;
   enumValues?: ArgOption[];
-  /** async, arg-scoped value completion (entity/email) */
+  /**
+   * Reference to a registered entity type. When set, the entity registry is the
+   * completion source (no hand-rolled `complete` needed) and an agent can query
+   * the same catalog. Resolution order for options: enumValues -> entity -> complete.
+   */
+  entity?: EntityRef;
+  /** async, arg-scoped value completion (one-off; entity is the registered path) */
   complete?: (query: string, ctx: Ctx) => Promise<ArgOption[]>;
   /** return an error string, or null when valid */
   validate?: (value: string) => string | null;

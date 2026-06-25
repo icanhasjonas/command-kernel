@@ -10,6 +10,7 @@ import type {
 } from "@command-kernel/core";
 import {
   allowLabel,
+  entityOption,
   missingArgs,
   pathKey,
   resolveChildren,
@@ -114,6 +115,19 @@ export function usePalette({
       const q = argQuery.toLowerCase();
       return setArgOptions(spec.enumValues.filter((o) => o.label.toLowerCase().includes(q)));
     }
+    // entity-typed arg: the registered entity catalog is the completion source
+    if (spec.entity && kernel.entities) {
+      const mine = ++token.current;
+      setArgLoading(true);
+      kernel.entities
+        .search(spec.entity.type, argQuery, ctx, { constraint: spec.entity.constraint })
+        .then((found) => {
+          if (mine !== token.current) return;
+          setArgOptions(found.map(entityOption));
+          setArgLoading(false);
+        });
+      return;
+    }
     if (!spec.complete) return setArgOptions([]);
     const mine = ++token.current;
     setArgLoading(true);
@@ -122,7 +136,7 @@ export function usePalette({
       setArgOptions(opts);
       setArgLoading(false);
     });
-  }, [mode, arg, argQuery, ctx]);
+  }, [mode, arg, argQuery, ctx, kernel]);
 
   const drill = useCallback(
     async (node: CommandNode) => {

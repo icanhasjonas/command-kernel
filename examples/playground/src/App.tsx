@@ -5,6 +5,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Bot, Command as CommandIcon, RotateCcw } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AgentPanel } from "./AgentPanel";
+import { personEntity } from "./providers/entities";
 import { ROOTS } from "./providers/registry";
 
 const PLACES = [
@@ -58,7 +59,7 @@ interface Toast {
 export default function App() {
   // ONE kernel instance shared by every driver — same gate, same evidence, same
   // policy for the human palette and the AI agent. That sharing IS the invariant.
-  const kernel = useMemo(() => createKernel({ roots: ROOTS }), []);
+  const kernel = useMemo(() => createKernel({ roots: ROOTS, entities: [personEntity] }), []);
   const [open, setOpen] = useState(false);
   const [agentOpen, setAgentOpen] = useState(false);
   const [trigger, setTrigger] = useState<{ id: string; nonce: number } | null>(null);

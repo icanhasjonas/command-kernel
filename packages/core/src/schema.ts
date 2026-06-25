@@ -42,6 +42,11 @@ function argToProperty(a: ArgSpec): JsonSchemaProperty {
   if (a.label && a.label !== a.id) prop.description = a.label;
   if (a.kind === "email") prop.format = "email";
   if (a.kind === "enum" && a.enumValues) prop.enum = a.enumValues.map((o) => o.value);
+  // an entity arg's value is the entity id — tell the model what catalog to resolve against
+  if (a.entity) {
+    const tag = a.entity.constraint ? `${a.entity.type} (${a.entity.constraint})` : a.entity.type;
+    prop.description = `${a.label && a.label !== a.id ? `${a.label}: ` : ""}id of a ${tag} — resolve via the ${a.entity.type} catalog`;
+  }
   return prop;
 }
 

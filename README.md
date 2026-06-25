@@ -82,7 +82,7 @@ Render it for humans with `@command-kernel/ui`, project it to an LLM with
 the five seams, the trust-core explainer, and the write-your-own-driver /
 write-your-own-provider guides.
 
-## The five extension seams
+## The extension seams
 
 Everything pluggable, each with a sensible default. `createKernel({ roots })` is
 stock everything; override any seam in isolation.
@@ -94,6 +94,7 @@ stock everything; override any seam in isolation.
 | `EvidenceStore` | HMAC-SHA, Redis-backed grants | in-memory session-salted |
 | `PolicyStore` | localStorage / server always-allow | in-memory session-scoped |
 | `Registry` | lazy, context-aware provider contribution | `createRegistry(...)` |
+| `EntityType` | typed-arg catalog (`Person<'with-email'>`), agent-queryable | `createEntityRegistry(...)` |
 
 ## Develop
 
