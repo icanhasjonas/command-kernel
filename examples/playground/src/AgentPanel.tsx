@@ -101,14 +101,28 @@ export function AgentPanel({
       return;
     }
     if (res.kind === "args")
-      add({ kind: "agent", text: `Missing args: ${res.missing.join(", ")}` });
+      add({
+        kind: "agent",
+        text: res.errors.length
+          ? `Invalid args: ${res.errors.map((e) => e.message).join("; ")}`
+          : `Missing args: ${res.missing.join(", ")}`,
+      });
   }
 
   function finish(node: CommandNode, values: ArgValues, result: CommandResult | null, id?: number) {
     onExecuted(node.id);
     if (result) onResult(result);
     if (id) patch(id, { status: "done" });
-    else add({ kind: "call", node, values, status: "done", verdict: kernel.gate(node, ctx) });
+    // it ran, so the gate already passed — show an allowed verdict (no recompute,
+    // and no need to await a possibly-async gate just for a cosmetic badge)
+    else
+      add({
+        kind: "call",
+        node,
+        values,
+        status: "done",
+        verdict: { allowed: true, needsConfirm: false, checks: [] },
+      });
     add({ kind: "agent", text: result?.message ?? "Done." });
   }
 

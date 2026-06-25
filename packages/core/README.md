@@ -92,7 +92,7 @@ next:
 ```ts
 type CommandResponse =
   | { kind: "completions"; at: CommandNode | null; items: Completion[] }
-  | { kind: "args";        node: CommandNode; missing: string[]; items: Completion[] }
+  | { kind: "args";        node: CommandNode; missing: string[]; errors: ArgError[]; items: Completion[] }
   | { kind: "gate";        node: CommandNode; verdict: GateVerdict }
   | { kind: "result";      node: CommandNode; result: CommandResult };
 ```
@@ -109,8 +109,14 @@ what args? what gate?) so an agent navigates the tree without guessing.
 Permission enforcement lives in the kernel, never in a driver. The human and the
 agent go through the identical path.
 
+- **Validation** — before the gate, `executeNode` runs `validateArgs` against the
+  arg schema (email shape, enum membership, custom `validate`). A driver — the
+  agent above all — can't run a node with a hallucinated value; the call comes
+  back as an `args` response carrying `errors`.
 - **Gate** (`GatePolicy`) — given a node + ctx, is it allowed and does it still
-  owe a confirm? The single enforcement point.
+  owe a confirm? The single enforcement point. May be **sync or async** (hit a DB
+  / flag service); `executeNode` awaits it. The default is `createRoleGate(ladder)`
+  over a configurable role ladder (`evaluateGate` = viewer < advisor < admin).
 - **Evidence** (`EvidenceStore`) — when a human clicks Allow, the store mints a
   `Grant`: a session-salted hash bound to the EXACT `(command, args, prior-path)`.
   A caller (the agent especially) **cannot fabricate approval** — the salt isn't
@@ -145,10 +151,41 @@ createKernel({
 | # | Seam | Type | Default |
 |---|---|---|---|
 | 1 | Ranking | `Ranker = (nodes, query, ctx) => Ranked[]` | `createRanker()` — fuzzy + weight + boost + frecency |
-| 2 | Gate | `GatePolicy = (node, ctx) => GateVerdict` | `evaluateGate` — viewer<advisor<admin + confirm |
+| 2 | Gate | `GatePolicy = (node, ctx) => GateVerdict \| Promise<…>` | `createRoleGate([...])` (= `evaluateGate`) |
 | 3 | Evidence | `EvidenceStore` — sign / verify / grantForPath / rotate | `createMemoryEvidenceStore()` |
 | 4 | Policy | `PolicyStore` — allow / revoke / list / clear / match | `createMemoryPolicyStore()` |
 | 5 | Providers | `Registry` — register / roots | `createRegistry(...)` |
+
+A sixth, observability seam: `createKernel({ onExecute })` fires a serializable
+`CommandRecord` after every successful run — wire audit, telemetry, or an undo
+stack in one line.
+
+## The keystone: one arg schema, every surface
+
+The same `ArgSpec[]` that renders the palette's chips also drives:
+
+```ts
+import { toJsonSchema, validateArgs, serializePath, parseDeeplink } from "@command-kernel/core";
+
+toJsonSchema(node);          // -> flat, MCP-compatible JSON Schema for an LLM tool's params
+validateArgs(node, values);  // -> ArgError[] (email/enum/custom); enforced inside executeNode
+serializePath(path);         // -> "cmd/users/users.search?email=x"   (DRIVER #4, deeplinks)
+parseDeeplink(url);          // -> PathSegment[]  ->  kernel.command({ path })
+```
+
+One declaration, four surfaces, zero duplication. A deeplink can carry args but
+**never a grant** (the salt never leaves the kernel), so a URL into a gated
+command can't auto-fire — it returns a `gate`. `@command-kernel/agent`'s
+`collectTools` turns nodes into MCP `{ name, description, inputSchema }` tools off
+the same schema.
+
+## Audit & replay
+
+```ts
+const kernel = createKernel({ roots, onExecute: (rec) => log.push(rec) });
+// later: re-issue a recorded command (gated ones correctly re-prompt — no smuggled grant)
+await replay(kernel, record, ctx);
+```
 
 ## Write your own provider
 
@@ -231,7 +268,17 @@ confirmation?)`, `collectChords(nodes)`, `missingArgs(node, values)`,
 **Seam 1 — ranking** — `createRanker(weights?)`, `rank` (default), `fuzzyMatch`.
 Types: `Ranker`, `RankWeights`, `FuzzyResult`.
 
-**Seam 2 — gate** — `evaluateGate` (default), `isGated(node)`. Type: `GatePolicy`.
+**Seam 2 — gate** — `createRoleGate(ladder)`, `evaluateGate` (default),
+`isGated(node)`. Type: `GatePolicy` (sync or async).
+
+**Keystone** — `toJsonSchema(node)`, `validateArgs(node, values)`. Types:
+`JsonSchema`, `JsonSchemaProperty`, `ArgError`.
+
+**Driver #4 — deeplinks** — `serializePath(path, opts?)`,
+`parseDeeplink(url, opts?)`. Type: `DeeplinkOptions`.
+
+**Audit / replay** — `toRecord(req, ctx)`, `replay(kernel, record, ctx)`, and the
+`createKernel({ onExecute })` hook. Type: `CommandRecord`.
 
 **Seam 3 — evidence** — `createMemoryEvidenceStore()`, `pathKey(segments)`. Type:
 `EvidenceStore`.

@@ -37,6 +37,24 @@ model tool-call. Swap it for an LLM call that returns `{ node, values }` — the
 tool schemas come from each node's `title` + `summary` + `args`, and everything
 downstream (the `command()` walk, the gate, the grant) is unchanged.
 
+## MCP-shaped tool definitions
+
+For a real model, project nodes into the standard MCP tool shape
+(`{ name, description, inputSchema }`, JSON Schema params) and hand them to any
+tool-calling SDK or wrap them in an MCP server:
+
+```ts
+import { collectTools, toMcpTool } from "@command-kernel/agent";
+
+const tools = collectTools(kernel.roots(ctx), ctx); // executable nodes -> MCP tools
+// hand `tools` to the model; it picks a tool name (= the node id) + args.
+const out = await kernel.command({ path: [{ id: chosen.name, args }], execute: true }, ctx);
+```
+
+`inputSchema` is derived from the same `ArgSpec` as the palette chips (the
+keystone). The projection is flat by design — expose a search command as a tool
+rather than enumerating a backend.
+
 ## Why this matters
 
 The agent can't fabricate approval. It re-issues the call with a grant ONLY after

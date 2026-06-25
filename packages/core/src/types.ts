@@ -6,7 +6,13 @@
  * (palette, agent, chords, deeplinks) is just a renderer over this kernel.
  */
 
-export type Role = "admin" | "advisor" | "viewer";
+/**
+ * A principal's role. Deliberately `string`, not a fixed union — a consumer
+ * brings their own roles. The default gate (`createRoleGate`) understands an
+ * ordered ladder; the demo uses "viewer" < "advisor" < "admin", but yours can be
+ * anything. Swap the whole `GatePolicy` for non-ladder rules (ownership, flags).
+ */
+export type Role = string;
 
 export type ArgKind = "string" | "email" | "enum" | "entity" | "text";
 

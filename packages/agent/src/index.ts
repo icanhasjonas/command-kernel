@@ -8,3 +8,4 @@
  */
 
 export { pickTool, type ToolPick } from "./adapter";
+export { collectTools, type McpTool, toMcpTool } from "./tools";

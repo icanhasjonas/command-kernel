@@ -16,6 +16,8 @@
  *   5. Registry      — registry.ts    (createRegistry)
  */
 
+// audit + replay — a serializable command record and a replay verb
+export { type CommandRecord, replay, toRecord } from "./audit";
 // the one verb + its request/response shapes (usually reached via kernel.command)
 export {
   type CommandDeps,
@@ -26,6 +28,8 @@ export {
 } from "./command";
 // the kernel factory — where the seams meet
 export { createKernel, type Kernel, type KernelConfig } from "./create-kernel";
+// DRIVER #4 — deeplinks (serialize / parse a path; same arg schema)
+export { type DeeplinkOptions, parseDeeplink, serializePath } from "./deeplink";
 // self-description — what an agent reads to navigate the tree without guessing
 export {
   type ArgDescriptor,
@@ -38,9 +42,8 @@ export {
 // SEAM 3 — evidence (the session-salted honesty tag)
 export { createMemoryEvidenceStore, type EvidenceStore, pathKey } from "./evidence";
 export { type FuzzyResult, fuzzyMatch } from "./fuzzy";
-
 // SEAM 2 — the gate (the single permission-enforcement point)
-export { evaluateGate, type GatePolicy, isGated } from "./gate";
+export { createRoleGate, evaluateGate, type GatePolicy, isGated } from "./gate";
 // the lower verbs the drivers compose (usually reached via the Kernel instance)
 export {
   bumpFrecency,
@@ -53,7 +56,6 @@ export {
   resolveChildren,
   searchNodes,
 } from "./kernel";
-
 // SEAM 4 — policy (session-scoped always-allow); ruleForNode/allowLabel are pure helpers
 export {
   type AllowRule,
@@ -67,6 +69,14 @@ export {
 export { createRanker, type Ranker, type RankWeights, rank } from "./rank";
 // SEAM 5 — the provider registry
 export { createRegistry, type Provider, type Registry } from "./registry";
+// the keystone — the arg schema, derived into JSON Schema + runtime validation
+export {
+  type ArgError,
+  type JsonSchema,
+  type JsonSchemaProperty,
+  toJsonSchema,
+  validateArgs,
+} from "./schema";
 
 // the data model
 export type {
