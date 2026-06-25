@@ -1,5 +1,5 @@
 import type { CommandNode, CommandResult } from "@command-kernel/core";
-import { CONNECTIONS, searchUsers } from "./data";
+import { CONNECTIONS } from "./data";
 
 const toast = (message: string): Promise<CommandResult> =>
   Promise.resolve({ kind: "toast", message });
@@ -92,13 +92,9 @@ export const sendEmail: CommandNode = {
       kind: "entity",
       required: true,
       placeholder: "recipient…",
-      complete: async (q) =>
-        (await searchUsers(q)).map((u) => ({
-          value: u.email,
-          label: u.name,
-          hint: `${u.email} · ${u.role}`,
-          icon: "User",
-        })),
+      // typed entity ref -> the registered `person` catalog is the completion
+      // source (and is agent-queryable). Person<'with-email-address'>.
+      entity: { type: "person", constraint: "with-email-address" },
     },
     {
       id: "subject",

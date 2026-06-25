@@ -155,10 +155,14 @@ createKernel({
 | 3 | Evidence | `EvidenceStore` — sign / verify / grantForPath / rotate | `createMemoryEvidenceStore()` |
 | 4 | Policy | `PolicyStore` — allow / revoke / list / clear / match | `createMemoryPolicyStore()` |
 | 5 | Providers | `Registry` — register / roots | `createRegistry(...)` |
+| 6 | Entities | `EntityType` — search / get (typed-arg catalog) | `createEntityRegistry(...)` |
 
-A sixth, observability seam: `createKernel({ onExecute })` fires a serializable
+A seventh, observability seam: `createKernel({ onExecute })` fires a serializable
 `CommandRecord` after every successful run — wire audit, telemetry, or an undo
-stack in one line.
+stack in one line. Typed entities (seam 6) let an arg reference a registered
+catalog — `entity: { type: "person", constraint: "with-email-address" }` — which
+becomes its completion source and an agent-queryable noun; see
+[`docs/entities.md`](../../docs/entities.md).
 
 ## The keystone: one arg schema, every surface
 

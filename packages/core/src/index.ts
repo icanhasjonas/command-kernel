@@ -39,6 +39,15 @@ export {
   enumerateMode,
   type NodeDescriptor,
 } from "./describe";
+// SEAM 6 — the typed-entity catalog (App Intents AppEntity + EntityQuery)
+export {
+  createEntityRegistry,
+  type Entity,
+  type EntityRegistry,
+  type EntitySearchOptions,
+  type EntityType,
+  entityOption,
+} from "./entity";
 // SEAM 3 — evidence (the session-salted honesty tag)
 export { createMemoryEvidenceStore, type EvidenceStore, pathKey } from "./evidence";
 export { type FuzzyResult, fuzzyMatch } from "./fuzzy";
@@ -88,6 +97,7 @@ export type {
   CommandResult,
   Ctx,
   EffectMode,
+  EntityRef,
   EnumerateMode,
   Gate,
   GateCheck,

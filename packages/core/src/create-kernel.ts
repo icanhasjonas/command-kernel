@@ -1,5 +1,6 @@
 import { type CommandRecord, toRecord } from "./audit";
 import { type CommandDeps, type CommandRequest, type CommandResponse, command } from "./command";
+import { createEntityRegistry, type EntityRegistry, type EntityType } from "./entity";
 import { createMemoryEvidenceStore, type EvidenceStore } from "./evidence";
 import { evaluateGate, type GatePolicy } from "./gate";
 import {
@@ -51,6 +52,8 @@ export interface KernelConfig {
   evidence?: EvidenceStore;
   /** always-allow store (default: in-memory session-scoped) */
   policy?: PolicyStore;
+  /** typed-entity catalog backing entity args (a registry or a list of types) */
+  entities?: EntityRegistry | EntityType[];
   /** observability hook — fires after every successful run (audit / telemetry / undo) */
   onExecute?: (record: CommandRecord, response: CommandResponse) => void;
 }
@@ -78,6 +81,8 @@ export interface Kernel {
   readonly evidence: EvidenceStore;
   readonly policy: PolicyStore;
   readonly registry: Registry | null;
+  /** the typed-entity catalog (query it for an agent, or null if none) */
+  readonly entities: EntityRegistry | null;
 }
 
 export function createKernel(config: KernelConfig = {}): Kernel {
@@ -86,8 +91,13 @@ export function createKernel(config: KernelConfig = {}): Kernel {
   const evidence = config.evidence ?? createMemoryEvidenceStore();
   const policy = config.policy ?? createMemoryPolicyStore();
   const registry = config.registry ?? null;
+  const entities = config.entities
+    ? Array.isArray(config.entities)
+      ? createEntityRegistry(...config.entities)
+      : config.entities
+    : null;
   const staticRoots = config.roots ?? [];
-  const deps: CommandDeps = { ranker, gate, evidence, policy };
+  const deps: CommandDeps = { ranker, gate, evidence, policy, entities: entities ?? undefined };
 
   const roots = (ctx?: Ctx): CommandNode[] => (registry ? registry.roots(ctx) : staticRoots);
   const onExecute = config.onExecute;
@@ -109,5 +119,6 @@ export function createKernel(config: KernelConfig = {}): Kernel {
     evidence,
     policy,
     registry,
+    entities,
   };
 }
