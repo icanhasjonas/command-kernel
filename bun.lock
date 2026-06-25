@@ -17,6 +17,7 @@
       "name": "@command-kernel/minimal",
       "version": "0.1.0",
       "dependencies": {
+        "@command-kernel/agent": "workspace:*",
         "@command-kernel/core": "workspace:*",
       },
     },
