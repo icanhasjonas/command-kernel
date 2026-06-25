@@ -36,6 +36,7 @@ export type ProjectionResult =
   | { kind: "result"; message: string; payload?: unknown }
   | { kind: "gate"; reason?: string; checks: Array<{ label: string; ok: boolean }> }
   | { kind: "needs-args"; missing: string[]; errors: Array<{ argId: string; message: string }> }
+  | { kind: "disambiguate"; arg: string; query: string; candidates: Entity[] }
   | { kind: "entities"; entities: Entity[] }
   | { kind: "error"; message: string };
 
@@ -167,6 +168,13 @@ export function createProjection(kernel: Kernel, opts: ProjectionOptions = {}): 
       return { kind: "gate", reason: res.node.gate?.reason, checks: res.verdict.checks };
     if (res.kind === "args")
       return { kind: "needs-args", missing: res.missing, errors: res.errors };
+    if (res.kind === "disambiguate")
+      return {
+        kind: "disambiguate",
+        arg: res.arg.id,
+        query: res.query,
+        candidates: res.candidates,
+      };
     return { kind: "error", message: "command did not execute" };
   }
 
