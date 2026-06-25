@@ -1,0 +1,91 @@
+@import "tailwindcss";
+
+/*
+  Token layers, lab edition. Mirrors the portal2 brand vocabulary (pink CTA,
+  deep ink, cream, teal) but self-contained so this app touches nothing.
+*/
+@theme {
+  --color-ink: #0a1a19;
+  --color-ink-soft: #324241;
+  --color-ink-faint: #6b7a79;
+
+  --color-cream: #fbf7f0;
+  --color-cream-deep: #f3ece0;
+
+  --color-pink: #e41362;
+  --color-pink-soft: #ff4d8d;
+  --color-teal: #0f766e;
+  --color-teal-soft: #2dd4bf;
+  --color-amber: #b45309;
+  --color-amber-soft: #f59e0b;
+  --color-danger: #b55b5b;
+
+  --color-glass: rgba(18, 20, 28, 0.72);
+  --color-glass-line: rgba(255, 255, 255, 0.08);
+
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", monospace;
+
+  --radius-pill: 9999px;
+
+  --shadow-float: 0 24px 80px -12px rgba(0, 0, 0, 0.55), 0 8px 24px -8px rgba(0, 0, 0, 0.4);
+  --shadow-glow: 0 0 0 1px rgba(228, 19, 98, 0.35), 0 8px 32px -8px rgba(228, 19, 98, 0.45);
+}
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+  html,
+  body,
+  #root {
+    height: 100%;
+    margin: 0;
+  }
+  body {
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    color: #e8eaf0;
+    background:
+      radial-gradient(1200px 700px at 12% -10%, rgba(228, 19, 98, 0.16), transparent 55%),
+      radial-gradient(1000px 600px at 100% 0%, rgba(45, 212, 191, 0.12), transparent 50%),
+      radial-gradient(900px 900px at 50% 120%, rgba(99, 102, 241, 0.1), transparent 60%), #0a0b10;
+  }
+}
+
+/* fuzzy-match highlight */
+.match-hl {
+  color: var(--color-pink-soft);
+  font-weight: 650;
+}
+
+/* faint grid in the backdrop */
+.lab-grid {
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+  background-size: 44px 44px;
+}
+
+@keyframes pulse-ring {
+  0% {
+    box-shadow: 0 0 0 0 rgba(228, 19, 98, 0.5);
+  }
+  100% {
+    box-shadow: 0 0 0 12px rgba(228, 19, 98, 0);
+  }
+}
+.pulse-ring {
+  animation: pulse-ring 1.8s ease-out infinite;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}

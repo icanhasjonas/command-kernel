@@ -1,0 +1,106 @@
+import { verifyGrant } from "./evidence";
+import { evaluateGate } from "./gate";
+import { matchingAllow } from "./policy";
+import { rank } from "./rank";
+import type {
+  ArgValues,
+  CommandNode,
+  CommandResult,
+  Ctx,
+  GateVerdict,
+  Grant,
+  Ranked,
+} from "./types";
+
+/**
+ * The kernel facade. Renderers (palette, agent, chords) call ONLY these four
+ * verbs. None of them know about React, the DOM, or each other.
+ */
+
+export function searchNodes(nodes: CommandNode[], query: string, ctx: Ctx): Ranked[] {
+  return rank(nodes, query, ctx);
+}
+
+export async function resolveChildren(
+  node: CommandNode,
+  args: ArgValues,
+  ctx: Ctx,
+): Promise<CommandNode[]> {
+  if (!node.resolve) return [];
+  return node.resolve(args, ctx);
+}
+
+export interface ExecuteOutcome {
+  verdict: GateVerdict;
+  result: CommandResult | null;
+  /** the gate said yes but a confirm is still owed before run() fires */
+  awaitingConfirm: boolean;
+  /** a standing always-allow rule satisfied the confirm (we never asked) */
+  autoAllowed: boolean;
+}
+
+/**
+ * How a renderer proves a confirm-gated command may run. EITHER a `grant` minted
+ * by the gate when the human/operator clicked Allow (bound to this exact
+ * command+args+prior-path), OR — checked first — a standing always-allow rule.
+ * A raw boolean is gone on purpose: the agent cannot just assert `true`.
+ */
+export interface Confirmation {
+  grant?: Grant;
+  /** canonical key of the path BEFORE this node, the grant's binding context */
+  priorKey?: string;
+}
+
+/**
+ * Execute a node. Order is non-negotiable: gate FIRST, then run. A confirm-gated
+ * command runs only when (a) a standing always-allow rule matches, or (b) a
+ * valid grant for this exact command+args+prior-path is supplied. Anything
+ * else — no grant, a forged grant, a grant for different args, a grant from a
+ * previous session — leaves the confirm owed.
+ */
+export async function executeNode(
+  node: CommandNode,
+  args: ArgValues,
+  ctx: Ctx,
+  confirmation: Confirmation = {},
+): Promise<ExecuteOutcome> {
+  const verdict = evaluateGate(node, ctx);
+
+  if (!verdict.allowed) {
+    return { verdict, result: null, awaitingConfirm: false, autoAllowed: false };
+  }
+
+  let autoAllowed = false;
+  if (verdict.needsConfirm) {
+    autoAllowed = matchingAllow(node.id, args) !== null;
+    const proven =
+      autoAllowed || verifyGrant(confirmation.grant, node.id, args, confirmation.priorKey ?? "");
+    if (!proven) {
+      return { verdict, result: null, awaitingConfirm: true, autoAllowed: false };
+    }
+  }
+  if (!node.run) {
+    return { verdict, result: null, awaitingConfirm: false, autoAllowed };
+  }
+
+  const result = await node.run(args, ctx);
+  return { verdict, result, awaitingConfirm: false, autoAllowed };
+}
+
+/** Flatten a node tree's chord bindings into a lookup for the chord leader. */
+export function collectChords(nodes: CommandNode[]): Map<string, CommandNode> {
+  const map = new Map<string, CommandNode>();
+  for (const n of nodes) {
+    if (n.chord) map.set(n.chord.toLowerCase(), n);
+  }
+  return map;
+}
+
+/** Required args still missing a value. Drives the "2 of 3" arg counter. */
+export function missingArgs(node: CommandNode, values: ArgValues): string[] {
+  return (node.args ?? []).filter((a) => a.required && !values[a.id]?.trim()).map((a) => a.id);
+}
+
+export function bumpFrecency(frecency: Record<string, number>, id: string): Record<string, number> {
+  return { ...frecency, [id]: (frecency[id] ?? 0) + 1 };
+}

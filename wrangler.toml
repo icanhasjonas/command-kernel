@@ -1,0 +1,16 @@
+# Standalone demo deploy — an assets-only Worker on *.workers.dev.
+#
+# Build first (`bun run build` -> ./dist), then deploy with the bundled wrapper
+# so the scoped CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID load from .env:
+#
+#   bun run deploy            # build + deploy
+#   bun scripts/wrangler.ts deploy    # deploy only
+#
+# account_id is intentionally absent — picked up from the CLOUDFLARE_ACCOUNT_ID
+# env var (convention: never commit the account id).
+name = "command-system-lab"
+compatibility_date = "2026-06-01"
+
+[assets]
+directory = "./dist"
+not_found_handling = "single-page-application"
