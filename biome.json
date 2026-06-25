@@ -6,7 +6,15 @@
     "useIgnoreFile": true
   },
   "files": {
-    "includes": ["src/**", "scripts/**", "*.ts", "*.json"]
+    "includes": [
+      "packages/**/src/**",
+      "examples/**/src/**",
+      "examples/**/scripts/**",
+      "test/**",
+      "*.ts",
+      "*.json",
+      "!**/dist"
+    ]
   },
   "css": {
     "parser": {

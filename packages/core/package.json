@@ -1,0 +1,26 @@
+{
+  "name": "@command-kernel/core",
+  "version": "0.1.0",
+  "description": "The headless command kernel: one source of truth for every action and navigation, with a pluggable ranker, gate policy, evidence store, and provider registry. Zero framework imports.",
+  "type": "module",
+  "license": "MIT",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "publishConfig": {
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      }
+    }
+  },
+  "files": ["dist", "src", "!src/**/*.test.ts"],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json"
+  }
+}

@@ -1,0 +1,105 @@
+import { type CommandDeps, type CommandRequest, type CommandResponse, command } from "./command";
+import { createMemoryEvidenceStore, type EvidenceStore } from "./evidence";
+import { evaluateGate, type GatePolicy } from "./gate";
+import {
+  type Confirmation,
+  collectChords,
+  type ExecuteOutcome,
+  executeNode,
+  resolveChildren,
+  searchNodes,
+} from "./kernel";
+import { createMemoryPolicyStore, type PolicyStore } from "./policy";
+import { type Ranker, rank } from "./rank";
+import type { Registry } from "./registry";
+import type { ArgValues, CommandNode, Ctx, Ranked } from "./types";
+
+/**
+ * createKernel — where the SEAMS meet.
+ *
+ * One instance bundles the configured behaviour: a ranker, a gate policy, an
+ * evidence store, a policy store, and (optionally) a provider registry. Every
+ * driver shares this one instance, so the human palette and the AI agent go
+ * through the IDENTICAL gate + evidence — the security invariant, made physical
+ * by there being one object.
+ *
+ * Zero-config stays trivial — every seam has a default:
+ *
+ *   const kernel = createKernel({ roots })          // stock everything
+ *
+ * Opt into any seam without paying for the others:
+ *
+ *   createKernel({
+ *     registry,                                     // lazy provider contribution
+ *     ranker: createRanker({ frecency: 12 }),       // tuned ranking
+ *     gate: myOwnershipPolicy,                       // your roles, your rules
+ *     evidence: createRedisEvidenceStore(),          // persistent grants
+ *     policy: createLocalStoragePolicyStore(),        // persistent always-allow
+ *   })
+ */
+export interface KernelConfig {
+  /** static root commands (use this OR `registry`) */
+  roots?: CommandNode[];
+  /** a provider registry for lazy/contextual roots (overrides `roots`) */
+  registry?: Registry;
+  /** ranking blend (default: the stock fzf-flavoured `rank`) */
+  ranker?: Ranker;
+  /** permission gate (default: the viewer<advisor<admin `evaluateGate`) */
+  gate?: GatePolicy;
+  /** grant sign/verify store (default: in-memory session-salted) */
+  evidence?: EvidenceStore;
+  /** always-allow store (default: in-memory session-scoped) */
+  policy?: PolicyStore;
+}
+
+export interface Kernel {
+  /** the one verb — roots default to the configured registry/static roots */
+  command(req: CommandRequest, ctx: Ctx, roots?: CommandNode[]): Promise<CommandResponse>;
+  /** rank a node list with the configured ranker */
+  search(nodes: CommandNode[], query: string, ctx: Ctx): Ranked[];
+  /** drill a node's children (pure passthrough) */
+  resolveChildren(node: CommandNode, args: ArgValues, ctx: Ctx): Promise<CommandNode[]>;
+  /** gate + run a node against the configured trust core */
+  executeNode(
+    node: CommandNode,
+    args: ArgValues,
+    ctx: Ctx,
+    confirmation?: Confirmation,
+  ): Promise<ExecuteOutcome>;
+  /** the assembled root list (from the registry, or the static roots) */
+  roots(ctx?: Ctx): CommandNode[];
+  /** chord-leader lookup over the roots */
+  chords(ctx?: Ctx): Map<string, CommandNode>;
+  readonly ranker: Ranker;
+  readonly gate: GatePolicy;
+  readonly evidence: EvidenceStore;
+  readonly policy: PolicyStore;
+  readonly registry: Registry | null;
+}
+
+export function createKernel(config: KernelConfig = {}): Kernel {
+  const ranker = config.ranker ?? rank;
+  const gate = config.gate ?? evaluateGate;
+  const evidence = config.evidence ?? createMemoryEvidenceStore();
+  const policy = config.policy ?? createMemoryPolicyStore();
+  const registry = config.registry ?? null;
+  const staticRoots = config.roots ?? [];
+  const deps: CommandDeps = { ranker, gate, evidence, policy };
+
+  const roots = (ctx?: Ctx): CommandNode[] => (registry ? registry.roots(ctx) : staticRoots);
+
+  return {
+    command: (req, ctx, r) => command(r ?? roots(ctx), req, ctx, deps),
+    search: (nodes, query, ctx) => searchNodes(nodes, query, ctx, ranker),
+    resolveChildren,
+    executeNode: (node, args, ctx, confirmation) =>
+      executeNode(node, args, ctx, deps, confirmation),
+    roots,
+    chords: (ctx) => collectChords(roots(ctx)),
+    ranker,
+    gate,
+    evidence,
+    policy,
+    registry,
+  };
+}
