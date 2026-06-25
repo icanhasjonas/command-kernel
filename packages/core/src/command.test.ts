@@ -139,6 +139,31 @@ describe("command() — the one verb", () => {
     expect(elevated.kind).toBe("result");
   });
 
+  it("full loop: gate -> mint grantForPath -> re-issue with evidence -> result", async () => {
+    const tip = { id: "reset", args: { user: "jon@wall.north" } };
+    // 1. no evidence on the tip -> the kernel demands approval
+    const gated = await k.command({ path: [{ id: "users" }, tip], execute: true }, ctx("admin"));
+    expect(gated.kind).toBe("gate");
+    // 2. the human approves -> the bridge mints a grant bound to THIS exact chain
+    const grant = k.evidence.grantForPath([{ id: "users" }, tip]);
+    // 3. re-issue the identical call with the grant as the tip's evidence -> runs
+    const done = await k.command(
+      { path: [{ id: "users" }, { ...tip, evidence: grant }], execute: true },
+      ctx("admin"),
+    );
+    expect(done.kind === "result" && done.result.message).toBe("reset jon@wall.north");
+  });
+
+  it("an always-allow rule lets command() run a gated tip with NO evidence", async () => {
+    k.policy.allow({ commandId: "reset", scope: { kind: "command" } });
+    const r = await k.command(
+      { path: [{ id: "users" }, { id: "reset", args: { user: "a@b.io" } }], execute: true },
+      ctx("admin"),
+    );
+    expect(r.kind).toBe("result");
+    k.policy.clear(); // shared kernel — don't leak the rule into sibling tests
+  });
+
   it("unknown path yields empty completions, not a throw", async () => {
     const r = await k.command({ path: [{ id: "nope" }] }, ctx());
     expect(r).toEqual({ kind: "completions", at: null, items: [] });
