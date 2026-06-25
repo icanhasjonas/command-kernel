@@ -1,4 +1,4 @@
-import type { CommandNode, CommandResult } from "@command-kernel/core";
+import { argList, type CommandNode, type CommandResult } from "@command-kernel/core";
 import { CONNECTIONS } from "./data";
 
 const toast = (message: string): Promise<CommandResult> =>
@@ -111,6 +111,31 @@ export const sendEmail: CommandNode = {
     { id: "body", label: "body", kind: "text", required: true, placeholder: "Write a message…" },
   ],
   run: async (a) => toast(`Email “${a.subject}” queued to ${a.to}`),
+};
+
+/** listOf<person> showcase — multi-select recipients (Quicksilver comma-select). */
+export const broadcastEmail: CommandNode = {
+  id: "email.broadcast",
+  title: "Broadcast email",
+  subtitle: "to many recipients · listOf<person>",
+  summary:
+    "Send one email to MANY people at once. `to` is a multi-select of people (listOf<person>); `subject` is free text.",
+  category: "Actions",
+  icon: "Send",
+  weight: 36,
+  args: [
+    {
+      id: "to",
+      label: "to",
+      kind: "entity",
+      required: true,
+      multiple: true,
+      entity: { type: "person", constraint: "with-email-address" },
+      placeholder: "add a recipient…",
+    },
+    { id: "subject", label: "subject", kind: "string", required: true, placeholder: "subject…" },
+  ],
+  run: async (a) => toast(`Broadcast “${a.subject}” to ${argList(a.to).length} recipients`),
 };
 
 export const connectionsCategory: CommandNode = {
