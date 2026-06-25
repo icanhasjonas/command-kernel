@@ -1,5 +1,5 @@
 import { describeNode, type NodeDescriptor } from "./describe";
-import { type EntityRegistry, entityOption } from "./entity";
+import { type Entity, type EntityRegistry, entityOption } from "./entity";
 import { pathKey } from "./evidence";
 import { type ExecuteDeps, executeNode, missingArgs, resolveChildren } from "./kernel";
 import type { Ranker } from "./rank";
@@ -15,6 +15,7 @@ import type {
   PathSegment,
   Role,
 } from "./types";
+import { isFilled } from "./values";
 
 /**
  * The ONE verb.
@@ -76,8 +77,41 @@ export type Completion =
 export type CommandResponse =
   | { kind: "completions"; at: CommandNode | null; items: Completion[] }
   | { kind: "args"; node: CommandNode; missing: string[]; errors: ArgError[]; items: Completion[] }
+  | { kind: "disambiguate"; node: CommandNode; arg: ArgSpec; query: string; candidates: Entity[] }
   | { kind: "gate"; node: CommandNode; verdict: GateVerdict }
   | { kind: "result"; node: CommandNode; result: CommandResult };
+
+/**
+ * Resolve a node's entity-typed args before running: a value that's already a
+ * valid entity id passes; a single search match auto-resolves to its id; many
+ * matches surface a `disambiguate` response. Returns the response to short-circuit
+ * with, or null when every entity arg is resolved (mutating `values` in place).
+ */
+async function resolveEntities(
+  node: CommandNode,
+  values: ArgValues,
+  ctx: Ctx,
+  entities: EntityRegistry,
+): Promise<CommandResponse | null> {
+  for (const a of node.args ?? []) {
+    if (!a.entity) continue;
+    const raw = values[a.id];
+    if (typeof raw !== "string") continue; // empty or multi-value (listOf) — handled elsewhere
+    const v = raw.trim();
+    if (!v) continue;
+
+    if (await entities.get(a.entity.type, v, ctx)) continue; // already a valid id
+    const candidates = await entities.search(a.entity.type, v, ctx, {
+      constraint: a.entity.constraint,
+    });
+    const exact = candidates.find((c) => c.id === v);
+    if (exact) continue;
+    if (candidates.length === 1 && candidates[0]) values[a.id] = candidates[0].id;
+    else if (candidates.length > 1)
+      return { kind: "disambiguate", node, arg: a, query: v, candidates };
+  }
+  return null;
+}
 
 async function argCompletions(
   node: CommandNode,
@@ -88,7 +122,7 @@ async function argCompletions(
   const out: Completion[] = [];
   for (const a of node.args ?? []) {
     if (a.positional) continue;
-    const filled = Boolean(values[a.id]?.trim());
+    const filled = isFilled(values[a.id]);
     let options: ArgOption[] = [];
     if (!filled) {
       // resolution order: closed enum -> registered entity catalog -> one-off complete
@@ -131,6 +165,11 @@ export async function command(
 
   // EXECUTE the tip
   if (req.execute && tip) {
+    // resolve entity-typed args: auto-resolve a single match, disambiguate on many
+    if (deps.entities) {
+      const dis = await resolveEntities(tip, values, ectx, deps.entities);
+      if (dis) return dis;
+    }
     // missing required args -> collect them (the "2 of 3" counter) before running
     const missing = missingArgs(tip, values);
     if (missing.length > 0) {

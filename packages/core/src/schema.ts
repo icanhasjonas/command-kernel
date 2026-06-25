@@ -1,4 +1,5 @@
 import type { ArgSpec, ArgValues, CommandNode } from "./types";
+import { argList } from "./values";
 
 /**
  * The arg schema — THE KEYSTONE, finally cut.
@@ -62,7 +63,7 @@ export interface ArgError {
 // loose, dependency-free email shape — an honesty check, not RFC 5322
 const EMAIL = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
-function argToProperty(a: ArgSpec): JsonSchemaProperty {
+function elementProperty(a: ArgSpec): JsonSchemaProperty {
   const prop: JsonSchemaProperty = { type: "string" };
   if (a.label && a.label !== a.id) prop.description = a.label;
   if (a.kind === "email") prop.format = "email";
@@ -75,9 +76,16 @@ function argToProperty(a: ArgSpec): JsonSchemaProperty {
   return prop;
 }
 
+/** The JSON Schema node for one arg: the element schema, wrapped in an array for `multiple`. */
+function argToProperty(a: ArgSpec): JsonSchemaNode {
+  const element = elementProperty(a);
+  if (a.multiple) return { type: "array", description: element.description, items: element };
+  return element;
+}
+
 /** Derive the JSON Schema for a node's args (the LLM tool's `inputSchema`). */
-export function toJsonSchema(node: CommandNode): JsonSchema {
-  const properties: Record<string, JsonSchemaProperty> = {};
+export function toJsonSchema(node: CommandNode): JsonSchemaObject {
+  const properties: Record<string, JsonSchemaNode> = {};
   const required: string[] = [];
   for (const a of node.args ?? []) {
     properties[a.id] = argToProperty(a);
@@ -95,19 +103,22 @@ export function toJsonSchema(node: CommandNode): JsonSchema {
 export function validateArgs(node: CommandNode, values: ArgValues): ArgError[] {
   const errors: ArgError[] = [];
   for (const a of node.args ?? []) {
-    const v = values[a.id]?.trim();
-    if (!v) continue; // empty -> covered by required-presence elsewhere
+    // validate each present value (a `multiple` arg holds several)
+    for (const raw of argList(values[a.id])) {
+      const v = raw.trim();
+      if (!v) continue; // empty -> covered by required-presence elsewhere
 
-    if (a.kind === "email" && !EMAIL.test(v)) {
-      errors.push({ argId: a.id, message: `${a.label} must be a valid email` });
-    }
-    if (a.kind === "enum" && a.enumValues && !a.enumValues.some((o) => o.value === v)) {
-      const allowed = a.enumValues.map((o) => o.value).join(", ");
-      errors.push({ argId: a.id, message: `${a.label} must be one of: ${allowed}` });
-    }
-    if (a.validate) {
-      const msg = a.validate(v);
-      if (msg) errors.push({ argId: a.id, message: msg });
+      if (a.kind === "email" && !EMAIL.test(v)) {
+        errors.push({ argId: a.id, message: `${a.label} must be a valid email` });
+      }
+      if (a.kind === "enum" && a.enumValues && !a.enumValues.some((o) => o.value === v)) {
+        const allowed = a.enumValues.map((o) => o.value).join(", ");
+        errors.push({ argId: a.id, message: `${a.label} must be one of: ${allowed}` });
+      }
+      if (a.validate) {
+        const msg = a.validate(v);
+        if (msg) errors.push({ argId: a.id, message: msg });
+      }
     }
   }
   return errors;

@@ -1,4 +1,12 @@
-import type { CommandNode, CommandResult, Ctx, Kernel } from "@command-kernel/core";
+import {
+  argList,
+  argText,
+  type CommandNode,
+  type CommandResult,
+  type Ctx,
+  isFilled,
+  type Kernel,
+} from "@command-kernel/core";
 import * as Dialog from "@radix-ui/react-dialog";
 import { AnimatePresence, motion } from "framer-motion";
 import { Loader2, Search, SearchX } from "lucide-react";
@@ -60,7 +68,8 @@ export function CommandPalette({
   const activeSpec = p.arg?.node.args?.find((a) => a.id === p.arg?.activeArg);
   const freeText = activeSpec ? activeSpec.kind !== "enum" : false;
   const namedArgs = (p.arg?.node.args ?? []).filter((a) => !a.positional);
-  const filledCount = namedArgs.filter((a) => p.arg?.values[a.id]?.trim()).length;
+  const filledCount = namedArgs.filter((a) => isFilled(p.arg?.values[a.id])).length;
+  const activeChips = activeSpec?.multiple ? argList(p.arg?.values[activeSpec.id]) : [];
 
   function onKeyDown(e: KeyboardEvent) {
     if (e.key === "ArrowDown") {
@@ -87,6 +96,8 @@ export function CommandPalette({
         const opt = p.argOptions[p.selected];
         if (opt) return p.commitArg(opt.value);
         if (freeText && p.argQuery.trim()) return p.commitArg(p.argQuery.trim());
+        // a multiple arg: Enter on an empty input means "done adding" -> advance
+        if (activeSpec?.multiple) return p.finishArg();
       }
       return;
     }
@@ -175,6 +186,15 @@ export function CommandPalette({
                               <span className="font-mono text-[12px] text-pink-soft/70">
                                 {spec.label}
                               </span>
+                              {/* accumulated values for a multiple (listOf) arg */}
+                              {activeChips.map((c) => (
+                                <span
+                                  key={c}
+                                  className="rounded bg-pink/25 px-1.5 py-0.5 font-mono text-[11px] text-pink-soft"
+                                >
+                                  {c}
+                                </span>
+                              ))}
                               <input
                                 ref={argRef}
                                 value={p.argQuery}
@@ -182,7 +202,9 @@ export function CommandPalette({
                                   p.setArgQuery(e.target.value);
                                   p.setSelected(0);
                                 }}
-                                placeholder={spec.placeholder ?? "…"}
+                                placeholder={
+                                  spec.multiple ? "add… (↵ done)" : (spec.placeholder ?? "…")
+                                }
                                 className="w-44 bg-transparent font-mono text-[12px] text-pink-soft outline-none placeholder:text-pink-soft/40"
                               />
                             </span>
@@ -192,8 +214,8 @@ export function CommandPalette({
                           <Pill
                             key={spec.id}
                             label={spec.label}
-                            value={val}
-                            state={val ? "filled" : "empty"}
+                            value={argText(val)}
+                            state={isFilled(val) ? "filled" : "empty"}
                             required={spec.required}
                           />
                         );

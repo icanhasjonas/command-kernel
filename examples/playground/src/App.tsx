@@ -1,9 +1,9 @@
 import type { CommandResult, Ctx, Role } from "@command-kernel/core";
-import { bumpFrecency, createKernel } from "@command-kernel/core";
+import { bumpFrecency, createKernel, parseDeeplink, serializePath } from "@command-kernel/core";
 import { CommandPalette, cn, Icon, Kbd } from "@command-kernel/ui";
 import { AnimatePresence, motion } from "framer-motion";
 import { Bot, Command as CommandIcon, RotateCcw } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AgentPanel } from "./AgentPanel";
 import { personEntity } from "./providers/entities";
 import { ROOTS } from "./providers/registry";
@@ -99,7 +99,7 @@ export default function App() {
     return () => clearTimeout(t);
   }, [toast]);
 
-  function onResult(r: CommandResult) {
+  const onResult = useCallback((r: CommandResult) => {
     if (r.kind === "navigate" && r.payload && typeof r.payload === "object") {
       const pl = r.payload as { module?: string; label?: string; recordId?: string };
       setCtx((c) => ({
@@ -112,7 +112,49 @@ export default function App() {
       }));
     }
     setToast({ id: ++toastSeq.current, msg: r.message, tone: r.kind });
-  }
+  }, []);
+
+  // DRIVER #4 — the URL hash IS a command driver. Buttons + <a href="#/cmd/...">
+  // set the hash; this bridge parses it and runs the SAME command()/gate. A gated
+  // link can't fire — it comes back as a gate. Commands as the universal substrate.
+  const ctxRef = useRef(ctx);
+  ctxRef.current = ctx;
+  const [hash, setHash] = useState("");
+  useEffect(() => {
+    const run = () => {
+      setHash(window.location.hash);
+      const h = window.location.hash.replace(/^#\/?/, "");
+      if (!h.startsWith("cmd/")) return;
+      kernel.command({ path: parseDeeplink(h), execute: true }, ctxRef.current).then((res) => {
+        const seq = ++toastSeq.current;
+        if (res.kind === "result") onResult(res.result);
+        else if (res.kind === "gate")
+          setToast({
+            id: seq,
+            msg: `🔒 "${res.node.title}" is gated — open ⌘K to approve`,
+            tone: "toast",
+          });
+        else if (res.kind === "disambiguate")
+          setToast({
+            id: seq,
+            msg: `which one? ${res.candidates.map((c) => c.label).join(", ")}`,
+            tone: "toast",
+          });
+        else if (res.kind === "args")
+          setToast({
+            id: seq,
+            msg: `needs args: ${[...res.missing, ...res.errors.map((e) => e.argId)].join(", ")}`,
+            tone: "toast",
+          });
+      });
+    };
+    window.addEventListener("hashchange", run);
+    run();
+    return () => window.removeEventListener("hashchange", run);
+  }, [kernel, onResult]);
+
+  // a page affordance (button or link) that triggers a command via the hash
+  const linkTo = (path: Parameters<typeof serializePath>[0]) => `#${serializePath(path)}`;
 
   return (
     <div className="lab-grid relative min-h-screen overflow-hidden">
@@ -229,8 +271,49 @@ export default function App() {
           </div>
         </div>
 
+        {/* commands as the universal substrate — buttons + links are drivers too */}
+        <div className="mt-9 w-full rounded-xl border border-white/8 bg-white/[0.02] p-4 text-left">
+          <div className="mb-1 flex items-center gap-1.5 text-[12px] text-white/55">
+            <Icon name="Link" size={13} className="text-pink-soft" /> commands as the universal
+            substrate
+          </div>
+          <div className="mb-3 text-[12px] text-white/35">
+            A button or an <code className="text-white/55">&lt;a href&gt;</code> is just a driver
+            over <code className="text-white/55">command()</code> — same gate. A gated link can't
+            fire from a click.
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                window.location.hash = serializePath([{ id: "go.users" }]);
+              }}
+              className="rounded-lg border border-white/10 bg-white/[0.03] px-3 py-1.5 text-[12px] text-white/70 hover:bg-white/[0.06]"
+            >
+              button → Go to Users
+            </button>
+            <a
+              href={linkTo([{ id: "go.subs" }])}
+              className="rounded-lg border border-white/10 bg-white/[0.03] px-3 py-1.5 text-[12px] text-white/70 hover:bg-white/[0.06]"
+            >
+              link → Go to Submissions
+            </a>
+            <a
+              href={linkTo([{ id: "users.send_reset", args: { user: "jon@wall.north" } }])}
+              className="rounded-lg border border-amber-soft/20 bg-amber-soft/5 px-3 py-1.5 text-[12px] text-amber-soft/80 hover:bg-amber-soft/10"
+            >
+              gated link → Send reset (🔒 needs approval)
+            </a>
+          </div>
+          {hash && (
+            <div className="mt-3 font-mono text-[11px] text-white/35">
+              current deeplink: <span className="text-teal-soft/80">{hash}</span>
+            </div>
+          )}
+        </div>
+
         {/* feature grid */}
-        <div className="mt-12 grid w-full grid-cols-1 gap-3 pb-20 text-left sm:grid-cols-2 lg:grid-cols-3">
+        <div className="mt-9 grid w-full grid-cols-1 gap-3 pb-20 text-left sm:grid-cols-2 lg:grid-cols-3">
           {FEATURES.map((f) => (
             <div key={f.title} className="rounded-xl border border-white/8 bg-white/[0.02] p-4">
               <div className="flex size-8 items-center justify-center rounded-lg bg-pink/10 text-pink-soft">

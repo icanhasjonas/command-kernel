@@ -10,6 +10,7 @@ import type {
 } from "@command-kernel/core";
 import {
   allowLabel,
+  argList,
   entityOption,
   missingArgs,
   pathKey,
@@ -249,25 +250,46 @@ export function usePalette({
     onClose();
   }, [mode, frames.length, onClose]);
 
-  // commit a value for the active arg, then advance to the next missing one
-  const commitArg = useCallback(
-    (value: string) => {
-      if (!arg) return;
-      const values = { ...arg.values, [arg.activeArg]: value };
-      const remaining = missingArgs(arg.node, values).filter((id) => id !== arg.activeArg);
+  const advanceOrRun = useCallback(
+    (session: ArgSession) => {
+      const remaining = missingArgs(session.node, session.values).filter(
+        (id) => id !== session.activeArg,
+      );
       if (remaining.length > 0) {
-        setArg({ ...arg, values, activeArg: remaining[0] as string });
+        setArg({ ...session, activeArg: remaining[0] as string });
         setArgQuery("");
         setSelected(0);
         return;
       }
       setMode("browse");
-      const node = arg.node;
       setArg(null);
-      void proceedGate(node, values);
+      void proceedGate(session.node, session.values);
     },
-    [arg, proceedGate],
+    [proceedGate],
   );
+
+  // commit a value for the active arg. A `multiple` arg ACCUMULATES and stays put
+  // (call finishArg to move on); a single arg advances to the next missing one.
+  const commitArg = useCallback(
+    (value: string) => {
+      if (!arg) return;
+      const spec = arg.node.args?.find((a) => a.id === arg.activeArg);
+      if (spec?.multiple) {
+        const next = [...argList(arg.values[arg.activeArg]), value];
+        setArg({ ...arg, values: { ...arg.values, [arg.activeArg]: next } });
+        setArgQuery("");
+        setSelected(0);
+        return;
+      }
+      advanceOrRun({ ...arg, values: { ...arg.values, [arg.activeArg]: value } });
+    },
+    [arg, advanceOrRun],
+  );
+
+  // done adding to a `multiple` arg -> advance to the next missing arg (or run)
+  const finishArg = useCallback(() => {
+    if (arg) advanceOrRun(arg);
+  }, [arg, advanceOrRun]);
 
   const move = useCallback((delta: number, length: number) => {
     setSelected((s) => (length === 0 ? 0 : (s + delta + length) % length));
@@ -314,6 +336,7 @@ export function usePalette({
     activate,
     back,
     commitArg,
+    finishArg,
     confirmProceed,
     confirmAlways,
     drill,

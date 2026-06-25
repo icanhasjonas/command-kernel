@@ -36,11 +36,15 @@ function randomId(seq: { n: number }): string {
   return `${seq.n++}-${Math.floor(Math.random() * 1e9).toString(16)}`;
 }
 
-/** Stable, order-independent serialization of an arg bag. */
+/** Stable, order-independent serialization of an arg bag (list values are sorted). */
 function argStr(args: ArgValues): string {
   return Object.keys(args)
     .sort()
-    .map((k) => `${k}=${args[k]}`)
+    .map((k) => {
+      const v = args[k];
+      const s = Array.isArray(v) ? [...v].sort().join(",") : (v ?? "");
+      return `${k}=${s}`;
+    })
     .join("&");
 }
 

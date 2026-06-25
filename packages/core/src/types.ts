@@ -52,13 +52,18 @@ export interface ArgSpec {
    * the same catalog. Resolution order for options: enumValues -> entity -> complete.
    */
   entity?: EntityRef;
+  /** accept many values (listOf<X>): the value becomes a `string[]` of ids/values */
+  multiple?: boolean;
   /** async, arg-scoped value completion (one-off; entity is the registered path) */
   complete?: (query: string, ctx: Ctx) => Promise<ArgOption[]>;
   /** return an error string, or null when valid */
   validate?: (value: string) => string | null;
 }
 
-export type ArgValues = Record<string, string>;
+/** One arg's value: a single string, or a list (a `multiple` arg). */
+export type ArgValue = string | string[];
+
+export type ArgValues = Record<string, ArgValue>;
 
 /** A permission requirement declared ONCE on the node; the kernel enforces it. */
 export interface Gate {
