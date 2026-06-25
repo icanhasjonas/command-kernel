@@ -6,17 +6,14 @@ import type {
   Ctx,
   GateVerdict,
   Grant,
+  Kernel,
 } from "@command-kernel/core";
 import {
-  allowAlways,
   allowLabel,
-  executeNode,
   missingArgs,
   pathKey,
   resolveChildren,
   ruleForNode,
-  searchNodes,
-  signGrant,
 } from "@command-kernel/core";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -43,6 +40,7 @@ interface ConfirmSession {
 }
 
 interface Hooks {
+  kernel: Kernel;
   ctx: Ctx;
   roots: CommandNode[];
   open: boolean;
@@ -52,7 +50,16 @@ interface Hooks {
   onClose: () => void;
 }
 
-export function usePalette({ ctx, roots, open, trigger, onResult, onExecuted, onClose }: Hooks) {
+export function usePalette({
+  kernel,
+  ctx,
+  roots,
+  open,
+  trigger,
+  onResult,
+  onExecuted,
+  onClose,
+}: Hooks) {
   const [frames, setFrames] = useState<Frame[]>([{ node: null, items: roots, dynamic: false }]);
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState(0);
@@ -70,8 +77,8 @@ export function usePalette({ ctx, roots, open, trigger, onResult, onExecuted, on
   const ranked = useMemo(() => {
     if (frame.dynamic)
       return frame.items.map((node) => ({ node, score: 0, positions: [] as number[] }));
-    return searchNodes(frame.items, query, ctx);
-  }, [frame, query, ctx]);
+    return kernel.search(frame.items, query, ctx);
+  }, [frame, query, ctx, kernel]);
 
   // live re-resolve for dynamic (search) frames as the query changes
   useEffect(() => {
@@ -148,7 +155,10 @@ export function usePalette({ ctx, roots, open, trigger, onResult, onExecuted, on
 
   const proceedGate = useCallback(
     async (node: CommandNode, values: ArgValues, grant?: Grant) => {
-      const outcome = await executeNode(node, values, ctx, { grant, priorKey: ancestorKey() });
+      const outcome = await kernel.executeNode(node, values, ctx, {
+        grant,
+        priorKey: ancestorKey(),
+      });
       if (!outcome.verdict.allowed) {
         setMode("confirm");
         setConfirm({ node, values, verdict: outcome.verdict, blocked: true });
@@ -161,23 +171,23 @@ export function usePalette({ ctx, roots, open, trigger, onResult, onExecuted, on
       }
       finish(node, outcome.result);
     },
-    [ctx, finish, ancestorKey],
+    [ctx, finish, ancestorKey, kernel],
   );
 
   // human clicked Confirm — mint a grant bound to this exact command+args+path
   const confirmProceed = useCallback(() => {
     if (!confirm) return;
-    const grant = signGrant(confirm.node.id, confirm.values, ancestorKey());
+    const grant = kernel.evidence.sign(confirm.node.id, confirm.values, ancestorKey());
     void proceedGate(confirm.node, confirm.values, grant);
-  }, [confirm, ancestorKey, proceedGate]);
+  }, [confirm, ancestorKey, proceedGate, kernel]);
 
   // human clicked Always allow — record the standing rule, then run (no grant;
   // the policy now auto-satisfies the gate and won't ask again this session)
   const confirmAlways = useCallback(() => {
     if (!confirm) return;
-    allowAlways(ruleForNode(confirm.node, confirm.values));
+    kernel.policy.allow(ruleForNode(confirm.node, confirm.values));
     void proceedGate(confirm.node, confirm.values);
-  }, [confirm, proceedGate]);
+  }, [confirm, proceedGate, kernel]);
 
   const beginExecute = useCallback(
     (node: CommandNode) => {

@@ -1,4 +1,4 @@
-import type { CommandNode, CommandResult, Ctx } from "@command-kernel/core";
+import type { CommandNode, CommandResult, Ctx, Kernel } from "@command-kernel/core";
 import * as Dialog from "@radix-ui/react-dialog";
 import { AnimatePresence, motion } from "framer-motion";
 import { Loader2, Search, SearchX } from "lucide-react";
@@ -14,6 +14,7 @@ import { usePalette } from "./usePalette";
 
 interface Props {
   open: boolean;
+  kernel: Kernel;
   ctx: Ctx;
   roots: CommandNode[];
   trigger?: { id: string; nonce: number } | null;
@@ -24,6 +25,7 @@ interface Props {
 
 export function CommandPalette({
   open,
+  kernel,
   ctx,
   roots,
   trigger,
@@ -31,7 +33,7 @@ export function CommandPalette({
   onResult,
   onExecuted,
 }: Props) {
-  const p = usePalette({ ctx, roots, open, trigger, onResult, onExecuted, onClose });
+  const p = usePalette({ kernel, ctx, roots, open, trigger, onResult, onExecuted, onClose });
   const browseRef = useRef<HTMLInputElement>(null);
   const argRef = useRef<HTMLInputElement>(null);
   const [modHeld, setModHeld] = useState(false);

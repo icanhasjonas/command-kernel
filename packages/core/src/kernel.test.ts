@@ -1,9 +1,8 @@
-import { afterEach, describe, expect, it } from "bun:test";
-import { signGrant } from "./evidence";
+import { describe, expect, it } from "bun:test";
+import { createKernel } from "./create-kernel";
 import { fuzzyMatch } from "./fuzzy";
 import { evaluateGate } from "./gate";
-import { executeNode, missingArgs } from "./kernel";
-import { allowAlways, clearAllowRules } from "./policy";
+import { missingArgs } from "./kernel";
 import { rank } from "./rank";
 import type { CommandNode, Ctx } from "./types";
 
@@ -74,7 +73,7 @@ describe("rank", () => {
   });
 });
 
-describe("gate enforcement", () => {
+describe("gate enforcement (via the kernel's trust core)", () => {
   const reset: CommandNode = {
     id: "users.reset",
     title: "Send password reset",
@@ -82,23 +81,24 @@ describe("gate enforcement", () => {
     run: async () => ({ kind: "toast", message: "sent" }),
   };
 
-  afterEach(() => clearAllowRules());
-
   it("blocks a viewer (role check fails)", async () => {
-    const out = await executeNode(reset, {}, ctx("viewer"));
+    const k = createKernel();
+    const out = await k.executeNode(reset, {}, ctx("viewer"));
     expect(out.result).toBeNull();
     expect(out.verdict.allowed).toBe(false);
   });
 
   it("an admin still owes a confirm with no evidence", async () => {
-    const pending = await executeNode(reset, {}, ctx("admin"));
+    const k = createKernel();
+    const pending = await k.executeNode(reset, {}, ctx("admin"));
     expect(pending.awaitingConfirm).toBe(true);
     expect(pending.result).toBeNull();
   });
 
   it("runs once a valid grant for these exact args is supplied", async () => {
-    const grant = signGrant("users.reset", { user: "a@b.io" }, "");
-    const done = await executeNode(reset, { user: "a@b.io" }, ctx("admin"), {
+    const k = createKernel();
+    const grant = k.evidence.sign("users.reset", { user: "a@b.io" }, "");
+    const done = await k.executeNode(reset, { user: "a@b.io" }, ctx("admin"), {
       grant,
       priorKey: "",
     });
@@ -106,8 +106,9 @@ describe("gate enforcement", () => {
   });
 
   it("rejects a grant minted for DIFFERENT args (binding holds)", async () => {
-    const grant = signGrant("users.reset", { user: "a@b.io" }, "");
-    const out = await executeNode(reset, { user: "evil@x.io" }, ctx("admin"), {
+    const k = createKernel();
+    const grant = k.evidence.sign("users.reset", { user: "a@b.io" }, "");
+    const out = await k.executeNode(reset, { user: "evil@x.io" }, ctx("admin"), {
       grant,
       priorKey: "",
     });
@@ -116,7 +117,8 @@ describe("gate enforcement", () => {
   });
 
   it("rejects a forged grant (cannot fake an Allow)", async () => {
-    const out = await executeNode(reset, {}, ctx("admin"), {
+    const k = createKernel();
+    const out = await k.executeNode(reset, {}, ctx("admin"), {
       grant: { nonce: "forged", sig: "deadbeef" },
       priorKey: "",
     });
@@ -124,8 +126,9 @@ describe("gate enforcement", () => {
   });
 
   it("an always-allow rule satisfies the gate without any grant", async () => {
-    allowAlways({ commandId: "users.reset", scope: { kind: "command" } });
-    const out = await executeNode(reset, { user: "a@b.io" }, ctx("admin"));
+    const k = createKernel();
+    k.policy.allow({ commandId: "users.reset", scope: { kind: "command" } });
+    const out = await k.executeNode(reset, { user: "a@b.io" }, ctx("admin"));
     expect(out.autoAllowed).toBe(true);
     expect(out.result?.message).toBe("sent");
   });

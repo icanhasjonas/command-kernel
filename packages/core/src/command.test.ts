@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
-import { command } from "./command";
-import { pathKey, signGrant } from "./evidence";
+import { createKernel } from "./create-kernel";
+import { pathKey } from "./evidence";
 import type { CommandNode, Ctx } from "./types";
 
 const ctx = (role: Ctx["user"]["role"] = "admin"): Ctx => ({
@@ -24,9 +24,12 @@ const roots: CommandNode[] = [
   { id: "noop", title: "Toggle theme", run: async () => ({ kind: "toast", message: "ok" }) },
 ];
 
+// one kernel instance: the same gate + evidence store every driver would share
+const k = createKernel({ roots });
+
 describe("command() — the one verb", () => {
   it("returns ranked completions at the root", async () => {
-    const r = await command(roots, { query: "user" }, ctx());
+    const r = await k.command({ query: "user" }, ctx());
     expect(r.kind).toBe("completions");
     if (r.kind === "completions") {
       expect(r.items[0]?.kind).toBe("command");
@@ -35,7 +38,7 @@ describe("command() — the one verb", () => {
   });
 
   it("walks a path and completes the next level", async () => {
-    const r = await command(roots, { path: [{ id: "users" }] }, ctx());
+    const r = await k.command({ path: [{ id: "users" }] }, ctx());
     expect(r.kind).toBe("completions");
     if (r.kind === "completions") {
       expect(r.at?.id).toBe("users");
@@ -44,7 +47,7 @@ describe("command() — the one verb", () => {
   });
 
   it("root completions are SELF-DESCRIBING (carry a descriptor)", async () => {
-    const r = await command(roots, {}, ctx());
+    const r = await k.command({}, ctx());
     expect(r.kind).toBe("completions");
     if (r.kind === "completions") {
       const usersItem = r.items.find((i) => i.kind === "command" && i.node.id === "users");
@@ -62,18 +65,13 @@ describe("command() — the one verb", () => {
   });
 
   it("asks for missing args before running", async () => {
-    const r = await command(
-      roots,
-      { path: [{ id: "users" }, { id: "reset" }], execute: true },
-      ctx(),
-    );
+    const r = await k.command({ path: [{ id: "users" }, { id: "reset" }], execute: true }, ctx());
     expect(r.kind).toBe("args");
     if (r.kind === "args") expect(r.missing).toContain("user");
   });
 
   it("returns a gate when evidence is insufficient (confirm owed)", async () => {
-    const r = await command(
-      roots,
+    const r = await k.command(
       { path: [{ id: "users" }, { id: "reset", args: { user: "a@b.io" } }], execute: true },
       ctx("admin"),
     );
@@ -81,9 +79,8 @@ describe("command() — the one verb", () => {
   });
 
   it("executes once a valid per-segment grant is supplied", async () => {
-    const grant = signGrant("reset", { user: "a@b.io" }, pathKey([{ id: "users" }]));
-    const r = await command(
-      roots,
+    const grant = k.evidence.sign("reset", { user: "a@b.io" }, pathKey([{ id: "users" }]));
+    const r = await k.command(
       {
         path: [{ id: "users" }, { id: "reset", args: { user: "a@b.io" }, evidence: grant }],
         execute: true,
@@ -96,9 +93,8 @@ describe("command() — the one verb", () => {
 
   it("rejects a grant bound to a different prior path", async () => {
     // grant minted as if reached directly (empty prior), used under users▸
-    const grant = signGrant("reset", { user: "a@b.io" }, "");
-    const r = await command(
-      roots,
+    const grant = k.evidence.sign("reset", { user: "a@b.io" }, "");
+    const r = await k.command(
       {
         path: [{ id: "users" }, { id: "reset", args: { user: "a@b.io" }, evidence: grant }],
         execute: true,
@@ -109,9 +105,8 @@ describe("command() — the one verb", () => {
   });
 
   it("blocks on role even with a valid grant, and honours top-level role", async () => {
-    const grant = signGrant("reset", { user: "a@b.io" }, pathKey([{ id: "users" }]));
-    const blocked = await command(
-      roots,
+    const grant = k.evidence.sign("reset", { user: "a@b.io" }, pathKey([{ id: "users" }]));
+    const blocked = await k.command(
       {
         path: [{ id: "users" }, { id: "reset", args: { user: "a@b.io" }, evidence: grant }],
         execute: true,
@@ -121,8 +116,7 @@ describe("command() — the one verb", () => {
     expect(blocked.kind).toBe("gate");
 
     // an elevated principal flips the same call to allowed
-    const elevated = await command(
-      roots,
+    const elevated = await k.command(
       {
         path: [{ id: "users" }, { id: "reset", args: { user: "a@b.io" }, evidence: grant }],
         execute: true,
@@ -134,7 +128,7 @@ describe("command() — the one verb", () => {
   });
 
   it("unknown path yields empty completions, not a throw", async () => {
-    const r = await command(roots, { path: [{ id: "nope" }] }, ctx());
+    const r = await k.command({ path: [{ id: "nope" }] }, ctx());
     expect(r).toEqual({ kind: "completions", at: null, items: [] });
   });
 });

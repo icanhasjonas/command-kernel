@@ -1,8 +1,6 @@
-import type { Ctx, NodeDescriptor, PathSegment } from "@command-kernel/core";
-import { command } from "@command-kernel/core";
+import type { Ctx, Kernel, NodeDescriptor, PathSegment } from "@command-kernel/core";
 import { ChevronRight, CornerDownLeft, Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { ROOTS } from "./providers/registry";
 
 /**
  * DRIVER #3 — the scout. It renders EXACTLY what an agent sees when it walks the
@@ -12,7 +10,7 @@ import { ROOTS } from "./providers/registry";
  * query branches demand a search term first; writing leaves are shown but run
  * from chat. No guessing — the tree describes itself.
  */
-export function Scout({ ctx }: { ctx: Ctx }) {
+export function Scout({ kernel, ctx }: { kernel: Kernel; ctx: Ctx }) {
   const [path, setPath] = useState<PathSegment[]>([]);
   const [items, setItems] = useState<NodeDescriptor[]>([]);
   const [crumbs, setCrumbs] = useState<string[]>([]);
@@ -23,7 +21,7 @@ export function Scout({ ctx }: { ctx: Ctx }) {
   useEffect(() => {
     let live = true;
     setLoading(true);
-    command(ROOTS, { path, query: "" }, ctx).then((r) => {
+    kernel.command({ path, query: "" }, ctx).then((r) => {
       if (!live) return;
       setItems(
         r.kind === "completions"
@@ -35,7 +33,7 @@ export function Scout({ ctx }: { ctx: Ctx }) {
     return () => {
       live = false;
     };
-  }, [path, ctx]);
+  }, [path, ctx, kernel]);
 
   function drillFree(d: NodeDescriptor) {
     setPath((p) => [...p, { id: d.id }]);

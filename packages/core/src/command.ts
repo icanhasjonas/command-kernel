@@ -1,7 +1,7 @@
 import { describeNode, type NodeDescriptor } from "./describe";
 import { pathKey } from "./evidence";
-import { executeNode, missingArgs, resolveChildren } from "./kernel";
-import { rank } from "./rank";
+import { type ExecuteDeps, executeNode, missingArgs, resolveChildren } from "./kernel";
+import type { Ranker } from "./rank";
 import type {
   ArgOption,
   ArgSpec,
@@ -17,7 +17,8 @@ import type {
 /**
  * The ONE verb.
  *
- *   command({ path, query, execute, evidence }) => completions | args | gate | result
+ *   command(roots, { path, query, execute, role }, ctx, deps)
+ *     => completions | args | gate | result
  *
  * Everything else in the kernel (search / resolve / gate / run) is an
  * implementation detail this single call composes. A path addresses a command
@@ -25,16 +26,21 @@ import type {
  * structured execution result, OR the list of completions for what comes next —
  * exactly the Quicksilver loop, made addressable and renderer-agnostic.
  *
- *   command({ path: [] , query: "user" })                       -> completions
- *   command({ path: [{id:"users"},{id:"users.search"}], query:"jon" }) -> completions
- *   command({ path: [{id:"email.send", args:{...}}], execute: true })  -> result | args | gate
+ *   command(roots, { path: [] , query: "user" })                       -> completions
+ *   command(roots, { path: [{id:"users"},{id:"users.search"}], query:"jon" }) -> completions
+ *   command(roots, { path: [{id:"email.send", args:{...}}], execute: true })  -> result | args | gate
  *
  * Proof that a gated tip may run is the per-segment `evidence` (a grant) carried
- * ON the path's tip segment — minted by the gate when the human/operator clicked
- * Allow, bound to that exact command+args+prior-path. The palette supplies it
- * from the human; the agent supplies it from the operator's Allow. Same gate,
- * same grant shape, no second code path. `role` is the principal for the whole
- * walk (an elevated token), separate from per-act evidence.
+ * ON the path's tip segment — minted by the evidence store when the
+ * human/operator clicked Allow, bound to that exact command+args+prior-path. The
+ * palette supplies it from the human; the agent supplies it from the operator's
+ * Allow. Same gate, same grant shape, no second code path. `role` is the
+ * principal for the whole walk (an elevated token), separate from per-act
+ * evidence.
+ *
+ * `deps` injects the ranker + the trust core (gate / policy / evidence). Callers
+ * usually reach `command` through a `Kernel` instance, which binds `deps` for
+ * them — see create-kernel.ts.
  */
 
 export interface CommandRequest {
@@ -46,6 +52,11 @@ export interface CommandRequest {
   execute?: boolean;
   /** principal override for the whole walk (e.g. an elevated token) */
   role?: Role;
+}
+
+/** What `command` needs wired in: the ranker plus the trust core. */
+export interface CommandDeps extends ExecuteDeps {
+  ranker: Ranker;
 }
 
 export type Completion =
@@ -87,6 +98,7 @@ export async function command(
   roots: CommandNode[],
   req: CommandRequest,
   ctx: Ctx,
+  deps: CommandDeps,
 ): Promise<CommandResponse> {
   // an elevated principal (a token) can stand in for the session role
   const ectx: Ctx =
@@ -116,7 +128,10 @@ export async function command(
     const segments = req.path ?? [];
     const tipSeg = segments[segments.length - 1];
     const priorKey = pathKey(segments.slice(0, -1));
-    const outcome = await executeNode(tip, values, ectx, { grant: tipSeg?.evidence, priorKey });
+    const outcome = await executeNode(tip, values, ectx, deps, {
+      grant: tipSeg?.evidence,
+      priorKey,
+    });
     if (!outcome.verdict.allowed || outcome.awaitingConfirm) {
       return { kind: "gate", node: tip, verdict: outcome.verdict };
     }
@@ -125,7 +140,7 @@ export async function command(
 
   // otherwise COMPLETE — rank the children/roots at the tip, each item carrying
   // its self-description so an agent can navigate the result without guessing.
-  const items: Completion[] = rank(level, req.query ?? "", ectx).map((r) => ({
+  const items: Completion[] = deps.ranker(level, req.query ?? "", ectx).map((r) => ({
     kind: "command",
     node: r.node,
     score: r.score,

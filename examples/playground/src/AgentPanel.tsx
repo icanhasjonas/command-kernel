@@ -1,13 +1,13 @@
 import { pickTool } from "@command-kernel/agent";
-import type { ArgValues, CommandNode, CommandResult, Ctx, GateVerdict } from "@command-kernel/core";
-import {
-  allowAlways,
-  allowLabel,
-  command,
-  evaluateGate,
-  grantForPath,
-  ruleForNode,
+import type {
+  ArgValues,
+  CommandNode,
+  CommandResult,
+  Ctx,
+  GateVerdict,
+  Kernel,
 } from "@command-kernel/core";
+import { allowLabel, ruleForNode } from "@command-kernel/core";
 import { cn, Icon } from "@command-kernel/ui";
 import { AnimatePresence, motion } from "framer-motion";
 import {
@@ -47,12 +47,14 @@ const EXAMPLES = [
 
 export function AgentPanel({
   open,
+  kernel,
   ctx,
   onResult,
   onExecuted,
   onClose,
 }: {
   open: boolean;
+  kernel: Kernel;
   ctx: Ctx;
   onResult: (r: CommandResult) => void;
   onExecuted: (id: string) => void;
@@ -82,10 +84,10 @@ export function AgentPanel({
     // the agent drives the SAME universal verb the palette does: one addressed
     // call with the operator's role as principal — and NO grant, so a gated tip
     // comes straight back as a gate for the operator to Allow.
-    const res = await command(
-      AGENT_TOOLS,
+    const res = await kernel.command(
       { path: [{ id: pick.node.id, args: pick.values }], execute: true, role: ctx.user.role },
       ctx,
+      AGENT_TOOLS,
     );
     if (res.kind === "result") return finish(pick.node, pick.values, res.result);
     if (res.kind === "gate") {
@@ -106,7 +108,7 @@ export function AgentPanel({
     onExecuted(node.id);
     if (result) onResult(result);
     if (id) patch(id, { status: "done" });
-    else add({ kind: "call", node, values, status: "done", verdict: evaluateGate(node, ctx) });
+    else add({ kind: "call", node, values, status: "done", verdict: kernel.gate(node, ctx) });
     add({ kind: "agent", text: result?.message ?? "Done." });
   }
 
@@ -115,10 +117,14 @@ export function AgentPanel({
   async function allow(entry: Entry) {
     if (!entry.node || !entry.values) return;
     const seg = { id: entry.node.id, args: entry.values };
-    const res = await command(
-      AGENT_TOOLS,
-      { path: [{ ...seg, evidence: grantForPath([seg]) }], execute: true, role: ctx.user.role },
+    const res = await kernel.command(
+      {
+        path: [{ ...seg, evidence: kernel.evidence.grantForPath([seg]) }],
+        execute: true,
+        role: ctx.user.role,
+      },
       ctx,
+      AGENT_TOOLS,
     );
     if (res.kind === "result") finish(entry.node, entry.values, res.result, entry.id);
   }
@@ -127,11 +133,11 @@ export function AgentPanel({
   // NO grant — the kernel policy now auto-satisfies the gate and won't ask again.
   async function allowForever(entry: Entry) {
     if (!entry.node || !entry.values) return;
-    allowAlways(ruleForNode(entry.node, entry.values));
-    const res = await command(
-      AGENT_TOOLS,
+    kernel.policy.allow(ruleForNode(entry.node, entry.values));
+    const res = await kernel.command(
       { path: [{ id: entry.node.id, args: entry.values }], execute: true, role: ctx.user.role },
       ctx,
+      AGENT_TOOLS,
     );
     if (res.kind === "result") finish(entry.node, entry.values, res.result, entry.id);
   }
@@ -140,8 +146,7 @@ export function AgentPanel({
   // so the call bounces straight back to the gate — approval can't be forged.
   async function forge(entry: Entry) {
     if (!entry.node || !entry.values) return;
-    const res = await command(
-      AGENT_TOOLS,
+    const res = await kernel.command(
       {
         path: [
           { id: entry.node.id, args: entry.values, evidence: { nonce: "forged", sig: "deadbeef" } },
@@ -150,6 +155,7 @@ export function AgentPanel({
         role: ctx.user.role,
       },
       ctx,
+      AGENT_TOOLS,
     );
     add({
       kind: "agent",
@@ -220,7 +226,7 @@ export function AgentPanel({
             </button>
           </header>
 
-          {view === "scout" && <Scout ctx={ctx} />}
+          {view === "scout" && <Scout kernel={kernel} ctx={ctx} />}
           {view === "chat" && (
             <>
               <div className="flex-1 space-y-3 overflow-y-auto px-4 py-4">

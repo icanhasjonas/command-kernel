@@ -1,33 +1,46 @@
-import { afterEach, describe, expect, it } from "bun:test";
-import { allowAlways, clearAllowRules, matchingAllow, ruleForNode } from "./policy";
+import { describe, expect, it } from "bun:test";
+import { createMemoryPolicyStore, ruleForNode } from "./policy";
 import type { CommandNode } from "./types";
 
 describe("always-allow policy", () => {
-  afterEach(() => clearAllowRules());
-
   it("command scope matches any args", () => {
-    allowAlways({ commandId: "subs.resync", scope: { kind: "command" } });
-    expect(matchingAllow("subs.resync", { id: "sub_1" })).not.toBeNull();
-    expect(matchingAllow("subs.resync", { id: "sub_2" })).not.toBeNull();
-    expect(matchingAllow("users.reset", {})).toBeNull();
+    const policy = createMemoryPolicyStore();
+    policy.allow({ commandId: "subs.resync", scope: { kind: "command" } });
+    expect(policy.match("subs.resync", { id: "sub_1" })).not.toBeNull();
+    expect(policy.match("subs.resync", { id: "sub_2" })).not.toBeNull();
+    expect(policy.match("users.reset", {})).toBeNull();
   });
 
   it("arg scope matches only the approved value", () => {
-    allowAlways({
+    const policy = createMemoryPolicyStore();
+    policy.allow({
       commandId: "users.reset",
       scope: { kind: "arg", argId: "user", value: "a@b.io" },
     });
-    expect(matchingAllow("users.reset", { user: "a@b.io" })).not.toBeNull();
-    expect(matchingAllow("users.reset", { user: "c@d.io" })).toBeNull();
+    expect(policy.match("users.reset", { user: "a@b.io" })).not.toBeNull();
+    expect(policy.match("users.reset", { user: "c@d.io" })).toBeNull();
   });
 
   it("prefix scope matches a folder-ish arg", () => {
-    allowAlways({
+    const policy = createMemoryPolicyStore();
+    policy.allow({
       commandId: "files.open",
       scope: { kind: "prefix", argId: "path", prefix: "forms/ip/" },
     });
-    expect(matchingAllow("files.open", { path: "forms/ip/long-form" })).not.toBeNull();
-    expect(matchingAllow("files.open", { path: "forms/surrogate/x" })).toBeNull();
+    expect(policy.match("files.open", { path: "forms/ip/long-form" })).not.toBeNull();
+    expect(policy.match("files.open", { path: "forms/surrogate/x" })).toBeNull();
+  });
+
+  it("revoke and clear drop standing rules", () => {
+    const policy = createMemoryPolicyStore();
+    const rule = { commandId: "subs.resync", scope: { kind: "command" } } as const;
+    policy.allow(rule);
+    policy.revoke(rule);
+    expect(policy.match("subs.resync", {})).toBeNull();
+    policy.allow(rule);
+    expect(policy.list()).toHaveLength(1);
+    policy.clear();
+    expect(policy.list()).toHaveLength(0);
   });
 
   it("ruleForNode binds to an entity/email arg when present, else the command", () => {
@@ -44,5 +57,13 @@ describe("always-allow policy", () => {
 
     const noEntity: CommandNode = { id: "theme.toggle", title: "Toggle theme" };
     expect(ruleForNode(noEntity, {}).scope).toEqual({ kind: "command" });
+  });
+
+  it("SEAM: stores are independent (no module global)", () => {
+    const a = createMemoryPolicyStore();
+    const b = createMemoryPolicyStore();
+    a.allow({ commandId: "x", scope: { kind: "command" } });
+    expect(a.match("x", {})).not.toBeNull();
+    expect(b.match("x", {})).toBeNull();
   });
 });

@@ -1,45 +1,40 @@
 import type { ArgValues, Grant, PathSegment } from "./types";
 
 /**
- * Evidence — the honesty-tag layer.
+ * Evidence — SEAM #3, the honesty-tag layer of the TRUST CORE.
  *
- * A gate, when a human approves an action, mints a `Grant`: a cheap hash over
+ * When a human approves an action the gate mints a `Grant`: a cheap hash over
  * (prior path + command + args + nonce + a per-SESSION salt). It is deliberately
  * NOT cryptographically strong. Its single purpose is to stop a caller — the
  * agent above all — from forging `approved: true`: the only way to hold a valid
  * tag is to have gone through the gate, because the salt isn't visible to the
- * caller. Swap the hash for SHA later if you ever care; the shape won't change.
+ * caller.
  *
- * The salt is get-or-create per session and lives only in memory. Reload the
- * tab → fresh module → fresh salt → every previously minted grant stops
- * verifying. The session lifetime IS the grant TTL. No expiry clock, no
- * revocation list.
+ * An `EvidenceStore` owns the salt and the sign/verify pair. The default
+ * `createMemoryEvidenceStore()` keeps the salt in memory on the INSTANCE (no
+ * module global — two kernels never share a salt). `rotate()` mints a new salt
+ * and so invalidates every outstanding grant; a browser reload does it for free,
+ * which is why the session lifetime IS the grant TTL — no expiry clock, no
+ * revocation list. Swap the FNV hash for HMAC-SHA, or back it with Redis, by
+ * implementing this interface and passing `createKernel({ evidence })`.
  */
-
-let salt: string | null = null;
-
-/** Get-or-create the per-session salt. */
-export function sessionSalt(): string {
-  if (salt === null) salt = randomId();
-  return salt;
+export interface EvidenceStore {
+  /** Mint a grant bound to this exact (command, args, prior-path). */
+  sign(commandId: string, args: ArgValues, priorKey: string, nonce?: string): Grant;
+  /** True only if the grant was minted for THIS command+args+prior-path here. */
+  verify(grant: Grant | undefined, commandId: string, args: ArgValues, priorKey: string): boolean;
+  /** Mint the grant for the TIP of a path, bound to everything before it. */
+  grantForPath(path: PathSegment[]): Grant;
+  /** New session salt — invalidate every outstanding grant. */
+  rotate(): void;
 }
 
-/**
- * Force a new session salt (and thus invalidate every outstanding grant).
- * The browser does this for free on reload; this is the explicit "new session"
- * button + the test hook.
- */
-export function rotateSessionSalt(): void {
-  salt = randomId();
-}
-
-function randomId(): string {
+function randomId(seq: { n: number }): string {
   const c = globalThis.crypto;
   if (c?.randomUUID) return c.randomUUID();
   // fallback for ancient runtimes — entropy quality is irrelevant here
-  return `${seq++}-${Math.floor(Math.random() * 1e9).toString(16)}`;
+  return `${seq.n++}-${Math.floor(Math.random() * 1e9).toString(16)}`;
 }
-let seq = 0;
 
 /** Stable, order-independent serialization of an arg bag. */
 function argStr(args: ArgValues): string {
@@ -54,8 +49,14 @@ export function pathKey(segments: Array<{ id: string; args?: ArgValues }>): stri
   return segments.map((s) => `${s.id}(${argStr(s.args ?? {})})`).join(">");
 }
 
-function payload(commandId: string, args: ArgValues, priorKey: string, nonce: string): string {
-  return `${priorKey}|${commandId}(${argStr(args)})|${nonce}|${sessionSalt()}`;
+function payload(
+  salt: string,
+  commandId: string,
+  args: ArgValues,
+  priorKey: string,
+  nonce: string,
+): string {
+  return `${priorKey}|${commandId}(${argStr(args)})|${nonce}|${salt}`;
 }
 
 /** FNV-1a — tiny, synchronous, fast. An honesty tag, not a defense. */
@@ -68,34 +69,32 @@ function hash(str: string): string {
   return (h >>> 0).toString(16).padStart(8, "0");
 }
 
-/** Mint a grant bound to this exact (command, args, prior-path) under the session salt. */
-export function signGrant(
-  commandId: string,
-  args: ArgValues,
-  priorKey: string,
-  nonce: string = randomId(),
-): Grant {
-  return { nonce, sig: hash(payload(commandId, args, priorKey, nonce)) };
-}
-
-/** True only if the grant was minted for THIS command+args+prior-path in THIS session. */
-export function verifyGrant(
-  grant: Grant | undefined,
-  commandId: string,
-  args: ArgValues,
-  priorKey: string,
-): boolean {
-  if (!grant?.nonce || !grant.sig) return false;
-  return hash(payload(commandId, args, priorKey, grant.nonce)) === grant.sig;
-}
-
 /**
- * Convenience for a driver: mint the grant for the TIP of a path, bound to
- * everything before it. The driver calls this only after a human clicks Allow,
- * then sets it as `evidence` on the tip segment and re-issues the command.
+ * The default evidence store: a per-instance, in-memory, session-salted FNV tag.
+ * Each call to this factory is an independent session with its own salt.
  */
-export function grantForPath(path: PathSegment[]): Grant {
-  const tip = path[path.length - 1];
-  if (!tip) throw new Error("grantForPath: empty path");
-  return signGrant(tip.id, tip.args ?? {}, pathKey(path.slice(0, -1)));
+export function createMemoryEvidenceStore(): EvidenceStore {
+  const seq = { n: 0 };
+  let salt = randomId(seq);
+
+  const sign: EvidenceStore["sign"] = (commandId, args, priorKey, nonce = randomId(seq)) => ({
+    nonce,
+    sig: hash(payload(salt, commandId, args, priorKey, nonce)),
+  });
+
+  return {
+    sign,
+    verify(grant, commandId, args, priorKey) {
+      if (!grant?.nonce || !grant.sig) return false;
+      return hash(payload(salt, commandId, args, priorKey, grant.nonce)) === grant.sig;
+    },
+    grantForPath(path) {
+      const tip = path[path.length - 1];
+      if (!tip) throw new Error("grantForPath: empty path");
+      return sign(tip.id, tip.args ?? {}, pathKey(path.slice(0, -1)));
+    },
+    rotate() {
+      salt = randomId(seq);
+    },
+  };
 }

@@ -5,5 +5,11 @@
     "jsx": "react-jsx",
     "types": ["bun", "node"]
   },
-  "include": ["packages/*/src", "examples/*/src", "examples/*/scripts", "examples/*/*.config.ts"]
+  "include": [
+    "packages/*/src",
+    "examples/*/src",
+    "examples/*/scripts",
+    "examples/*/*.config.ts",
+    "test"
+  ]
 }

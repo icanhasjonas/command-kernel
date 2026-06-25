@@ -10,6 +10,7 @@
       "packages/**/src/**",
       "examples/**/src/**",
       "examples/**/scripts/**",
+      "test/**",
       "*.ts",
       "*.json",
       "!**/dist"

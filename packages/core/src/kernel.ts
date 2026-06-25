@@ -1,7 +1,7 @@
-import { verifyGrant } from "./evidence";
-import { evaluateGate } from "./gate";
-import { matchingAllow } from "./policy";
-import { rank } from "./rank";
+import type { EvidenceStore } from "./evidence";
+import type { GatePolicy } from "./gate";
+import type { PolicyStore } from "./policy";
+import { type Ranker, rank } from "./rank";
 import type {
   ArgValues,
   CommandNode,
@@ -13,12 +13,19 @@ import type {
 } from "./types";
 
 /**
- * The kernel facade. Renderers (palette, agent, chords) call ONLY these four
- * verbs. None of them know about React, the DOM, or each other.
+ * The kernel verbs. Renderers (palette, agent, chords) call these — usually via
+ * the bound methods on a `Kernel` instance (see create-kernel.ts), occasionally
+ * directly. None of them know about React, the DOM, or each other.
  */
 
-export function searchNodes(nodes: CommandNode[], query: string, ctx: Ctx): Ranked[] {
-  return rank(nodes, query, ctx);
+/** Rank a node list. Defaults to the stock ranker; pass one to swap the blend. */
+export function searchNodes(
+  nodes: CommandNode[],
+  query: string,
+  ctx: Ctx,
+  ranker: Ranker = rank,
+): Ranked[] {
+  return ranker(nodes, query, ctx);
 }
 
 export async function resolveChildren(
@@ -28,6 +35,13 @@ export async function resolveChildren(
 ): Promise<CommandNode[]> {
   if (!node.resolve) return [];
   return node.resolve(args, ctx);
+}
+
+/** The trust-core dependencies `executeNode` enforces against. */
+export interface ExecuteDeps {
+  gate: GatePolicy;
+  policy: PolicyStore;
+  evidence: EvidenceStore;
 }
 
 export interface ExecuteOutcome {
@@ -41,9 +55,9 @@ export interface ExecuteOutcome {
 
 /**
  * How a renderer proves a confirm-gated command may run. EITHER a `grant` minted
- * by the gate when the human/operator clicked Allow (bound to this exact
- * command+args+prior-path), OR — checked first — a standing always-allow rule.
- * A raw boolean is gone on purpose: the agent cannot just assert `true`.
+ * by the evidence store when the human/operator clicked Allow (bound to this
+ * exact command+args+prior-path), OR — checked first — a standing always-allow
+ * rule. A raw boolean is gone on purpose: the agent cannot just assert `true`.
  */
 export interface Confirmation {
   grant?: Grant;
@@ -56,15 +70,17 @@ export interface Confirmation {
  * command runs only when (a) a standing always-allow rule matches, or (b) a
  * valid grant for this exact command+args+prior-path is supplied. Anything
  * else — no grant, a forged grant, a grant for different args, a grant from a
- * previous session — leaves the confirm owed.
+ * rotated session — leaves the confirm owed. The gate, policy, and evidence are
+ * INJECTED, so the same enforcement runs whatever a consumer plugged in.
  */
 export async function executeNode(
   node: CommandNode,
   args: ArgValues,
   ctx: Ctx,
+  deps: ExecuteDeps,
   confirmation: Confirmation = {},
 ): Promise<ExecuteOutcome> {
-  const verdict = evaluateGate(node, ctx);
+  const verdict = deps.gate(node, ctx);
 
   if (!verdict.allowed) {
     return { verdict, result: null, awaitingConfirm: false, autoAllowed: false };
@@ -72,9 +88,10 @@ export async function executeNode(
 
   let autoAllowed = false;
   if (verdict.needsConfirm) {
-    autoAllowed = matchingAllow(node.id, args) !== null;
+    autoAllowed = deps.policy.match(node.id, args) !== null;
     const proven =
-      autoAllowed || verifyGrant(confirmation.grant, node.id, args, confirmation.priorKey ?? "");
+      autoAllowed ||
+      deps.evidence.verify(confirmation.grant, node.id, args, confirmation.priorKey ?? "");
     if (!proven) {
       return { verdict, result: null, awaitingConfirm: true, autoAllowed: false };
     }
