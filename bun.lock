@@ -13,6 +13,13 @@
         "typescript": "^6.0.0",
       },
     },
+    "examples/minimal": {
+      "name": "@command-kernel/minimal",
+      "version": "0.1.0",
+      "dependencies": {
+        "@command-kernel/core": "workspace:*",
+      },
+    },
     "examples/playground": {
       "name": "@command-kernel/playground",
       "version": "0.1.0",
@@ -110,6 +117,8 @@
     "@command-kernel/agent": ["@command-kernel/agent@workspace:packages/agent"],
 
     "@command-kernel/core": ["@command-kernel/core@workspace:packages/core"],
+
+    "@command-kernel/minimal": ["@command-kernel/minimal@workspace:examples/minimal"],
 
     "@command-kernel/playground": ["@command-kernel/playground@workspace:examples/playground"],
 

@@ -1,0 +1,13 @@
+{
+  "name": "@command-kernel/minimal",
+  "private": true,
+  "version": "0.1.0",
+  "description": "The smallest example: register commands and drive them through the kernel + gate, no framework.",
+  "type": "module",
+  "scripts": {
+    "start": "bun src/index.ts"
+  },
+  "dependencies": {
+    "@command-kernel/core": "workspace:*"
+  }
+}
