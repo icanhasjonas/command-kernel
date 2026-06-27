@@ -124,6 +124,25 @@ stock everything; override any seam in isolation.
 | `Registry` | lazy, context-aware provider contribution | `createRegistry(...)` |
 | `EntityType` | typed-arg catalog (`Person<'with-email'>`), agent-queryable | `createEntityRegistry(...)` |
 
+## First consumer: portal2
+
+The kernel is dogfooded in [`portal2`](../portal2) -- a production Cloudflare
+Workers application managing surrogacy-agency portals. portal2 vendors
+`@command-kernel/core` and `@command-kernel/agent` (no npm pin), drives its
+entire `/admin` (Backoffice) surface off one `CommandNode` registry, and
+contributed the U1-U7 upstream fixes:
+
+- **U7:** `exactOptionalPropertyTypes` -- compiles clean under strict TS.
+- **U1:** `usePalette` + `Mode` exported from `@command-kernel/ui`.
+- **U2:** Palette tokenized via `--ck-*` CSS custom properties.
+- **U3:** `CommandLauncher` -- the nav-replacement trigger button.
+- **U4:** Publish script (`scripts/publish.ts`).
+- **U5:** Deeplink helper (already in core).
+- **U6:** Grant-flow ergonomics (no changes needed after real use).
+
+The vendored files carry **no `@ts-nocheck`** -- the strict-TS fixes are
+upstream, not patched locally. Re-sync recipe: `packages/command-kernel-core/PROVENANCE.md`.
+
 ## Develop
 
 ```bash
