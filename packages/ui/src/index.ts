@@ -7,6 +7,8 @@
  */
 
 export { CommandPalette } from "./CommandPalette";
+export { usePalette } from "./usePalette";
+export type { Mode } from "./usePalette";
 export { cn } from "./cn";
 export { Icon } from "./icon";
 export { Kbd } from "./Kbd";
