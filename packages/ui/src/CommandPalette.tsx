@@ -216,7 +216,7 @@ export function CommandPalette({
                             label={spec.label}
                             value={argText(val)}
                             state={isFilled(val) ? "filled" : "empty"}
-                            required={spec.required}
+                            {...(spec.required !== undefined && { required: spec.required })}
                           />
                         );
                       })}

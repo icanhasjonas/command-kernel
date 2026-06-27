@@ -101,9 +101,12 @@ async function resolveEntities(
     if (!v) continue;
 
     if (await entities.get(a.entity.type, v, ctx)) continue; // already a valid id
-    const candidates = await entities.search(a.entity.type, v, ctx, {
-      constraint: a.entity.constraint,
-    });
+    const candidates = await entities.search(
+      a.entity.type,
+      v,
+      ctx,
+      a.entity.constraint !== undefined ? { constraint: a.entity.constraint } : undefined,
+    );
     const exact = candidates.find((c) => c.id === v);
     if (exact) continue;
     if (candidates.length === 1 && candidates[0]) values[a.id] = candidates[0].id;
@@ -128,9 +131,12 @@ async function argCompletions(
       // resolution order: closed enum -> registered entity catalog -> one-off complete
       if (a.enumValues) options = a.enumValues;
       else if (a.entity && entities) {
-        const found = await entities.search(a.entity.type, "", ctx, {
-          constraint: a.entity.constraint,
-        });
+        const found = await entities.search(
+          a.entity.type,
+          "",
+          ctx,
+          a.entity.constraint !== undefined ? { constraint: a.entity.constraint } : undefined,
+        );
         options = found.map(entityOption);
       } else if (a.complete) options = await a.complete("", ctx);
     }
@@ -186,7 +192,7 @@ export async function command(
     const tipSeg = segments[segments.length - 1];
     const priorKey = pathKey(segments.slice(0, -1));
     const outcome = await executeNode(tip, values, ectx, deps, {
-      grant: tipSeg?.evidence,
+      ...(tipSeg?.evidence !== undefined && { grant: tipSeg.evidence }),
       priorKey,
     });
     // the kernel validated inside executeNode — surface bad values as `args`

@@ -79,7 +79,12 @@ function elementProperty(a: ArgSpec): JsonSchemaProperty {
 /** The JSON Schema node for one arg: the element schema, wrapped in an array for `multiple`. */
 function argToProperty(a: ArgSpec): JsonSchemaNode {
   const element = elementProperty(a);
-  if (a.multiple) return { type: "array", description: element.description, items: element };
+  if (a.multiple)
+    return {
+      type: "array",
+      ...(element.description !== undefined && { description: element.description }),
+      items: element,
+    };
   return element;
 }
 

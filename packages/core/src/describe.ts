@@ -81,7 +81,7 @@ function describeArg(a: ArgSpec): ArgDescriptor {
     required: Boolean(a.required),
     positional: Boolean(a.positional),
     options: a.enumValues ? "enum" : a.entity ? "entity" : a.complete ? "async" : "free",
-    entity: a.entity,
+    ...(a.entity !== undefined && { entity: a.entity }),
   };
 }
 
@@ -91,15 +91,13 @@ export function describeNode(node: CommandNode): NodeDescriptor {
   return {
     id: node.id,
     title: node.title,
-    summary: node.summary ?? node.subtitle,
+    ...(((node.summary ?? node.subtitle) !== undefined) && { summary: node.summary ?? node.subtitle }),
     navigable: Boolean(node.resolve),
     enumerate,
     executable: Boolean(node.run),
     effect: effectMode(node),
     args: (node.args ?? []).map(describeArg),
-    gate: node.gate
-      ? { roles: node.gate.roles, confirm: node.gate.confirm, reason: node.gate.reason }
-      : null,
+    gate: node.gate ? { ...node.gate } : null,
     safeToScout: enumerate === "free",
   };
 }

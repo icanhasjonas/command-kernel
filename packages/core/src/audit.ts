@@ -25,12 +25,14 @@ export interface CommandRecord {
 export function toRecord(req: CommandRequest, ctx: Ctx): CommandRecord {
   return {
     path: (req.path ?? []).map((s) => (s.args ? { id: s.id, args: s.args } : { id: s.id })),
-    role: req.role ?? ctx.user.role,
+    ...(req.role != null ? { role: req.role } : { role: ctx.user.role }),
   };
 }
 
 /** Re-issue a recorded command through the kernel (gated ones re-prompt). */
 export function replay(kernel: Kernel, record: CommandRecord, ctx: Ctx): Promise<CommandResponse> {
-  const path: PathSegment[] = record.path.map((s) => ({ id: s.id, args: s.args }));
-  return kernel.command({ path, role: record.role, execute: true }, ctx);
+  const path: PathSegment[] = record.path.map((s) =>
+    s.args ? { id: s.id, args: s.args } : { id: s.id },
+  );
+  return kernel.command({ path, ...(record.role !== undefined && { role: record.role }), execute: true }, ctx);
 }

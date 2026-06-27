@@ -46,7 +46,7 @@ interface Hooks {
   ctx: Ctx;
   roots: CommandNode[];
   open: boolean;
-  trigger?: { id: string; nonce: number } | null;
+  trigger?: { id: string; nonce: number } | null | undefined;
   onResult: (r: CommandResult) => void;
   onExecuted: (id: string) => void;
   onClose: () => void;
@@ -121,7 +121,12 @@ export function usePalette({
       const mine = ++token.current;
       setArgLoading(true);
       kernel.entities
-        .search(spec.entity.type, argQuery, ctx, { constraint: spec.entity.constraint })
+        .search(
+          spec.entity.type,
+          argQuery,
+          ctx,
+          spec.entity.constraint !== undefined ? { constraint: spec.entity.constraint } : undefined,
+        )
         .then((found) => {
           if (mine !== token.current) return;
           setArgOptions(found.map(entityOption));
@@ -145,7 +150,10 @@ export function usePalette({
       const pos = node.args?.find((a) => a.positional);
       setResolving(true);
       const items = await resolveChildren(node, pos ? { [pos.id]: "" } : {}, ctx);
-      setFrames((f) => [...f, { node, items, dynamic: Boolean(pos), positionalArgId: pos?.id }]);
+      setFrames((f) => [
+        ...f,
+        { node, items, dynamic: Boolean(pos), ...(pos?.id !== undefined && { positionalArgId: pos.id }) },
+      ]);
       setQuery("");
       setSelected(0);
       setResolving(false);
@@ -171,7 +179,7 @@ export function usePalette({
   const proceedGate = useCallback(
     async (node: CommandNode, values: ArgValues, grant?: Grant) => {
       const outcome = await kernel.executeNode(node, values, ctx, {
-        grant,
+        ...(grant !== undefined && { grant }),
         priorKey: ancestorKey(),
       });
       if (!outcome.verdict.allowed) {

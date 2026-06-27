@@ -93,5 +93,10 @@ export function entityOption(e: Entity): {
   hint?: string;
   icon?: string;
 } {
-  return { value: e.id, label: e.label, hint: e.hint, icon: e.icon };
+  return {
+    value: e.id,
+    label: e.label,
+    ...(e.hint !== undefined && { hint: e.hint }),
+    ...(e.icon !== undefined && { icon: e.icon }),
+  };
 }

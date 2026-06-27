@@ -106,8 +106,8 @@ export default function App() {
         ...c,
         location: {
           module: pl.module ?? c.location.module,
-          label: pl.label,
-          recordId: pl.recordId,
+          ...(pl.label !== undefined && { label: pl.label }),
+          ...(pl.recordId !== undefined && { recordId: pl.recordId }),
         },
       }));
     }
@@ -253,7 +253,7 @@ export default function App() {
                       location: {
                         module: pl.module,
                         label: pl.label,
-                        recordId: "recordId" in pl ? pl.recordId : undefined,
+                        ...("recordId" in pl && { recordId: pl.recordId }),
                       },
                     }))
                   }

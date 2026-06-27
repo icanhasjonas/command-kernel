@@ -166,7 +166,11 @@ export function createProjection(kernel: Kernel, opts: ProjectionOptions = {}): 
     if (res.kind === "result")
       return { kind: "result", message: res.result.message, payload: res.result.payload };
     if (res.kind === "gate")
-      return { kind: "gate", reason: res.node.gate?.reason, checks: res.verdict.checks };
+      return {
+        kind: "gate",
+        ...(res.node.gate?.reason !== undefined && { reason: res.node.gate.reason }),
+        checks: res.verdict.checks,
+      };
     if (res.kind === "args")
       return { kind: "needs-args", missing: res.missing, errors: res.errors };
     if (res.kind === "disambiguate")
@@ -203,12 +207,11 @@ export function createProjection(kernel: Kernel, opts: ProjectionOptions = {}): 
         }
         if (name === "discover") {
           if (!kernel.entities) return { kind: "entities", entities: [] };
-          const constraint = args.constraint ? str(args.constraint) : undefined;
           const entities = await kernel.entities.search(
             str(args.entityType),
             str(args.query),
             ctx,
-            { constraint },
+            args.constraint ? { constraint: str(args.constraint) } : undefined,
           );
           return { kind: "entities", entities };
         }

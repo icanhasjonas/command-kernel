@@ -97,7 +97,7 @@ export function createKernel(config: KernelConfig = {}): Kernel {
       : config.entities
     : null;
   const staticRoots = config.roots ?? [];
-  const deps: CommandDeps = { ranker, gate, evidence, policy, entities: entities ?? undefined };
+  const deps: CommandDeps = { ranker, gate, evidence, policy, ...(entities != null && { entities }) };
 
   const roots = (ctx?: Ctx): CommandNode[] => (registry ? registry.roots(ctx) : staticRoots);
   const onExecute = config.onExecute;
