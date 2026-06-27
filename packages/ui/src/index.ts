@@ -6,6 +6,7 @@
  * agent driver. Swap or restyle this freely — it is just one driver.
  */
 
+export { CommandLauncher } from "./CommandLauncher";
 export { CommandPalette } from "./CommandPalette";
 export { usePalette } from "./usePalette";
 export type { Mode } from "./usePalette";
