@@ -54,7 +54,7 @@ export function ArgOptions({
             selected < 0 || options.length === 0 ? "bg-white/[0.07]" : "hover:bg-white/[0.035]",
           )}
         >
-          <CornerDownLeft size={14} className="text-pink-soft" />
+          <CornerDownLeft size={14} className="text-ck-accent-soft" />
           <span className="text-white/70">
             use “<span className="text-white/90">{typed}</span>”
           </span>

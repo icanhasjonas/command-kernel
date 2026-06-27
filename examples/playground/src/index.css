@@ -1,8 +1,11 @@
 @import "tailwindcss";
+@import "@command-kernel/ui/theme.css";
 
 /*
   Token layers, lab edition. Mirrors the portal2 brand vocabulary (pink CTA,
   deep ink, cream, teal) but self-contained so this app touches nothing.
+  The ck-* tokens are inherited from @command-kernel/ui/theme.css via the
+  --color-pink/teal/amber/danger fallback chain.
 */
 @theme {
   --color-ink: #0a1a19;

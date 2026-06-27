@@ -4,9 +4,9 @@ import { cn } from "./cn";
 export type PillState = "active" | "filled" | "empty";
 
 const VARIANT: Record<PillState, string> = {
-  active: "border-pink/60 bg-pink/15 text-pink-soft shadow-[0_0_0_1px_rgba(228,19,98,0.35)]",
-  filled: "border-teal-soft/40 bg-teal-soft/10 text-teal-soft",
-  empty: "border-dashed border-amber-soft/50 bg-amber-soft/[0.06] text-amber-soft/90",
+  active: "border-ck-accent/60 bg-pink/15 text-ck-accent-soft shadow-[0_0_0_1px_rgba(228,19,98,0.35)]",
+  filled: "border-ck-success/40 bg-ck-success/10 text-ck-success",
+  empty: "border-dashed border-ck-warning/50 bg-ck-warning/[0.06] text-ck-warning/90",
 };
 
 export function Pill({

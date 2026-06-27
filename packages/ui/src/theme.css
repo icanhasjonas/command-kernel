@@ -1,0 +1,35 @@
+/*
+  @command-kernel/ui -- theme contract.
+
+  Import this file alongside Tailwind to define the palette's semantic color
+  tokens. Override any `--color-ck-*` property in your own `@theme` block to
+  rebrand; the fallback chain picks up matching portal2-style names automatically.
+
+  Usage:
+    @import "@command-kernel/ui/theme.css";   // before your own @theme
+    @import "tailwindcss";
+
+  Then override:
+    @theme { --color-ck-accent: #6366f1; }    // indigo accent instead of pink
+*/
+@theme {
+  --color-ck-accent: var(--color-pink, #e41362);
+  --color-ck-accent-soft: var(--color-pink-soft, #ff4d8d);
+  --color-ck-success: var(--color-teal-soft, #2dd4bf);
+  --color-ck-warning: var(--color-amber-soft, #f59e0b);
+  --color-ck-danger: var(--color-danger, #b55b5b);
+  --color-ck-glass: var(--color-glass, rgba(18, 20, 28, 0.72));
+
+  --shadow-ck-float: var(
+    --shadow-float,
+    0 24px 80px -12px rgba(0, 0, 0, 0.55),
+    0 8px 24px -8px rgba(0, 0, 0, 0.4)
+  );
+  --shadow-ck-glow: var(
+    --shadow-glow,
+    0 0 0 1px rgba(228, 19, 98, 0.35),
+    0 8px 32px -8px rgba(228, 19, 98, 0.45)
+  );
+
+  --radius-pill: 9999px;
+}

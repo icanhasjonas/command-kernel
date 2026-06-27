@@ -142,7 +142,7 @@ export function CommandPalette({
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: -8, scale: 0.98 }}
                 transition={{ type: "spring", stiffness: 420, damping: 32 }}
-                className="-translate-x-1/2 fixed top-[14vh] left-1/2 z-50 w-[min(640px,92vw)] overflow-hidden rounded-2xl border border-white/10 bg-glass shadow-float backdrop-blur-2xl"
+                className="-translate-x-1/2 fixed top-[14vh] left-1/2 z-50 w-[min(640px,92vw)] overflow-hidden rounded-2xl border border-white/10 bg-ck-glass shadow-ck-float backdrop-blur-2xl"
               >
                 <Dialog.Title className="sr-only">Command palette</Dialog.Title>
 
@@ -159,7 +159,7 @@ export function CommandPalette({
                     ))}
                   </div>
                   <span className="flex items-center gap-2 font-mono text-white/40">
-                    <span className="text-pink-soft/80">
+                    <span className="text-ck-accent-soft/80">
                       {ctx.location.label ?? ctx.location.module}
                     </span>
                     <span className="text-white/20">·</span>
@@ -172,7 +172,7 @@ export function CommandPalette({
                   {p.mode === "args" && p.arg ? (
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="flex items-center gap-1.5 text-[13px] font-medium text-white/80">
-                        <Icon name={p.arg.node.icon} size={15} className="text-pink-soft" />
+                        <Icon name={p.arg.node.icon} size={15} className="text-ck-accent-soft" />
                         {p.arg.node.title}
                       </span>
                       {namedArgs.map((spec) => {
@@ -181,16 +181,16 @@ export function CommandPalette({
                           return (
                             <span
                               key={spec.id}
-                              className="inline-flex items-center gap-1.5 rounded-pill border border-pink/60 bg-pink/15 px-2.5 py-1 shadow-[0_0_0_1px_rgba(228,19,98,0.35)]"
+                              className="inline-flex items-center gap-1.5 rounded-pill border border-ck-accent/60 bg-pink/15 px-2.5 py-1 shadow-[0_0_0_1px_rgba(228,19,98,0.35)]"
                             >
-                              <span className="font-mono text-[12px] text-pink-soft/70">
+                              <span className="font-mono text-[12px] text-ck-accent-soft/70">
                                 {spec.label}
                               </span>
                               {/* accumulated values for a multiple (listOf) arg */}
                               {activeChips.map((c) => (
                                 <span
                                   key={c}
-                                  className="rounded bg-pink/25 px-1.5 py-0.5 font-mono text-[11px] text-pink-soft"
+                                  className="rounded bg-pink/25 px-1.5 py-0.5 font-mono text-[11px] text-ck-accent-soft"
                                 >
                                   {c}
                                 </span>
@@ -205,7 +205,7 @@ export function CommandPalette({
                                 placeholder={
                                   spec.multiple ? "add… (↵ done)" : (spec.placeholder ?? "…")
                                 }
-                                className="w-44 bg-transparent font-mono text-[12px] text-pink-soft outline-none placeholder:text-pink-soft/40"
+                                className="w-44 bg-transparent font-mono text-[12px] text-ck-accent-soft outline-none placeholder:text-ck-accent-soft/40"
                               />
                             </span>
                           );

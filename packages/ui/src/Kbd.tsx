@@ -16,7 +16,7 @@ export function Kbd({
         "inline-flex h-5 min-w-5 items-center justify-center rounded-[6px] px-1.5",
         "border border-white/10 bg-white/5 font-mono text-[11px] font-medium text-white/70",
         "shadow-[inset_0_-1px_0_rgba(0,0,0,0.4)]",
-        glow && "border-pink/50 bg-pink/15 text-pink-soft",
+        glow && "border-ck-accent/50 bg-ck-accent/15 text-ck-accent-soft",
         className,
       )}
     >

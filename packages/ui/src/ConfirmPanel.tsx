@@ -24,7 +24,7 @@ export function ConfirmPanel({
   return (
     <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="px-3 py-4">
       <div className="flex items-center gap-2.5">
-        <span className="flex size-9 items-center justify-center rounded-lg border border-danger/40 bg-danger/10 text-danger">
+        <span className="flex size-9 items-center justify-center rounded-lg border border-danger/40 bg-danger/10 text-ck-danger">
           {blocked ? <ShieldX size={18} /> : <ShieldAlert size={18} />}
         </span>
         <div>
@@ -41,17 +41,17 @@ export function ConfirmPanel({
         {verdict.checks.map((c) => (
           <div key={c.label} className="flex items-center gap-2 text-[13px]">
             {c.ok ? (
-              <Check size={14} className="text-teal-soft" />
+              <Check size={14} className="text-ck-success" />
             ) : (
-              <X size={14} className="text-danger" />
+              <X size={14} className="text-ck-danger" />
             )}
-            <span className={c.ok ? "text-white/70" : "text-danger"}>requires {c.label}</span>
+            <span className={c.ok ? "text-white/70" : "text-ck-danger"}>requires {c.label}</span>
             {!c.ok && <span className="ml-auto text-[12px] text-white/40">you: {role}</span>}
           </div>
         ))}
         {node.gate?.confirm && (
           <div className="flex items-center gap-2 text-[13px] text-white/70">
-            <ShieldAlert size={14} className="text-amber-soft" /> requires explicit confirm
+            <ShieldAlert size={14} className="text-ck-warning" /> requires explicit confirm
           </div>
         )}
       </div>
@@ -66,7 +66,7 @@ export function ConfirmPanel({
             <button
               type="button"
               onClick={onProceed}
-              className="rounded-lg bg-pink px-3.5 py-2 text-[13px] font-semibold text-white shadow-glow transition hover:bg-pink-soft"
+              className="rounded-lg bg-pink px-3.5 py-2 text-[13px] font-semibold text-white shadow-ck-glow transition hover:bg-ck-accent-soft"
             >
               Confirm & run
             </button>

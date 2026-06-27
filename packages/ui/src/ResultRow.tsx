@@ -36,7 +36,7 @@ export function ResultRow({
       <span
         className={cn(
           "flex size-9 shrink-0 items-center justify-center rounded-lg border border-white/10",
-          active ? "bg-pink/15 text-pink-soft" : "bg-white/[0.04] text-white/60",
+          active ? "bg-pink/15 text-ck-accent-soft" : "bg-white/[0.04] text-white/60",
         )}
       >
         <Icon name={node.icon} size={17} strokeWidth={2} />
@@ -52,7 +52,7 @@ export function ResultRow({
           <span className="truncate text-[14px] font-medium text-white/90">
             <Highlight text={node.title} positions={positions} />
           </span>
-          {gated && <Lock size={12} className="shrink-0 text-danger/90" />}
+          {gated && <Lock size={12} className="shrink-0 text-ck-danger/90" />}
         </span>
         {node.subtitle && (
           <span className="mt-0.5 block truncate text-[12px] text-white/40">{node.subtitle}</span>
