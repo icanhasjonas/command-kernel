@@ -15,7 +15,7 @@ import {
 import { createMemoryPolicyStore, type PolicyStore } from "./policy";
 import { type Ranker, rank } from "./rank";
 import type { Registry } from "./registry";
-import type { ArgValues, CommandNode, Ctx, Ranked } from "./types";
+import type { ArgValues, CommandNode, Ctx, FallbackSearch, Ranked } from "./types";
 
 /**
  * createKernel — where the SEAMS meet.
@@ -55,6 +55,8 @@ export interface KernelConfig {
   policy?: PolicyStore;
   /** typed-entity catalog backing entity args (a registry or a list of types) */
   entities?: EntityRegistry | EntityType[];
+  /** opt-in fallback when the primary search yields no results */
+  fallback?: FallbackSearch;
   /** observability hook — fires after every successful run (audit / telemetry / undo) */
   onExecute?: (record: CommandRecord, response: CommandResponse) => void;
 }
@@ -79,6 +81,8 @@ export interface Kernel {
   chords(ctx?: Ctx): Map<string, CommandNode>;
   /** all nodes that carry a `shortcut`, filtered by `when` + gate visibility */
   shortcuts(ctx: Ctx): Map<string, CommandNode>;
+  /** opt-in fallback when the primary search yields no results (null if none) */
+  readonly fallback: FallbackSearch | null;
   readonly ranker: Ranker;
   readonly gate: GatePolicy;
   readonly evidence: EvidenceStore;
@@ -99,6 +103,7 @@ export function createKernel(config: KernelConfig = {}): Kernel {
       ? createEntityRegistry(...config.entities)
       : config.entities
     : null;
+  const fallback = config.fallback ?? null;
   const staticRoots = config.roots ?? [];
   const deps: CommandDeps = {
     ranker,
@@ -124,6 +129,7 @@ export function createKernel(config: KernelConfig = {}): Kernel {
     roots,
     chords: (ctx) => collectChords(roots(ctx)),
     shortcuts: (ctx) => collectShortcuts(roots(ctx), ctx),
+    fallback,
     ranker,
     gate,
     evidence,

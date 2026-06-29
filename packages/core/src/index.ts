@@ -119,6 +119,7 @@ export type {
   EffectMode,
   EntityRef,
   EnumerateMode,
+  FallbackSearch,
   Gate,
   GateCheck,
   GateVerdict,

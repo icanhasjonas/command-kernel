@@ -192,3 +192,15 @@ export interface Ranked {
   /** indices into node.title that matched the query, for highlighting */
   positions: number[];
 }
+
+/**
+ * Opt-in fallback when the primary search yields no results. The driver
+ * (palette, agent) decides HOW to present it -- the kernel carries the
+ * capability. Typical use: file search across a workspace tree when no
+ * commands match. Returned nodes go through the kernel's ranker.
+ */
+export interface FallbackSearch {
+  label: string;
+  icon?: string;
+  search: (query: string, ctx: Ctx) => Promise<CommandNode[]>;
+}
