@@ -134,6 +134,16 @@ export function collectChords(nodes: CommandNode[]): Map<string, CommandNode> {
   return map;
 }
 
+export function collectShortcuts(nodes: CommandNode[], ctx: Ctx): Map<string, CommandNode> {
+  const map = new Map<string, CommandNode>();
+  for (const n of nodes) {
+    if (!n.shortcut) continue;
+    if (n.when && !n.when(ctx)) continue;
+    map.set(n.shortcut, n);
+  }
+  return map;
+}
+
 /** Required args still missing a value. Drives the "2 of 3" arg counter. */
 export function missingArgs(node: CommandNode, values: ArgValues): string[] {
   return (node.args ?? []).filter((a) => a.required && !isFilled(values[a.id])).map((a) => a.id);

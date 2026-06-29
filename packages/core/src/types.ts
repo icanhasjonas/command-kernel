@@ -157,6 +157,12 @@ export interface CommandNode {
   weight?: number;
   /** single key pressed after the chord leader to jump straight here */
   chord?: string;
+  /** global keyboard shortcut, e.g. "shift+mod+d". Platform-agnostic: `mod`
+   *  maps to Cmd on Mac, Ctrl elsewhere. Parsed by `parseShortcut()`. */
+  shortcut?: string;
+  /** hide from palette search results (the node is still reachable via
+   *  shortcut, agent, deeplink, or programmatic access). */
+  hide?: boolean | ((ctx: Ctx) => boolean);
   args?: ArgSpec[];
   gate?: Gate;
   /** visibility predicate against the current context */

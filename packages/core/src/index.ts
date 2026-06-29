@@ -58,6 +58,7 @@ export {
   bumpFrecency,
   type Confirmation,
   collectChords,
+  collectShortcuts,
   type ExecuteDeps,
   type ExecuteOutcome,
   executeNode,
@@ -88,6 +89,8 @@ export {
   toJsonSchema,
   validateArgs,
 } from "./schema";
+// shortcut string parsing, matching, and formatting
+export { formatShortcut, matchesEvent, type ParsedShortcut, parseShortcut } from "./shortcut";
 // the data model
 export type {
   ArgKind,

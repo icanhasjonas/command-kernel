@@ -6,6 +6,7 @@ import { evaluateGate, type GatePolicy } from "./gate";
 import {
   type Confirmation,
   collectChords,
+  collectShortcuts,
   type ExecuteOutcome,
   executeNode,
   resolveChildren,
@@ -76,6 +77,8 @@ export interface Kernel {
   roots(ctx?: Ctx): CommandNode[];
   /** chord-leader lookup over the roots */
   chords(ctx?: Ctx): Map<string, CommandNode>;
+  /** all nodes that carry a `shortcut`, filtered by `when` + gate visibility */
+  shortcuts(ctx: Ctx): Map<string, CommandNode>;
   readonly ranker: Ranker;
   readonly gate: GatePolicy;
   readonly evidence: EvidenceStore;
@@ -97,7 +100,13 @@ export function createKernel(config: KernelConfig = {}): Kernel {
       : config.entities
     : null;
   const staticRoots = config.roots ?? [];
-  const deps: CommandDeps = { ranker, gate, evidence, policy, ...(entities != null && { entities }) };
+  const deps: CommandDeps = {
+    ranker,
+    gate,
+    evidence,
+    policy,
+    ...(entities != null && { entities }),
+  };
 
   const roots = (ctx?: Ctx): CommandNode[] => (registry ? registry.roots(ctx) : staticRoots);
   const onExecute = config.onExecute;
@@ -114,6 +123,7 @@ export function createKernel(config: KernelConfig = {}): Kernel {
       executeNode(node, args, ctx, deps, confirmation),
     roots,
     chords: (ctx) => collectChords(roots(ctx)),
+    shortcuts: (ctx) => collectShortcuts(roots(ctx), ctx),
     ranker,
     gate,
     evidence,

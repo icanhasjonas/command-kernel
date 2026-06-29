@@ -39,6 +39,8 @@ export function createRanker(weights: RankWeights = {}): Ranker {
 
     for (const node of nodes) {
       if (node.when && !node.when(ctx)) continue;
+      const hidden = typeof node.hide === "function" ? node.hide(ctx) : node.hide;
+      if (hidden) continue;
 
       // match the title first (so highlight offsets map to the title), then fall
       // back to the broader haystack (keywords/category) for discovery only.
