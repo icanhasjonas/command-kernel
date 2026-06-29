@@ -66,6 +66,21 @@ export {
   resolveChildren,
   searchNodes,
 } from "./kernel";
+// keyboard driver — layer stack, chord state machine, shortcut registration
+export {
+  type KeyBindings,
+  type KeyHandler,
+  type KeyLayerOptions,
+  normalizeEvent,
+  popLayer,
+  pushLayer,
+  registerShortcuts,
+  type ShortcutConflict,
+  type ShortcutDriverOptions,
+  setChordTimeout,
+  subscribeChordMode,
+  validateShortcuts,
+} from "./keyboard";
 // SEAM 4 — policy (session-scoped always-allow); ruleForNode/allowLabel are pure helpers
 export {
   type AllowRule,
