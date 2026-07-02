@@ -156,10 +156,20 @@ bun run build        # bundle the playground
 bun run build:packages   # emit publishable dist for each package
 ```
 
+## Bring your app under the kernel
+
+[`GUIDE.md`](GUIDE.md) is the implementation playbook — written for an **agent to
+read and execute** — for representing **100% of an app's surface** (every button,
+menu, route, setting, search, bulk action) as commands, so a human progresses from
+palette (`⌘K`) → chord (`⌘J`) → deeplink, and an agent self-discovers and drives
+the same nodes through the same gate. It states the goal, the definition of done,
+the 100%-coverage rule, and a step-by-step playbook.
+
 ## Layout
 
 A Bun-workspace monorepo. See [`CLAUDE.md`](CLAUDE.md) for the full map and the
-covenant, and [`docs/research-universal-command-system.md`](docs/research-universal-command-system.md)
+covenant, [`GUIDE.md`](GUIDE.md) for the bring-your-app-under-the-kernel playbook,
+and [`docs/research-universal-command-system.md`](docs/research-universal-command-system.md)
 for the design research, prior art, and honest viability read that birthed this.
 
 ## License
