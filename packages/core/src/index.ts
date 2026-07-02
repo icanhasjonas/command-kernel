@@ -66,12 +66,16 @@ export {
   resolveChildren,
   searchNodes,
 } from "./kernel";
-// keyboard driver — layer stack, chord state machine, shortcut registration
+// keyboard driver — layer stack, chord state machine, shortcut registration.
+// The HOST attaches `handleKeydown` to its own key source; core stays DOM-free.
 export {
+  handleKeydown,
+  type KernelKeyEvent,
   type KeyBindings,
   type KeyHandler,
   type KeyLayerOptions,
   normalizeEvent,
+  normalizeShortcut,
   popLayer,
   pushLayer,
   registerShortcuts,
@@ -105,7 +109,13 @@ export {
   validateArgs,
 } from "./schema";
 // shortcut string parsing, matching, and formatting
-export { formatShortcut, matchesEvent, type ParsedShortcut, parseShortcut } from "./shortcut";
+export {
+  formatShortcut,
+  type KeyEventLike,
+  matchesEvent,
+  type ParsedShortcut,
+  parseShortcut,
+} from "./shortcut";
 // the data model
 export type {
   ArgKind,

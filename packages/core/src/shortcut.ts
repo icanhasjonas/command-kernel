@@ -8,9 +8,25 @@
  * registration (the kernel has no DOM dependency).
  */
 
-const isMac =
-  typeof navigator !== "undefined" &&
-  (/Mac|iPhone|iPad|iPod/.test(navigator.platform) || /Macintosh/.test(navigator.userAgent));
+/**
+ * The subset of a DOM KeyboardEvent the kernel reads. Structural on purpose:
+ * core ships without the DOM type lib, and a real browser event satisfies it.
+ */
+export interface KeyEventLike {
+  readonly key: string;
+  readonly code: string;
+  readonly metaKey: boolean;
+  readonly ctrlKey: boolean;
+  readonly shiftKey: boolean;
+  readonly altKey: boolean;
+}
+
+// structural peek at the browser global (when a host provides one) — keeps the
+// DOM lib out of core while still auto-detecting the platform in a browser
+const nav = (globalThis as { navigator?: { platform?: string; userAgent?: string } }).navigator;
+export const isMac = Boolean(
+  nav && (/Mac|iPhone|iPad|iPod/.test(nav.platform ?? "") || /Macintosh/.test(nav.userAgent ?? "")),
+);
 
 export interface ParsedShortcut {
   key: string;
@@ -32,7 +48,7 @@ export function parseShortcut(shortcut: string): ParsedShortcut {
   };
 }
 
-export function matchesEvent(parsed: ParsedShortcut, e: KeyboardEvent): boolean {
+export function matchesEvent(parsed: ParsedShortcut, e: KeyEventLike): boolean {
   if (e.key.toLowerCase() !== parsed.key && e.code.toLowerCase() !== `key${parsed.key}`) {
     return false;
   }

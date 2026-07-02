@@ -3,7 +3,12 @@
  *
  * Ported from remote-claude's key-layers system (battle-tested). Stripped of
  * React and terminal-specific concerns -- the kernel owns the state machine,
- * the HOST owns the DOM listener and React hooks.
+ * the HOST owns the DOM listener and React hooks:
+ *
+ *   window.addEventListener("keydown", handleKeydown, { capture: true });
+ *
+ * Core never touches window/document/KeyboardEvent — events arrive as the
+ * structural `KernelKeyEvent`, which any real browser event satisfies.
  *
  * Features:
  * - Layer stacking (LIFO, base vs modal)
@@ -12,14 +17,16 @@
  * - Conflict detection
  */
 
-import { parseShortcut } from "./shortcut";
+import { isMac, type KeyEventLike, type ParsedShortcut, parseShortcut } from "./shortcut";
 import type { CommandNode } from "./types";
 
 // ── Key normalization ───────────────────────────────────────────────────────
 
-const isMac =
-  typeof navigator !== "undefined" &&
-  (/Mac|iPhone|iPad|iPod/.test(navigator.platform) || /Macintosh/.test(navigator.userAgent));
+/** A key event the dispatcher can consume AND cancel — a browser keydown fits. */
+export interface KernelKeyEvent extends KeyEventLike {
+  preventDefault(): void;
+  stopPropagation(): void;
+}
 
 const IGNORE = new Set(["Control", "Meta", "Alt", "Shift"]);
 
@@ -30,7 +37,7 @@ function altCodeToKey(code: string): string | null {
   return null;
 }
 
-export function normalizeEvent(e: KeyboardEvent): string {
+export function normalizeEvent(e: KeyEventLike): string {
   const parts: string[] = [];
   if (isMac ? e.metaKey : e.ctrlKey) parts.push("mod");
   if (isMac && e.ctrlKey) parts.push("ctrl");
@@ -45,9 +52,26 @@ export function normalizeEvent(e: KeyboardEvent): string {
   return parts.join("+");
 }
 
+/**
+ * Normalize a parsed shortcut string to the same canonical form
+ * `normalizeEvent` yields for the matching keydown — the pure counterpart, so
+ * registering a shortcut never has to construct a DOM event.
+ */
+export function normalizeShortcut(parsed: ParsedShortcut): string {
+  const parts: string[] = [];
+  if (isMac ? parsed.mod : parsed.mod || parsed.ctrl) parts.push("mod");
+  if (isMac && parsed.ctrl) parts.push("ctrl");
+  if (parsed.alt) parts.push("alt");
+  if (parsed.shift) parts.push("shift");
+  parts.push(
+    parsed.key === " " ? "Space" : parsed.key.length === 1 ? parsed.key.toLowerCase() : parsed.key,
+  );
+  return parts.join("+");
+}
+
 // ── Layer stack ─────────────────────────────────────────────────────────────
 
-export type KeyHandler = (e: KeyboardEvent) => void;
+export type KeyHandler = (e: KernelKeyEvent) => void;
 export type KeyBindings = Record<string, KeyHandler>;
 
 export interface KeyLayerOptions {
@@ -63,24 +87,8 @@ interface Layer {
 }
 
 const layers: Layer[] = [];
-let listenerId: (() => void) | null = null;
-
-function ensureListener(): void {
-  if (listenerId || typeof window === "undefined") return;
-  const handler = (e: KeyboardEvent) => dispatch(e);
-  window.addEventListener("keydown", handler, { capture: true });
-  listenerId = () => window.removeEventListener("keydown", handler, { capture: true });
-}
-
-function removeListenerIfEmpty(): void {
-  if (layers.length === 0 && listenerId) {
-    listenerId();
-    listenerId = null;
-  }
-}
 
 export function pushLayer(bindings: KeyBindings, options: KeyLayerOptions = {}): Layer {
-  ensureListener();
   const layer: Layer = { id: options.id ?? `layer-${layers.length}`, bindings, options };
   if (options.base) {
     const firstNonBase = layers.findIndex((l) => !l.options.base);
@@ -95,7 +103,6 @@ export function pushLayer(bindings: KeyBindings, options: KeyLayerOptions = {}):
 export function popLayer(layer: Layer): void {
   const i = layers.indexOf(layer);
   if (i !== -1) layers.splice(i, 1);
-  removeListenerIfEmpty();
 }
 
 // ── Chord state machine ─────────────────────────────────────────────────────
@@ -168,7 +175,13 @@ function isChordPrefix(normalized: string): boolean {
 
 // ── Dispatch ────────────────────────────────────────────────────────────────
 
-function dispatch(e: KeyboardEvent): void {
+/**
+ * The host's keydown entrypoint. Attach it where your platform delivers key
+ * events (a browser: `window.addEventListener("keydown", handleKeydown,
+ * { capture: true })`) and detach it when the last layer pops. Core owns the
+ * routing; the host owns the listener.
+ */
+export function handleKeydown(e: KernelKeyEvent): void {
   if (IGNORE.has(e.key)) return;
   const normalized = normalizeEvent(e);
 
@@ -226,17 +239,7 @@ export function registerShortcuts(
 ): Layer {
   const bindings: KeyBindings = {};
   for (const [shortcut, node] of nodes) {
-    const parsed = parseShortcut(shortcut);
-    const normalized = normalizeEvent(
-      new KeyboardEvent("keydown", {
-        key: parsed.key,
-        metaKey: isMac ? parsed.mod : false,
-        ctrlKey: isMac ? parsed.ctrl : parsed.mod || parsed.ctrl,
-        shiftKey: parsed.shift,
-        altKey: parsed.alt,
-      }),
-    );
-    bindings[normalized] = () => options.onActivate(node);
+    bindings[normalizeShortcut(parseShortcut(shortcut))] = () => options.onActivate(node);
   }
   return pushLayer(bindings, { base: true, id: "kernel-shortcuts" });
 }
@@ -275,7 +278,7 @@ export function validateShortcuts(nodes: Map<string, CommandNode>): ShortcutConf
 export const _test = {
   pushLayer,
   popLayer,
-  dispatch,
+  dispatch: handleKeydown,
   normalizeEvent,
   get layers() {
     return layers;
@@ -285,6 +288,5 @@ export const _test = {
   reset: () => {
     layers.length = 0;
     exitChordMode();
-    removeListenerIfEmpty();
   },
 };

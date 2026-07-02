@@ -103,6 +103,27 @@ describe("kernel purity (core + agent are headless)", () => {
     expect(escapes).toEqual([]);
   });
 
+  it("core source touches no DOM global (window, document, KeyboardEvent, ...)", () => {
+    // Types AND runtime: core must compile with lib:["ES2022"] alone and run
+    // headless. The one sanctioned escape hatch is a structural peek through
+    // `globalThis` (platform sniffing) — anything else is a driver leaking in.
+    const DOM_GLOBAL =
+      /\b(window|document|KeyboardEvent|MouseEvent|HTMLElement|Element|Node|addEventListener|removeEventListener|localStorage|fetch)\b/;
+    const offenders: string[] = [];
+    for (const file of sourceFiles(join(ROOT, "packages", "core", "src"))) {
+      if (file.endsWith(".test.ts")) continue;
+      const code = readFileSync(file, "utf8")
+        .replace(/\/\*[\s\S]*?\*\//g, "") // block comments
+        .split("\n");
+      code.forEach((line, i) => {
+        const stripped = line.replace(/\/\/.*$/, ""); // line comments
+        const m = DOM_GLOBAL.exec(stripped);
+        if (m && !stripped.includes("globalThis")) offenders.push(`${file}:${i + 1} -> ${m[1]}`);
+      });
+    }
+    expect(offenders).toEqual([]);
+  });
+
   it("agent depends only on core (one allowed cross-package edge)", () => {
     const external = depNames(pkg("agent")).filter((d) => !d.startsWith("@command-kernel/"));
     expect(external).toEqual([]);
@@ -111,13 +132,16 @@ describe("kernel purity (core + agent are headless)", () => {
 
 describe("sealed exports (deep imports are physically unresolvable)", () => {
   for (const name of ["core", "agent", "ui"] as const) {
-    it(`@command-kernel/${name} exports only the package root "."`, () => {
+    it(`@command-kernel/${name} exposes no deep code subpath`, () => {
+      // ui also ships its CSS token sheet — an intentional public asset, not a
+      // reachable internal. Code stays sealed behind "." everywhere.
+      const allowed = name === "ui" ? [".", "./theme.css"] : ["."];
       const p = pkg(name);
       const exportsMap = p.exports as Record<string, unknown>;
-      expect(Object.keys(exportsMap)).toEqual(["."]);
+      expect(Object.keys(exportsMap)).toEqual(allowed);
       // the publish-time map must be sealed too (no deep/wildcard subpaths)
       const publish = p.publishConfig as { exports?: Record<string, unknown> } | undefined;
-      if (publish?.exports) expect(Object.keys(publish.exports)).toEqual(["."]);
+      if (publish?.exports) expect(Object.keys(publish.exports)).toEqual(allowed);
     });
   }
 
