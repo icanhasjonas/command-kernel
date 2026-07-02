@@ -91,7 +91,9 @@ export function describeNode(node: CommandNode): NodeDescriptor {
   return {
     id: node.id,
     title: node.title,
-    ...(((node.summary ?? node.subtitle) !== undefined) && { summary: node.summary ?? node.subtitle }),
+    ...((node.summary ?? node.subtitle) !== undefined && {
+      summary: node.summary ?? node.subtitle,
+    }),
     navigable: Boolean(node.resolve),
     enumerate,
     executable: Boolean(node.run),

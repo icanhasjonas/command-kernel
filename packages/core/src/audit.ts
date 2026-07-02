@@ -34,5 +34,8 @@ export function replay(kernel: Kernel, record: CommandRecord, ctx: Ctx): Promise
   const path: PathSegment[] = record.path.map((s) =>
     s.args ? { id: s.id, args: s.args } : { id: s.id },
   );
-  return kernel.command({ path, ...(record.role !== undefined && { role: record.role }), execute: true }, ctx);
+  return kernel.command(
+    { path, ...(record.role !== undefined && { role: record.role }), execute: true },
+    ctx,
+  );
 }

@@ -152,7 +152,12 @@ export function usePalette({
       const items = await resolveChildren(node, pos ? { [pos.id]: "" } : {}, ctx);
       setFrames((f) => [
         ...f,
-        { node, items, dynamic: Boolean(pos), ...(pos?.id !== undefined && { positionalArgId: pos.id }) },
+        {
+          node,
+          items,
+          dynamic: Boolean(pos),
+          ...(pos?.id !== undefined && { positionalArgId: pos.id }),
+        },
       ]);
       setQuery("");
       setSelected(0);

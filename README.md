@@ -48,6 +48,8 @@ chords call the verbs directly; protocol bridges (an MCP server, a raw LLM loop)
 consume the **projection** — those same verbs serialized as a tiny generic
 tool surface (`createProjection`), so *any* agent drives the kernel with no
 bespoke glue. A bridge like MCP is ~50 lines of protocol on top — 100% optional.
+Even plain HTML is a driver: native `<button command>` markup routes through the
+same gate — see [`docs/dom-invoker.md`](docs/dom-invoker.md) (Driver #5).
 
 ```
                     ┌───────────────────────────────────┐

@@ -5,6 +5,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Bot, Command as CommandIcon, RotateCcw } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AgentPanel } from "./AgentPanel";
+import { InvokerPanel } from "./InvokerPanel";
 import { personEntity } from "./providers/entities";
 import { ROOTS } from "./providers/registry";
 
@@ -119,6 +120,11 @@ export default function App() {
   // link can't fire — it comes back as a gate. Commands as the universal substrate.
   const ctxRef = useRef(ctx);
   ctxRef.current = ctx;
+  const getCtx = useCallback(() => ctxRef.current, []);
+  const onToast = useCallback(
+    (msg: string) => setToast({ id: ++toastSeq.current, msg, tone: "toast" }),
+    [],
+  );
   const [hash, setHash] = useState("");
   useEffect(() => {
     const run = () => {
@@ -310,6 +316,9 @@ export default function App() {
               current deeplink: <span className="text-teal-soft/80">{hash}</span>
             </div>
           )}
+
+          {/* DRIVER #5 — the same substrate, but as native <button command> markup */}
+          <InvokerPanel kernel={kernel} getCtx={getCtx} onResult={onResult} onToast={onToast} />
         </div>
 
         {/* feature grid */}

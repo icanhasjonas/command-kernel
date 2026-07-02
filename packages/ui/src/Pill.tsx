@@ -4,7 +4,8 @@ import { cn } from "./cn";
 export type PillState = "active" | "filled" | "empty";
 
 const VARIANT: Record<PillState, string> = {
-  active: "border-ck-accent/60 bg-pink/15 text-ck-accent-soft shadow-[0_0_0_1px_rgba(228,19,98,0.35)]",
+  active:
+    "border-ck-accent/60 bg-pink/15 text-ck-accent-soft shadow-[0_0_0_1px_rgba(228,19,98,0.35)]",
   filled: "border-ck-success/40 bg-ck-success/10 text-ck-success",
   empty: "border-dashed border-ck-warning/50 bg-ck-warning/[0.06] text-ck-warning/90",
 };
