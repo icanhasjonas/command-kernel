@@ -1,0 +1,13 @@
+{
+  "name": "@command-kernel/example-custom-ranker",
+  "private": true,
+  "version": "0.1.0",
+  "description": "SEAM 1 example: plug a custom Ranker into createKernel without forking.",
+  "type": "module",
+  "scripts": {
+    "start": "bun src/index.ts"
+  },
+  "dependencies": {
+    "@command-kernel/core": "workspace:*"
+  }
+}

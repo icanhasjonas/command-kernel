@@ -1,0 +1,13 @@
+{
+  "name": "@command-kernel/example-persistent-evidence",
+  "private": true,
+  "version": "0.1.0",
+  "description": "SEAM 3+4 example: file-backed EvidenceStore and PolicyStore that survive a restart.",
+  "type": "module",
+  "scripts": {
+    "start": "bun src/index.ts"
+  },
+  "dependencies": {
+    "@command-kernel/core": "workspace:*"
+  }
+}
