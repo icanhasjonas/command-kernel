@@ -80,6 +80,9 @@ approval is owed; the model **cannot self-approve**.
 | [`@command-kernel/agent`](packages/agent) | driver #2, the headless kernel-as-tool-surface | core |
 | [`examples/playground`](examples/playground) | the full palette + agent demo, composed from the packages | all |
 | [`examples/minimal`](examples/minimal) | the smallest example: register one command, run it | core |
+| [`examples/mcp-server`](examples/mcp-server) | the "~50 lines" claim, proven: an MCP stdio bridge over the projection | core, agent |
+| [`examples/custom-ranker`](examples/custom-ranker) | SEAM 1: a prefix-first Ranker plugged in without forking | core |
+| [`examples/persistent-evidence`](examples/persistent-evidence) | SEAM 3+4: file-backed policy/evidence stores + the honest persistence story | core |
 
 ## Quick start
 

@@ -2,8 +2,9 @@
 
 Driver #1 for [`@command-kernel/core`](../core): a React command palette — fuzzy
 search, drill-in navigation, named-arg pills, chords, and the gate confirm panel.
-It owns NO permission logic; every execution flows through the kernel's gate,
-exactly like the agent driver.
+Plus driver #5: the native DOM invoker, `<button command="--ck:…">` markup routed
+through the same kernel. It owns NO permission logic; every execution flows
+through the kernel's gate, exactly like the agent driver.
 
 ```bash
 bun add @command-kernel/core @command-kernel/ui react react-dom
@@ -38,17 +39,46 @@ const kernel = createKernel({ roots });
   grant via `kernel.evidence` and re-issues the identical call. Flip the ctx role
   to `viewer` and gated commands lock.
 
+## The DOM invoker (driver #5)
+
+Plain HTML is a command surface too. A `command` attribute whose value is
+`--ck:` + a deeplink fires through the identical kernel + gate:
+
+```tsx
+import { bindInvokers, KERNEL_HOST_ID, KernelInvoker } from "@command-kernel/ui";
+
+// once, on the shared host element every <button commandfor> points at:
+const off = bindInvokers(host, kernel, () => ctx, {
+  onResult: (res) => toast(res.result.message),
+  onGate: (res) => routeToApproval(res.node), // gated markup can't auto-fire
+});
+
+// or let the component pick the right primitive from the node's effect:
+<KernelInvoker node={node} path={path}>{node.title}</KernelInvoker>
+// pure/navigable -> <a href="#cmd/...">, writes/gated -> <button command>
+```
+
+Importing this package also augments React's `ButtonHTMLAttributes` with
+`command` / `commandfor`, so the markup typechecks without casts.
+
 ## Exports
 
-`CommandPalette` (the driver), `Kbd` (a keycap), `cn` (clsx + tailwind-merge), and
-`Icon` (a lucide wrapper). The palette logic lives in the `usePalette` hook if you
-want to build a differently-styled shell over the same behaviour.
+`CommandPalette` + `CommandLauncher` (the palette driver), `bindInvokers` /
+`KernelInvoker` / `commandAttr` / `parseInvoker` (the DOM-invoker driver),
+`Kbd` (a keycap), `cn` (clsx + tailwind-merge), and `Icon` (a lucide wrapper).
+The palette logic lives in the `usePalette` hook if you want to build a
+differently-styled shell over the same behaviour.
 
 ## Styling
 
-Tailwind v4. The components use theme tokens (e.g. `pink`, `teal`, `glass`) the
-consumer defines in their `@theme` — see `examples/playground/src/index.css` for
-the demo's palette.
+Tailwind v4. Import the token sheet once, then override the `--ck-*` custom
+properties in your own `@theme`:
+
+```css
+@import "@command-kernel/ui/theme.css";
+```
+
+See `examples/playground/src/index.css` for the demo's palette.
 
 ## Writing your own palette
 
