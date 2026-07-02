@@ -1,4 +1,4 @@
-import { isGated } from "./gate";
+import { isGated } from "./gate.js";
 import type {
   ArgKind,
   ArgSpec,
@@ -8,7 +8,7 @@ import type {
   EntityRef,
   EnumerateMode,
   Gate,
-} from "./types";
+} from "./types.js";
 
 /**
  * Self-description — the layer that lets an AGENT navigate the command tree

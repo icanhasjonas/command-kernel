@@ -1,4 +1,4 @@
-import type { CommandNode, Ctx } from "./types";
+import type { CommandNode, Ctx } from "./types.js";
 
 /**
  * Provider registry — SEAM #5.

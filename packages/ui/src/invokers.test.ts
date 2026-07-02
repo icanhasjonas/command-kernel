@@ -1,8 +1,8 @@
 import { expect, test } from "bun:test";
 import type { CommandResponse, Ctx, Kernel, PathSegment } from "@command-kernel/core";
 import { createKernel } from "@command-kernel/core";
-import type { InvokerHandlers } from "./invokers";
-import { bindInvokers, commandAttr, INVOKER_PREFIX, parseInvoker } from "./invokers";
+import type { InvokerHandlers } from "./invokers.js";
+import { bindInvokers, commandAttr, INVOKER_PREFIX, parseInvoker } from "./invokers.js";
 
 test("commandAttr round-trips a plain path through parseInvoker", () => {
   const path: PathSegment[] = [{ id: "go.users" }];

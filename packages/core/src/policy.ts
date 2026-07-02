@@ -1,5 +1,5 @@
-import type { ArgValues, CommandNode } from "./types";
-import { argList, isFilled } from "./values";
+import type { ArgValues, CommandNode } from "./types.js";
+import { argList, isFilled } from "./values.js";
 
 /**
  * Policy — SEAM #4, the standing-exception half of the TRUST CORE.

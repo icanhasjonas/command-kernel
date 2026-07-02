@@ -1,5 +1,5 @@
-import { cn } from "./cn";
-import { Kbd } from "./Kbd";
+import { cn } from "./cn.js";
+import { Kbd } from "./Kbd.js";
 
 interface Props {
   onClick: () => void;

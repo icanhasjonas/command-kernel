@@ -1,5 +1,5 @@
-import type { ArgSpec, ArgValues, CommandNode } from "./types";
-import { argList } from "./values";
+import type { ArgSpec, ArgValues, CommandNode } from "./types.js";
+import { argList } from "./values.js";
 
 /**
  * The arg schema — THE KEYSTONE, finally cut.

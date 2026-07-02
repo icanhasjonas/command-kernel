@@ -1,5 +1,5 @@
-import { fuzzyMatch } from "./fuzzy";
-import type { CommandNode, Ctx, Ranked } from "./types";
+import { fuzzyMatch } from "./fuzzy.js";
+import type { CommandNode, Ctx, Ranked } from "./types.js";
 
 /**
  * Ranking — SEAM #1.

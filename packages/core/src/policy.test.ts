@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
-import { createMemoryPolicyStore, ruleForNode } from "./policy";
-import type { CommandNode } from "./types";
+import { createMemoryPolicyStore, ruleForNode } from "./policy.js";
+import type { CommandNode } from "./types.js";
 
 describe("always-allow policy", () => {
   it("command scope matches any args", () => {

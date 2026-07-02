@@ -1,9 +1,9 @@
 import { describe, expect, it } from "bun:test";
-import { createKernel } from "./create-kernel";
-import { describeNode } from "./describe";
-import { createEntityRegistry, type EntityType } from "./entity";
-import { toJsonSchema } from "./schema";
-import type { CommandNode, Ctx } from "./types";
+import { createKernel } from "./create-kernel.js";
+import { describeNode } from "./describe.js";
+import { createEntityRegistry, type EntityType } from "./entity.js";
+import { toJsonSchema } from "./schema.js";
+import type { CommandNode, Ctx } from "./types.js";
 
 const ctx: Ctx = {
   location: { module: "home" },

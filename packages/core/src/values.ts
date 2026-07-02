@@ -1,4 +1,4 @@
-import type { ArgValue } from "./types";
+import type { ArgValue } from "./types.js";
 
 /**
  * Arg-value helpers. An arg value is `string | string[]` (a `multiple` arg holds

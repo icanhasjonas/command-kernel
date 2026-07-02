@@ -1,6 +1,6 @@
-import type { CommandRequest, CommandResponse } from "./command";
-import type { Kernel } from "./create-kernel";
-import type { ArgValues, Ctx, PathSegment, Role } from "./types";
+import type { CommandRequest, CommandResponse } from "./command.js";
+import type { Kernel } from "./create-kernel.js";
+import type { ArgValues, Ctx, PathSegment, Role } from "./types.js";
 
 /**
  * Audit + replay.

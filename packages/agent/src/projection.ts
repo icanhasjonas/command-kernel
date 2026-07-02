@@ -9,7 +9,7 @@ import type {
   PathSegment,
 } from "@command-kernel/core";
 import { parseDeeplink } from "@command-kernel/core";
-import { type McpTool, toMcpTool } from "./tools";
+import { type McpTool, toMcpTool } from "./tools.js";
 
 /**
  * The PROJECTION — the kernel as a small, generic tool surface.

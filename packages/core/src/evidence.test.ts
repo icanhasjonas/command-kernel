@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { createMemoryEvidenceStore, pathKey } from "./evidence";
+import { createMemoryEvidenceStore, pathKey } from "./evidence.js";
 
 describe("evidence — the honesty tag", () => {
   it("verifies a grant for the exact command+args+prior-path it was minted for", () => {

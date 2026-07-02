@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
-import { type CommandRecord, replay, toRecord } from "./audit";
-import { createKernel } from "./create-kernel";
-import type { CommandNode, Ctx } from "./types";
+import { type CommandRecord, replay, toRecord } from "./audit.js";
+import { createKernel } from "./create-kernel.js";
+import type { CommandNode, Ctx } from "./types.js";
 
 const ctx = (role = "admin"): Ctx => ({
   location: { module: "home" },

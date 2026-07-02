@@ -1,8 +1,8 @@
 import type { CommandNode, GateVerdict } from "@command-kernel/core";
 import { motion } from "framer-motion";
 import { Check, ShieldAlert, ShieldX, X } from "lucide-react";
-import { Icon } from "./icon";
-import { Kbd } from "./Kbd";
+import { Icon } from "./icon.js";
+import { Kbd } from "./Kbd.js";
 
 export function ConfirmPanel({
   node,

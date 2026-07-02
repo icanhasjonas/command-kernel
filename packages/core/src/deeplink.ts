@@ -1,4 +1,4 @@
-import type { ArgValues, PathSegment } from "./types";
+import type { ArgValues, PathSegment } from "./types.js";
 
 /**
  * Deeplinks — DRIVER #4, the keystone in URL form.

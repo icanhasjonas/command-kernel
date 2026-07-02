@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { type CommandNode, type Ctx, createKernel, type EntityType } from "@command-kernel/core";
-import { createProjection } from "./projection";
+import { createProjection } from "./projection.js";
 
 const ctx = (role = "admin"): Ctx => ({
   location: { module: "home" },

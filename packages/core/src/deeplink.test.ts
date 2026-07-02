@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
-import { createKernel } from "./create-kernel";
-import { parseDeeplink, serializePath } from "./deeplink";
-import type { CommandNode, Ctx, PathSegment } from "./types";
+import { createKernel } from "./create-kernel.js";
+import { parseDeeplink, serializePath } from "./deeplink.js";
+import type { CommandNode, Ctx, PathSegment } from "./types.js";
 
 describe("deeplinks — serialize / parse", () => {
   it("round-trips an id chain with tip args", () => {

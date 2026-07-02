@@ -20,8 +20,8 @@
  * - Conflict detection
  */
 
-import { isMac, type KeyEventLike, type ParsedShortcut, parseShortcut } from "./shortcut";
-import type { CommandNode } from "./types";
+import { isMac, type KeyEventLike, type ParsedShortcut, parseShortcut } from "./shortcut.js";
+import type { CommandNode } from "./types.js";
 
 // ── Key normalization (pure, module-level) ──────────────────────────────────
 

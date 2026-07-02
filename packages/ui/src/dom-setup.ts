@@ -10,7 +10,7 @@
  * their `afterAll`, so the DOM globals never leak into core / boundary tests.
  *
  * Because ESM evaluates imports in source order, a test file that does
- *   import { registerDom } from "./dom-setup";  // (or `import "./dom-setup"`)
+ *   import { registerDom } from "./dom-setup.js";  // (or `import "./dom-setup"`)
  * BEFORE importing "@testing-library/react" guarantees the document exists by
  * the time RTL's module code runs.
  */

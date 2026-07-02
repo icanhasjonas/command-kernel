@@ -12,14 +12,8 @@
  * monorepo version) exactly like scripts/publish.ts, run the linters, then
  * restore the original manifest. Requires `bun run build:packages` first.
  *
- * publint is a hard gate. attw is a hard gate too, with two documented carve-outs:
+ * publint is a hard gate. attw is a hard gate too, with one documented carve-out:
  *   - `--profile esm-only` ignores the CJS resolutions (these packages are ESM-only).
- *   - `internal-resolution-error` is IGNORED as a KNOWN, out-of-scope issue: the
- *     source uses extensionless relative imports (`from "./audit"`), so the emitted
- *     `.d.ts`/`.js` also lack extensions and fail Node16/NodeNext ESM resolution.
- *     A pure-Node ESM consumer (no bundler) hits this; bundler resolution is 🟢.
- *     The real fix is `.js` extensions in every source import -- a src change, out
- *     of this task's scope. Flagged in the final report, not silently swallowed.
  *   - ui's `./theme.css` entrypoint is excluded: attw only understands JS/types
  *     entrypoints, so a CSS subpath is a false "NoResolution". It resolves fine
  *     in a bundler (Vite/Tailwind), which is the only place a CSS import runs.
@@ -74,9 +68,7 @@ for (const name of PACKAGES) {
   try {
     const publintOk = run("bun", ["x", "publint", dir], ROOT);
 
-    const attwArgs = ["x", "attw", "--pack", dir, "--profile", "esm-only", "--ignore-rules"];
-    // KNOWN, out-of-scope (needs .js extensions in src) -- see the header comment.
-    attwArgs.push("internal-resolution-error");
+    const attwArgs = ["x", "attw", "--pack", dir, "--profile", "esm-only"];
     if (name === "ui") attwArgs.push("--exclude-entrypoints", "./theme.css");
     const attwOk = run("bun", attwArgs, ROOT);
 

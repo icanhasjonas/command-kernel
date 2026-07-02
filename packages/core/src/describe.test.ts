@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
-import { describeNode, describeTree, effectMode, enumerateMode } from "./describe";
-import type { CommandNode, Ctx } from "./types";
+import { describeNode, describeTree, effectMode, enumerateMode } from "./describe.js";
+import type { CommandNode, Ctx } from "./types.js";
 
 const ctx = (role: Ctx["user"]["role"] = "admin"): Ctx => ({
   location: { module: "home" },

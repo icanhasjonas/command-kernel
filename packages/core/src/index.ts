@@ -17,7 +17,7 @@
  */
 
 // audit + replay — a serializable command record and a replay verb
-export { type CommandRecord, replay, toRecord } from "./audit";
+export { type CommandRecord, replay, toRecord } from "./audit.js";
 // the one verb + its request/response shapes (usually reached via kernel.command)
 export {
   type CommandDeps,
@@ -25,11 +25,11 @@ export {
   type CommandResponse,
   type Completion,
   command,
-} from "./command";
+} from "./command.js";
 // the kernel factory — where the seams meet
-export { createKernel, type Kernel, type KernelConfig } from "./create-kernel";
+export { createKernel, type Kernel, type KernelConfig } from "./create-kernel.js";
 // DRIVER #4 — deeplinks (serialize / parse a path; same arg schema)
-export { type DeeplinkOptions, parseDeeplink, serializePath } from "./deeplink";
+export { type DeeplinkOptions, parseDeeplink, serializePath } from "./deeplink.js";
 // self-description — what an agent reads to navigate the tree without guessing
 export {
   type ArgDescriptor,
@@ -38,7 +38,7 @@ export {
   effectMode,
   enumerateMode,
   type NodeDescriptor,
-} from "./describe";
+} from "./describe.js";
 // SEAM 6 — the typed-entity catalog (App Intents AppEntity + EntityQuery)
 export {
   createEntityRegistry,
@@ -47,12 +47,12 @@ export {
   type EntitySearchOptions,
   type EntityType,
   entityOption,
-} from "./entity";
+} from "./entity.js";
 // SEAM 3 — evidence (the session-salted honesty tag)
-export { createMemoryEvidenceStore, type EvidenceStore, pathKey } from "./evidence";
-export { type FuzzyResult, fuzzyMatch } from "./fuzzy";
+export { createMemoryEvidenceStore, type EvidenceStore, pathKey } from "./evidence.js";
+export { type FuzzyResult, fuzzyMatch } from "./fuzzy.js";
 // SEAM 2 — the gate (the single permission-enforcement point)
-export { createRoleGate, evaluateGate, type GatePolicy, isGated } from "./gate";
+export { createRoleGate, evaluateGate, type GatePolicy, isGated } from "./gate.js";
 // the lower verbs the drivers compose (usually reached via the Kernel instance)
 export {
   bumpFrecency,
@@ -65,7 +65,7 @@ export {
   missingArgs,
   resolveChildren,
   searchNodes,
-} from "./kernel";
+} from "./kernel.js";
 // keyboard driver — instance-scoped layer stack + chord state machine.
 // The HOST attaches `keyboard.handleKeydown` to its key source; core stays DOM-free.
 export {
@@ -83,7 +83,7 @@ export {
   type ShortcutConflict,
   type ShortcutDriverOptions,
   validateShortcuts,
-} from "./keyboard";
+} from "./keyboard.js";
 // SEAM 4 — policy (session-scoped always-allow); ruleForNode/allowLabel are pure helpers
 export {
   type AllowRule,
@@ -92,11 +92,11 @@ export {
   createMemoryPolicyStore,
   type PolicyStore,
   ruleForNode,
-} from "./policy";
+} from "./policy.js";
 // SEAM 1 — ranking
-export { createRanker, type Ranker, type RankWeights, rank } from "./rank";
+export { createRanker, type Ranker, type RankWeights, rank } from "./rank.js";
 // SEAM 5 — the provider registry
-export { createRegistry, type Provider, type Registry } from "./registry";
+export { createRegistry, type Provider, type Registry } from "./registry.js";
 // the keystone — the arg schema, derived into JSON Schema + runtime validation
 export {
   type ArgError,
@@ -106,7 +106,7 @@ export {
   type JsonSchemaProperty,
   toJsonSchema,
   validateArgs,
-} from "./schema";
+} from "./schema.js";
 // shortcut string parsing, matching, and formatting
 export {
   formatShortcut,
@@ -114,7 +114,7 @@ export {
   matchesEvent,
   type ParsedShortcut,
   parseShortcut,
-} from "./shortcut";
+} from "./shortcut.js";
 // the data model
 export type {
   ArgKind,
@@ -137,6 +137,6 @@ export type {
   Ranked,
   ResultKind,
   Role,
-} from "./types";
+} from "./types.js";
 // arg-value helpers (single | list — for `multiple` args)
-export { argList, argText, isFilled } from "./values";
+export { argList, argText, isFilled } from "./values.js";

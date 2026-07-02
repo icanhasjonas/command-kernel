@@ -1,10 +1,10 @@
 import { describe, expect, it } from "bun:test";
-import { createKernel } from "./create-kernel";
-import { parseDeeplink, serializePath } from "./deeplink";
-import { createMemoryEvidenceStore } from "./evidence";
-import { missingArgs } from "./kernel";
-import { toJsonSchema, validateArgs } from "./schema";
-import type { CommandNode, Ctx } from "./types";
+import { createKernel } from "./create-kernel.js";
+import { parseDeeplink, serializePath } from "./deeplink.js";
+import { createMemoryEvidenceStore } from "./evidence.js";
+import { missingArgs } from "./kernel.js";
+import { toJsonSchema, validateArgs } from "./schema.js";
+import type { CommandNode, Ctx } from "./types.js";
 
 const ctx: Ctx = {
   location: { module: "home" },

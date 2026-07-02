@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { formatShortcut, parseShortcut } from "./shortcut";
+import { formatShortcut, parseShortcut } from "./shortcut.js";
 
 describe("parseShortcut", () => {
   it("parses mod+key", () => {

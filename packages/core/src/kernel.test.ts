@@ -1,10 +1,10 @@
 import { describe, expect, it } from "bun:test";
-import { createKernel } from "./create-kernel";
-import { fuzzyMatch } from "./fuzzy";
-import { evaluateGate } from "./gate";
-import { missingArgs } from "./kernel";
-import { rank } from "./rank";
-import type { CommandNode, Ctx } from "./types";
+import { createKernel } from "./create-kernel.js";
+import { fuzzyMatch } from "./fuzzy.js";
+import { evaluateGate } from "./gate.js";
+import { missingArgs } from "./kernel.js";
+import { rank } from "./rank.js";
+import type { CommandNode, Ctx } from "./types.js";
 
 const ctx = (role: Ctx["user"]["role"] = "admin"): Ctx => ({
   location: { module: "home" },

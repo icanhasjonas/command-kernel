@@ -1,11 +1,11 @@
 import { describe, expect, it } from "bun:test";
-import { createKernel } from "./create-kernel";
-import type { EvidenceStore } from "./evidence";
-import type { GatePolicy } from "./gate";
-import type { PolicyStore } from "./policy";
-import type { Ranker } from "./rank";
-import { createRegistry } from "./registry";
-import type { CommandNode, Ctx } from "./types";
+import { createKernel } from "./create-kernel.js";
+import type { EvidenceStore } from "./evidence.js";
+import type { GatePolicy } from "./gate.js";
+import type { PolicyStore } from "./policy.js";
+import type { Ranker } from "./rank.js";
+import { createRegistry } from "./registry.js";
+import type { CommandNode, Ctx } from "./types.js";
 
 const ctx = (role: Ctx["user"]["role"] = "admin"): Ctx => ({
   location: { module: "home" },

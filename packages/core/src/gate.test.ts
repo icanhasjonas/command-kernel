@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
-import { createKernel } from "./create-kernel";
-import { createRoleGate, evaluateGate } from "./gate";
-import type { CommandNode, Ctx } from "./types";
+import { createKernel } from "./create-kernel.js";
+import { createRoleGate, evaluateGate } from "./gate.js";
+import type { CommandNode, Ctx } from "./types.js";
 
 const ctx = (role: string): Ctx => ({
   location: { module: "home" },

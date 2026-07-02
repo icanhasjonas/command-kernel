@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
-import { createKernel } from "./create-kernel";
-import type { EntityType } from "./entity";
-import type { CommandNode, Ctx } from "./types";
+import { createKernel } from "./create-kernel.js";
+import type { EntityType } from "./entity.js";
+import type { CommandNode, Ctx } from "./types.js";
 
 const ctx: Ctx = {
   location: { module: "home" },

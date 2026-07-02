@@ -1,9 +1,9 @@
-import { describeNode, type NodeDescriptor } from "./describe";
-import { type Entity, type EntityRegistry, entityOption } from "./entity";
-import { pathKey } from "./evidence";
-import { type ExecuteDeps, executeNode, missingArgs, resolveChildren } from "./kernel";
-import type { Ranker } from "./rank";
-import type { ArgError } from "./schema";
+import { describeNode, type NodeDescriptor } from "./describe.js";
+import { type Entity, type EntityRegistry, entityOption } from "./entity.js";
+import { pathKey } from "./evidence.js";
+import { type ExecuteDeps, executeNode, missingArgs, resolveChildren } from "./kernel.js";
+import type { Ranker } from "./rank.js";
+import type { ArgError } from "./schema.js";
 import type {
   ArgOption,
   ArgSpec,
@@ -14,8 +14,8 @@ import type {
   GateVerdict,
   PathSegment,
   Role,
-} from "./types";
-import { isFilled } from "./values";
+} from "./types.js";
+import { isFilled } from "./values.js";
 
 /**
  * The ONE verb.

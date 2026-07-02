@@ -1,7 +1,7 @@
 import type { ArgOption } from "@command-kernel/core";
 import { CornerDownLeft, Loader2 } from "lucide-react";
-import { cn } from "./cn";
-import { Icon } from "./icon";
+import { cn } from "./cn.js";
+import { Icon } from "./icon.js";
 
 export function ArgOptions({
   options,

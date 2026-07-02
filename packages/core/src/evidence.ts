@@ -1,4 +1,4 @@
-import type { ArgValues, Grant, PathSegment } from "./types";
+import type { ArgValues, Grant, PathSegment } from "./types.js";
 
 /**
  * Evidence — SEAM #3, the honesty-tag layer of the TRUST CORE.

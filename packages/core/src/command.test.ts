@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
-import { createKernel } from "./create-kernel";
-import { pathKey } from "./evidence";
-import type { CommandNode, Ctx } from "./types";
+import { createKernel } from "./create-kernel.js";
+import { pathKey } from "./evidence.js";
+import type { CommandNode, Ctx } from "./types.js";
 
 const ctx = (role: Ctx["user"]["role"] = "admin"): Ctx => ({
   location: { module: "home" },

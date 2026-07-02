@@ -1,4 +1,4 @@
-import type { CommandNode, Ctx, GateVerdict } from "./types";
+import type { CommandNode, Ctx, GateVerdict } from "./types.js";
 
 /**
  * The gate — SEAM #2, and the TRUST CORE's first line.

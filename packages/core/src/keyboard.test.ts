@@ -5,9 +5,9 @@ import {
   normalizeEvent,
   normalizeShortcut,
   validateShortcuts,
-} from "./keyboard";
-import { isMac, parseShortcut } from "./shortcut";
-import type { CommandNode } from "./types";
+} from "./keyboard.js";
+import { isMac, parseShortcut } from "./shortcut.js";
+import type { CommandNode } from "./types.js";
 
 // The driver is pure and instance-scoped — events are structural
 // (KernelKeyEvent), so the whole layer stack + chord machine runs under bun

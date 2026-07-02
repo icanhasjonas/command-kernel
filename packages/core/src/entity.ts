@@ -1,4 +1,4 @@
-import type { Ctx } from "./types";
+import type { Ctx } from "./types.js";
 
 /**
  * Entities — SEAM #6, the typed-argument catalog.

@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { cn } from "./cn";
+import { cn } from "./cn.js";
 
 export type PillState = "active" | "filled" | "empty";
 

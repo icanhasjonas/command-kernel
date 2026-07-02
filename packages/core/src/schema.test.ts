@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
-import { toJsonSchema, validateArgs } from "./schema";
-import type { CommandNode } from "./types";
+import { toJsonSchema, validateArgs } from "./schema.js";
+import type { CommandNode } from "./types.js";
 
 const sendEmail: CommandNode = {
   id: "email.send",

@@ -8,12 +8,12 @@
 
 // side-effect import: augments React's ButtonHTMLAttributes with the native
 // invoker attributes (command / commandfor) for every consumer of this package
-import "./dom-command";
+import "./dom-command.js";
 
-export { CommandLauncher } from "./CommandLauncher";
-export { CommandPalette } from "./CommandPalette";
-export { cn } from "./cn";
-export { Icon } from "./icon";
+export { CommandLauncher } from "./CommandLauncher.js";
+export { CommandPalette } from "./CommandPalette.js";
+export { cn } from "./cn.js";
+export { Icon } from "./icon.js";
 // DRIVER #5 — the native DOM invoker (`<button command>` / `commandfor`)
 export {
   type BindInvokersOptions,
@@ -23,8 +23,8 @@ export {
   type InvokerHandlers,
   KERNEL_HOST_ID,
   parseInvoker,
-} from "./invokers";
-export { Kbd } from "./Kbd";
-export { KernelInvoker, type KernelInvokerProps } from "./KernelInvoker";
-export type { Mode } from "./usePalette";
-export { usePalette } from "./usePalette";
+} from "./invokers.js";
+export { Kbd } from "./Kbd.js";
+export { KernelInvoker, type KernelInvokerProps } from "./KernelInvoker.js";
+export type { Mode } from "./usePalette.js";
+export { usePalette } from "./usePalette.js";

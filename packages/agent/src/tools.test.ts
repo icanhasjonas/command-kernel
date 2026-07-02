@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import type { CommandNode, Ctx } from "@command-kernel/core";
-import { collectTools, toMcpTool } from "./tools";
+import { collectTools, toMcpTool } from "./tools.js";
 
 const ctx = (role: string): Ctx => ({
   location: { module: "home" },

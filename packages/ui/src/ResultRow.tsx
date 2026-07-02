@@ -1,10 +1,10 @@
 import type { Ranked } from "@command-kernel/core";
 import { isGated } from "@command-kernel/core";
 import { ChevronRight, Lock } from "lucide-react";
-import { cn } from "./cn";
-import { Highlight } from "./Highlight";
-import { Icon } from "./icon";
-import { Kbd } from "./Kbd";
+import { cn } from "./cn.js";
+import { Highlight } from "./Highlight.js";
+import { Icon } from "./icon.js";
+import { Kbd } from "./Kbd.js";
 
 export function ResultRow({
   item,

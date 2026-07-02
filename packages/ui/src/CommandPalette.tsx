@@ -11,14 +11,14 @@ import * as Dialog from "@radix-ui/react-dialog";
 import { AnimatePresence, motion } from "framer-motion";
 import { Loader2, Search, SearchX } from "lucide-react";
 import { type KeyboardEvent, useEffect, useRef, useState } from "react";
-import { ArgOptions } from "./ArgOptions";
-import { ConfirmPanel } from "./ConfirmPanel";
-import { cn } from "./cn";
-import { Icon } from "./icon";
-import { Kbd } from "./Kbd";
-import { Pill } from "./Pill";
-import { ResultRow } from "./ResultRow";
-import { usePalette } from "./usePalette";
+import { ArgOptions } from "./ArgOptions.js";
+import { ConfirmPanel } from "./ConfirmPanel.js";
+import { cn } from "./cn.js";
+import { Icon } from "./icon.js";
+import { Kbd } from "./Kbd.js";
+import { Pill } from "./Pill.js";
+import { ResultRow } from "./ResultRow.js";
+import { usePalette } from "./usePalette.js";
 
 interface Props {
   open: boolean;

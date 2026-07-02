@@ -1,7 +1,7 @@
 import type { CommandNode, DeeplinkOptions, PathSegment } from "@command-kernel/core";
 import { effectMode, serializePath } from "@command-kernel/core";
 import type { ReactNode } from "react";
-import { commandAttr, KERNEL_HOST_ID } from "./invokers";
+import { commandAttr, KERNEL_HOST_ID } from "./invokers.js";
 
 /**
  * One kernel node, rendered as the RIGHT web primitive.

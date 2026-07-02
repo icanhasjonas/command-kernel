@@ -1,8 +1,8 @@
-import type { EvidenceStore } from "./evidence";
-import type { GatePolicy } from "./gate";
-import type { PolicyStore } from "./policy";
-import { type Ranker, rank } from "./rank";
-import { type ArgError, validateArgs } from "./schema";
+import type { EvidenceStore } from "./evidence.js";
+import type { GatePolicy } from "./gate.js";
+import type { PolicyStore } from "./policy.js";
+import { type Ranker, rank } from "./rank.js";
+import { type ArgError, validateArgs } from "./schema.js";
 import type {
   ArgValues,
   CommandNode,
@@ -11,8 +11,8 @@ import type {
   GateVerdict,
   Grant,
   Ranked,
-} from "./types";
-import { isFilled } from "./values";
+} from "./types.js";
+import { isFilled } from "./values.js";
 
 /**
  * The kernel verbs. Renderers (palette, agent, chords) call these — usually via

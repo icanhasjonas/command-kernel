@@ -1,8 +1,8 @@
-import { type CommandRecord, toRecord } from "./audit";
-import { type CommandDeps, type CommandRequest, type CommandResponse, command } from "./command";
-import { createEntityRegistry, type EntityRegistry, type EntityType } from "./entity";
-import { createMemoryEvidenceStore, type EvidenceStore } from "./evidence";
-import { evaluateGate, type GatePolicy } from "./gate";
+import { type CommandRecord, toRecord } from "./audit.js";
+import { type CommandDeps, type CommandRequest, type CommandResponse, command } from "./command.js";
+import { createEntityRegistry, type EntityRegistry, type EntityType } from "./entity.js";
+import { createMemoryEvidenceStore, type EvidenceStore } from "./evidence.js";
+import { evaluateGate, type GatePolicy } from "./gate.js";
 import {
   type Confirmation,
   collectChords,
@@ -11,11 +11,11 @@ import {
   executeNode,
   resolveChildren,
   searchNodes,
-} from "./kernel";
-import { createMemoryPolicyStore, type PolicyStore } from "./policy";
-import { type Ranker, rank } from "./rank";
-import type { Registry } from "./registry";
-import type { ArgValues, CommandNode, Ctx, FallbackSearch, Ranked } from "./types";
+} from "./kernel.js";
+import { createMemoryPolicyStore, type PolicyStore } from "./policy.js";
+import { type Ranker, rank } from "./rank.js";
+import type { Registry } from "./registry.js";
+import type { ArgValues, CommandNode, Ctx, FallbackSearch, Ranked } from "./types.js";
 
 /**
  * createKernel — where the SEAMS meet.
