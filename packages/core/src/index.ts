@@ -66,23 +66,22 @@ export {
   resolveChildren,
   searchNodes,
 } from "./kernel";
-// keyboard driver — layer stack, chord state machine, shortcut registration.
-// The HOST attaches `handleKeydown` to its own key source; core stays DOM-free.
+// keyboard driver — instance-scoped layer stack + chord state machine.
+// The HOST attaches `keyboard.handleKeydown` to its key source; core stays DOM-free.
 export {
-  handleKeydown,
+  type ChordListener,
+  createKeyboard,
   type KernelKeyEvent,
   type KeyBindings,
+  type Keyboard,
+  type KeyboardOptions,
   type KeyHandler,
+  type KeyLayer,
   type KeyLayerOptions,
   normalizeEvent,
   normalizeShortcut,
-  popLayer,
-  pushLayer,
-  registerShortcuts,
   type ShortcutConflict,
   type ShortcutDriverOptions,
-  setChordTimeout,
-  subscribeChordMode,
   validateShortcuts,
 } from "./keyboard";
 // SEAM 4 — policy (session-scoped always-allow); ruleForNode/allowLabel are pure helpers

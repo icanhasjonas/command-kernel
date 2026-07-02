@@ -1,5 +1,11 @@
 import type { CommandResult, Ctx, Role } from "@command-kernel/core";
-import { bumpFrecency, createKernel, parseDeeplink, serializePath } from "@command-kernel/core";
+import {
+  bumpFrecency,
+  createKernel,
+  createKeyboard,
+  parseDeeplink,
+  serializePath,
+} from "@command-kernel/core";
 import { CommandPalette, cn, Icon, Kbd } from "@command-kernel/ui";
 import { AnimatePresence, motion } from "framer-motion";
 import { Bot, Command as CommandIcon, RotateCcw } from "lucide-react";
@@ -76,25 +82,6 @@ export default function App() {
   });
 
   useEffect(() => {
-    const chords = new Map(ROOTS.filter((n) => n.chord).map((n) => [n.chord as string, n.id]));
-    const h = (e: KeyboardEvent) => {
-      const k = e.key.toLowerCase();
-      if ((e.metaKey || e.ctrlKey) && k === "k") {
-        e.preventDefault();
-        setOpen((o) => !o);
-        return;
-      }
-      if ((e.metaKey || e.ctrlKey) && chords.has(k)) {
-        e.preventDefault();
-        setOpen(true);
-        setTrigger({ id: chords.get(k) as string, nonce: ++nonce.current });
-      }
-    };
-    window.addEventListener("keydown", h);
-    return () => window.removeEventListener("keydown", h);
-  }, []);
-
-  useEffect(() => {
     if (!toast) return;
     const t = setTimeout(() => setToast(null), 2600);
     return () => clearTimeout(t);
@@ -125,6 +112,27 @@ export default function App() {
     (msg: string) => setToast({ id: ++toastSeq.current, msg, tone: "toast" }),
     [],
   );
+
+  // DRIVER #3 — chords through the kernel's keyboard driver. One instance-
+  // scoped layer stack; the SAME nodes the palette ranks provide the bindings
+  // (kernel.chords), and the host owns only this window listener.
+  useEffect(() => {
+    const kb = createKeyboard();
+    kb.pushLayer({ "mod+k": () => setOpen((o) => !o) }, { base: true, id: "palette-launcher" });
+    kb.registerShortcuts(
+      new Map([...kernel.chords(ctxRef.current)].map(([c, n]) => [`mod+${c}`, n] as const)),
+      {
+        onActivate: (n) => {
+          setOpen(true);
+          setTrigger({ id: n.id, nonce: ++nonce.current });
+        },
+      },
+    );
+    const h = (e: KeyboardEvent) => kb.handleKeydown(e);
+    window.addEventListener("keydown", h);
+    return () => window.removeEventListener("keydown", h);
+  }, [kernel]);
+
   const [hash, setHash] = useState("");
   useEffect(() => {
     const run = () => {

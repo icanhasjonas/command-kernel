@@ -5,10 +5,13 @@
  * React and terminal-specific concerns -- the kernel owns the state machine,
  * the HOST owns the DOM listener and React hooks:
  *
- *   window.addEventListener("keydown", handleKeydown, { capture: true });
+ *   const kb = createKeyboard();
+ *   window.addEventListener("keydown", kb.handleKeydown, { capture: true });
  *
  * Core never touches window/document/KeyboardEvent — events arrive as the
- * structural `KernelKeyEvent`, which any real browser event satisfies.
+ * structural `KernelKeyEvent`, which any real browser event satisfies. State
+ * is INSTANCE-scoped (like every other seam): two kernels on one page get two
+ * independent layer stacks, never shared chord state.
  *
  * Features:
  * - Layer stacking (LIFO, base vs modal)
@@ -20,7 +23,7 @@
 import { isMac, type KeyEventLike, type ParsedShortcut, parseShortcut } from "./shortcut";
 import type { CommandNode } from "./types";
 
-// ── Key normalization ───────────────────────────────────────────────────────
+// ── Key normalization (pure, module-level) ──────────────────────────────────
 
 /** A key event the dispatcher can consume AND cancel — a browser keydown fits. */
 export interface KernelKeyEvent extends KeyEventLike {
@@ -69,7 +72,7 @@ export function normalizeShortcut(parsed: ParsedShortcut): string {
   return parts.join("+");
 }
 
-// ── Layer stack ─────────────────────────────────────────────────────────────
+// ── Types ───────────────────────────────────────────────────────────────────
 
 export type KeyHandler = (e: KernelKeyEvent) => void;
 export type KeyBindings = Record<string, KeyHandler>;
@@ -80,78 +83,40 @@ export interface KeyLayerOptions {
   enabled?: boolean;
 }
 
-interface Layer {
+export interface KeyLayer {
   id: string;
   bindings: KeyBindings;
   options: KeyLayerOptions;
 }
 
-const layers: Layer[] = [];
+export type ChordListener = (prefix: string | null) => void;
 
-export function pushLayer(bindings: KeyBindings, options: KeyLayerOptions = {}): Layer {
-  const layer: Layer = { id: options.id ?? `layer-${layers.length}`, bindings, options };
-  if (options.base) {
-    const firstNonBase = layers.findIndex((l) => !l.options.base);
-    if (firstNonBase === -1) layers.push(layer);
-    else layers.splice(firstNonBase, 0, layer);
-  } else {
-    layers.push(layer);
-  }
-  return layer;
+export interface ShortcutDriverOptions {
+  onActivate: (node: CommandNode) => void;
 }
 
-export function popLayer(layer: Layer): void {
-  const i = layers.indexOf(layer);
-  if (i !== -1) layers.splice(i, 1);
+export interface KeyboardOptions {
+  /** how long a chord prefix stays armed before it expires (default 2000ms) */
+  chordTimeoutMs?: number;
 }
 
-// ── Chord state machine ─────────────────────────────────────────────────────
-
-interface ChordState {
-  prefix: string;
-  timeoutId: ReturnType<typeof setTimeout>;
+/** One independent keyboard state machine — layers + chord state, no DOM. */
+export interface Keyboard {
+  /** the host's keydown entrypoint; bound, so it can be passed as a listener */
+  handleKeydown: (e: KernelKeyEvent) => void;
+  pushLayer(bindings: KeyBindings, options?: KeyLayerOptions): KeyLayer;
+  popLayer(layer: KeyLayer): void;
+  /** bind a Map of shortcut strings -> nodes as one base layer */
+  registerShortcuts(nodes: Map<string, CommandNode>, options: ShortcutDriverOptions): KeyLayer;
+  /** observe chord-mode edges (prefix armed / cleared) for UI hints */
+  subscribeChordMode(fn: ChordListener): () => void;
+  exitChordMode(): void;
+  setChordTimeout(ms: number): void;
+  /** the armed chord prefix, or null when not in chord mode */
+  readonly chordPrefix: string | null;
 }
 
-let activeChord: ChordState | null = null;
-let chordTimeoutMs = 2000;
-
-type ChordListener = (prefix: string | null) => void;
-const chordListeners = new Set<ChordListener>();
-
-export function subscribeChordMode(fn: ChordListener): () => void {
-  chordListeners.add(fn);
-  return () => chordListeners.delete(fn);
-}
-
-function notifyChord(prefix: string | null): void {
-  for (const fn of chordListeners) fn(prefix);
-}
-
-export function exitChordMode(): void {
-  if (activeChord) {
-    clearTimeout(activeChord.timeoutId);
-    activeChord = null;
-    notifyChord(null);
-  }
-}
-
-export function setChordTimeout(ms: number): void {
-  chordTimeoutMs = ms;
-}
-
-function enterChordMode(prefix: string): void {
-  exitChordMode();
-  activeChord = {
-    prefix,
-    timeoutId: setTimeout(() => {
-      activeChord = null;
-      notifyChord(null);
-    }, chordTimeoutMs),
-  };
-  notifyChord(prefix);
-}
-
-// ── Binding lookup ──────────────────────────────────────────────────────────
+// ── Binding lookup (pure) ───────────────────────────────────────────────────
 
 function findBinding(bindings: KeyBindings, normalized: string): KeyHandler | undefined {
   const handler = bindings[normalized];
@@ -161,90 +126,141 @@ function findBinding(bindings: KeyBindings, normalized: string): KeyHandler | un
   return undefined;
 }
 
-function isChordPrefix(normalized: string): boolean {
-  const prefix = `${normalized} `;
-  for (let i = layers.length - 1; i >= 0; i--) {
-    const layer = layers[i] as Layer;
-    if (layer.options.enabled === false) continue;
-    for (const key of Object.keys(layer.bindings)) {
-      if (key.startsWith(prefix)) return true;
+// ── The instance ────────────────────────────────────────────────────────────
+
+export function createKeyboard(options: KeyboardOptions = {}): Keyboard {
+  const layers: KeyLayer[] = [];
+  let chordTimeoutMs = options.chordTimeoutMs ?? 2000;
+  let activeChord: { prefix: string; timeoutId: ReturnType<typeof setTimeout> } | null = null;
+  const chordListeners = new Set<ChordListener>();
+
+  function notifyChord(prefix: string | null): void {
+    for (const fn of chordListeners) fn(prefix);
+  }
+
+  function exitChordMode(): void {
+    if (activeChord) {
+      clearTimeout(activeChord.timeoutId);
+      activeChord = null;
+      notifyChord(null);
     }
   }
-  return false;
-}
 
-// ── Dispatch ────────────────────────────────────────────────────────────────
+  function enterChordMode(prefix: string): void {
+    exitChordMode();
+    activeChord = {
+      prefix,
+      timeoutId: setTimeout(() => {
+        activeChord = null;
+        notifyChord(null);
+      }, chordTimeoutMs),
+    };
+    notifyChord(prefix);
+  }
 
-/**
- * The host's keydown entrypoint. Attach it where your platform delivers key
- * events (a browser: `window.addEventListener("keydown", handleKeydown,
- * { capture: true })`) and detach it when the last layer pops. Core owns the
- * routing; the host owns the listener.
- */
-export function handleKeydown(e: KernelKeyEvent): void {
-  if (IGNORE.has(e.key)) return;
-  const normalized = normalizeEvent(e);
-
-  if (activeChord) {
-    const full = `${activeChord.prefix} ${normalized}`;
+  function isChordPrefix(normalized: string): boolean {
+    const prefix = `${normalized} `;
     for (let i = layers.length - 1; i >= 0; i--) {
-      const layer = layers[i] as Layer;
-      if (layer.options.enabled === false) continue;
-      const handler = findBinding(layer.bindings, full);
+      const layer = layers[i];
+      if (!layer || layer.options.enabled === false) continue;
+      for (const key of Object.keys(layer.bindings)) {
+        if (key.startsWith(prefix)) return true;
+      }
+    }
+    return false;
+  }
+
+  function handleKeydown(e: KernelKeyEvent): void {
+    if (IGNORE.has(e.key)) return;
+    const normalized = normalizeEvent(e);
+
+    if (activeChord) {
+      const full = `${activeChord.prefix} ${normalized}`;
+      for (let i = layers.length - 1; i >= 0; i--) {
+        const layer = layers[i];
+        if (!layer || layer.options.enabled === false) continue;
+        const handler = findBinding(layer.bindings, full);
+        if (handler) {
+          e.preventDefault();
+          e.stopPropagation();
+          exitChordMode();
+          handler(e);
+          return;
+        }
+      }
+      if (isChordPrefix(full)) {
+        e.preventDefault();
+        enterChordMode(full);
+        return;
+      }
+      exitChordMode();
+      return;
+    }
+
+    if (isChordPrefix(normalized)) {
+      e.preventDefault();
+      enterChordMode(normalized);
+      return;
+    }
+
+    for (let i = layers.length - 1; i >= 0; i--) {
+      const layer = layers[i];
+      if (!layer || layer.options.enabled === false) continue;
+      const handler = findBinding(layer.bindings, normalized);
       if (handler) {
         e.preventDefault();
         e.stopPropagation();
-        exitChordMode();
         handler(e);
         return;
       }
     }
-    if (isChordPrefix(full)) {
-      e.preventDefault();
-      enterChordMode(full);
-      return;
+  }
+
+  function pushLayer(bindings: KeyBindings, layerOptions: KeyLayerOptions = {}): KeyLayer {
+    const layer: KeyLayer = {
+      id: layerOptions.id ?? `layer-${layers.length}`,
+      bindings,
+      options: layerOptions,
+    };
+    if (layerOptions.base) {
+      const firstNonBase = layers.findIndex((l) => !l.options.base);
+      if (firstNonBase === -1) layers.push(layer);
+      else layers.splice(firstNonBase, 0, layer);
+    } else {
+      layers.push(layer);
     }
-    exitChordMode();
-    return;
+    return layer;
   }
 
-  if (isChordPrefix(normalized)) {
-    e.preventDefault();
-    enterChordMode(normalized);
-    return;
-  }
-
-  for (let i = layers.length - 1; i >= 0; i--) {
-    const layer = layers[i] as Layer;
-    if (layer.options.enabled === false) continue;
-    const handler = findBinding(layer.bindings, normalized);
-    if (handler) {
-      e.preventDefault();
-      e.stopPropagation();
-      handler(e);
-      return;
-    }
-  }
+  return {
+    handleKeydown,
+    pushLayer,
+    popLayer(layer) {
+      const i = layers.indexOf(layer);
+      if (i !== -1) layers.splice(i, 1);
+    },
+    registerShortcuts(nodes, driverOptions) {
+      const bindings: KeyBindings = {};
+      for (const [shortcut, node] of nodes) {
+        bindings[normalizeShortcut(parseShortcut(shortcut))] = () => driverOptions.onActivate(node);
+      }
+      return pushLayer(bindings, { base: true, id: "kernel-shortcuts" });
+    },
+    subscribeChordMode(fn) {
+      chordListeners.add(fn);
+      return () => chordListeners.delete(fn);
+    },
+    exitChordMode,
+    setChordTimeout(ms) {
+      chordTimeoutMs = ms;
+    },
+    get chordPrefix() {
+      return activeChord?.prefix ?? null;
+    },
+  };
 }
 
-// ── Kernel integration ──────────────────────────────────────────────────────
-
-export interface ShortcutDriverOptions {
-  onActivate: (node: CommandNode) => void;
-}
-
-export function registerShortcuts(
-  nodes: Map<string, CommandNode>,
-  options: ShortcutDriverOptions,
-): Layer {
-  const bindings: KeyBindings = {};
-  for (const [shortcut, node] of nodes) {
-    bindings[normalizeShortcut(parseShortcut(shortcut))] = () => options.onActivate(node);
-  }
-  return pushLayer(bindings, { base: true, id: "kernel-shortcuts" });
-}
-
-// ── Conflict detection ──────────────────────────────────────────────────────
+// ── Conflict detection (pure) ───────────────────────────────────────────────
 
 export interface ShortcutConflict {
   shortcut: string;
@@ -272,21 +288,3 @@ export function validateShortcuts(nodes: Map<string, CommandNode>): ShortcutConf
     .filter(([, ids]) => ids.length > 1)
     .map(([shortcut, nodeIds]) => ({ shortcut, nodeIds }));
 }
-
-// ── Test helpers ────────────────────────────────────────────────────────────
-
-export const _test = {
-  pushLayer,
-  popLayer,
-  dispatch: handleKeydown,
-  normalizeEvent,
-  get layers() {
-    return layers;
-  },
-  exitChordMode,
-  getActiveChord: () => activeChord,
-  reset: () => {
-    layers.length = 0;
-    exitChordMode();
-  },
-};
