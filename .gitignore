@@ -7,3 +7,4 @@ dist
 .dev.vars
 .wrangler
 .DS_Store
+.bundle-entry-*.tsx

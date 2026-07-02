@@ -18,14 +18,20 @@
     "lint:fix": "biome check --write .",
     "format": "biome format --write .",
     "test": "bun test",
-    "check": "biome check . && tsc --noEmit && bun test"
+    "check": "biome check . && tsc --noEmit && bun test",
+    "check:full": "bun run check && bun run build:packages && bun run build && bun run lint:pkg",
+    "lint:pkg": "bun scripts/lint-pkg.ts",
+    "report:bundle": "bun scripts/bundle-report.ts"
   },
   "devDependencies": {
+    "@arethetypeswrong/cli": "^0.18.4",
     "@biomejs/biome": "^2.5.1",
+    "@changesets/cli": "^2.31.0",
     "@types/bun": "^1.2.0",
     "@types/node": "^24.0.0",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
+    "publint": "^0.3.21",
     "typescript": "^6.0.0"
   }
 }
