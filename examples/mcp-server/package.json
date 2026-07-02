@@ -1,0 +1,15 @@
+{
+  "name": "@command-kernel/example-mcp-server",
+  "private": true,
+  "version": "0.1.0",
+  "description": "The README's claim, proven: an MCP stdio server over createProjection in ~50 lines.",
+  "type": "module",
+  "scripts": {
+    "start": "bun src/index.ts"
+  },
+  "dependencies": {
+    "@command-kernel/agent": "workspace:*",
+    "@command-kernel/core": "workspace:*",
+    "@modelcontextprotocol/sdk": "^1.12.0"
+  }
+}
