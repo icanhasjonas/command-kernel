@@ -6,6 +6,7 @@ import {
   parseDeeplink,
   serializePath,
 } from "@command-kernel/core";
+import type { PaletteLabelOverrides } from "@command-kernel/ui";
 import { CommandPalette, cn, Icon, Kbd } from "@command-kernel/ui";
 import { AnimatePresence, motion } from "framer-motion";
 import { Bot, Command as CommandIcon, RotateCcw } from "lucide-react";
@@ -23,6 +24,14 @@ const PLACES = [
 ] as const;
 
 const ROLES: Role[] = ["admin", "advisor", "viewer"];
+
+// The demo's voice lives HERE, in the consumer. The package's defaults are
+// neutral ("Commands", "Search commands…"); this is what overriding looks like.
+const PALETTE_LABELS: PaletteLabelOverrides = {
+  root: "Backoffice",
+  placeholder: "Search commands, users, forms, submissions…",
+  searchLabel: "Search the backoffice",
+};
 
 const FEATURES = [
   {
@@ -343,12 +352,16 @@ export default function App() {
         </div>
       </main>
 
+      {/* every word is the DEMO's, not the package's — @command-kernel/ui ships
+          neutral English defaults and names no app, no nouns, no language */}
       <CommandPalette
         open={open}
         kernel={kernel}
         ctx={ctx}
         roots={ROOTS}
         trigger={trigger}
+        labels={PALETTE_LABELS}
+        showWeight
         onClose={() => setOpen(false)}
         onResult={onResult}
         onExecuted={(id) => setCtx((c) => ({ ...c, frecency: bumpFrecency(c.frecency, id) }))}

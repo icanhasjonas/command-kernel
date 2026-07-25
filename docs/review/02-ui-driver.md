@@ -57,7 +57,17 @@ regressing again.
 
 ---
 
-## U2 — demo copy is hardcoded in the published package · **P1**
+## U2 — demo copy is hardcoded in the published package · ~~P1~~ **FIXED**
+
+> Fixed in `feat(ui): every word the palette says is a label a consumer owns`.
+> All copy moved to a single `PaletteLabels` object (`labels.tsx`) with neutral
+> English defaults, overridable per key via `<CommandPalette labels={...}>`.
+> `CommandLauncher` gained `label`/`hint` props. The playground now passes its own
+> copy in, which is what overriding is supposed to look like. Pinned by a
+> regression test asserting no demo string can reach a consumer's palette.
+>
+> The original finding follows.
+
 
 | File | String |
 |---|---|
@@ -200,14 +210,11 @@ it lazily rather than at module load.
 
 ---
 
-## U9 — debug chrome in a shipped component · **P2**
+## U9 — debug chrome in a shipped component · ~~P2~~ **FIXED**
 
-`ResultRow` renders `node.weight` as a number on the right of every row when it's
-above 0. That's an authoring-time diagnostic, useful in the playground, noise in
-a consumer's product.
-
-**Fix.** `showWeight?: boolean` on `CommandPalette`, default `false`, threaded
-down. The playground turns it on.
+`ResultRow` rendered `node.weight` on every row above 0 — an authoring-time
+diagnostic, noise in a consumer's product. Now `showWeight?: boolean` on
+`CommandPalette`, default `false`; the playground turns it on.
 
 ---
 

@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { Check, ShieldAlert, ShieldX, X } from "lucide-react";
 import { Icon } from "./icon.js";
 import { Kbd } from "./Kbd.js";
+import type { PaletteLabels } from "./labels.js";
 
 export function ConfirmPanel({
   node,
@@ -10,6 +11,7 @@ export function ConfirmPanel({
   blocked,
   role,
   alwaysLabel,
+  labels,
   onProceed,
   onAlways,
 }: {
@@ -18,6 +20,7 @@ export function ConfirmPanel({
   blocked: boolean;
   role: string;
   alwaysLabel: string;
+  labels: PaletteLabels;
   onProceed: () => void;
   onAlways: () => void;
 }) {
@@ -32,26 +35,35 @@ export function ConfirmPanel({
             <Icon name={node.icon} size={14} /> {node.title}
           </div>
           <div className="text-[12px] text-white/40">
-            {blocked ? "You can't run this here" : "This command is gated — confirm to continue"}
+            {blocked ? labels.gateBlocked : labels.gateConfirm}
           </div>
         </div>
       </div>
 
       <div className="mt-3 space-y-1.5">
-        {verdict.checks.map((c) => (
-          <div key={c.label} className="flex items-center gap-2 text-[13px]">
+        {verdict.checks.map((c, i) => (
+          <div
+            // a verdict can legitimately carry two checks with the same label
+            // biome-ignore lint/suspicious/noArrayIndexKey: positional, list is regenerated whole
+            key={i}
+            className="flex items-center gap-2 text-[13px]"
+          >
             {c.ok ? (
               <Check size={14} className="text-ck-success" />
             ) : (
               <X size={14} className="text-ck-danger" />
             )}
-            <span className={c.ok ? "text-white/70" : "text-ck-danger"}>requires {c.label}</span>
-            {!c.ok && <span className="ml-auto text-[12px] text-white/40">you: {role}</span>}
+            <span className={c.ok ? "text-white/70" : "text-ck-danger"}>
+              {labels.check(c.label)}
+            </span>
+            {!c.ok && (
+              <span className="ml-auto text-[12px] text-white/40">{labels.yourRole(role)}</span>
+            )}
           </div>
         ))}
         {node.gate?.confirm && (
           <div className="flex items-center gap-2 text-[13px] text-white/70">
-            <ShieldAlert size={14} className="text-ck-warning" /> requires explicit confirm
+            <ShieldAlert size={14} className="text-ck-warning" /> {labels.needsConfirm}
           </div>
         )}
       </div>
@@ -59,7 +71,7 @@ export function ConfirmPanel({
       <div className="mt-4 flex items-center gap-3">
         {blocked ? (
           <div className="flex items-center gap-2 text-[12px] text-white/40">
-            <Kbd>esc</Kbd> back — escalate to an admin to proceed
+            <Kbd>esc</Kbd> {labels.blockedHint}
           </div>
         ) : (
           <>
@@ -68,7 +80,7 @@ export function ConfirmPanel({
               onClick={onProceed}
               className="rounded-lg bg-pink px-3.5 py-2 text-[13px] font-semibold text-white shadow-ck-glow transition hover:bg-ck-accent-soft"
             >
-              Confirm & run
+              {labels.confirmRun}
             </button>
             <button
               type="button"
@@ -78,7 +90,7 @@ export function ConfirmPanel({
               {alwaysLabel}
             </button>
             <span className="flex items-center gap-1.5 text-[12px] text-white/40">
-              <Kbd glow>↵</Kbd> confirm <Kbd>esc</Kbd> cancel
+              <Kbd glow>↵</Kbd> {labels.hintConfirm} <Kbd>esc</Kbd> {labels.hintCancel}
             </span>
           </>
         )}

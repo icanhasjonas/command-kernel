@@ -39,6 +39,41 @@ const kernel = createKernel({ roots });
   grant via `kernel.evidence` and re-issues the identical call. Flip the ctx role
   to `viewer` and gated commands lock.
 
+## Copy is yours (`labels`)
+
+The package names no app, no nouns, and no language. Defaults are neutral
+English; override any subset and the rest stays put:
+
+```tsx
+<CommandPalette
+  labels={{
+    root: "Acme",                              // the root breadcrumb
+    placeholder: "Search Acme…",
+    searchLabel: "Search Acme",                // the input's accessible name
+    noMatch: (q) => `nichts gefunden für „${q}“`,
+    argCounter: (filled, total) => `${filled}/${total}`,
+    confirmRun: "Bestätigen",
+  }}
+  ...
+/>
+```
+
+Every string the palette can render lives in one `PaletteLabels` object
+(`labels.tsx`) — the browse frame, the arg pills, the gate panel, and the footer
+hints. Entries that interpolate a value are **functions**, so a translator
+controls word order instead of gluing fragments; `freeTextOption` and `chordHint`
+return a `ReactNode`, so overriding them gives you the markup too.
+
+`defaultLabels` and `resolveLabels` are exported if you want to build on the
+defaults rather than replace them.
+
+Two other presentation props:
+
+| Prop | Default | What |
+|---|---|---|
+| `showWeight` | `false` | render each node's authoring `weight` in its row — an authoring diagnostic, off in product |
+| `CommandLauncher`'s `label` / `hint` | `"Open the command palette"` / `""` | the trigger button's accessible name and its hover copy |
+
 ## The DOM invoker (driver #5)
 
 Plain HTML is a command surface too. A `command` attribute whose value is

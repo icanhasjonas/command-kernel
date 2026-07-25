@@ -26,6 +26,13 @@ Three trust-core bugs, each with a regression test, in
 | F2 | `executeNode` validated present values but never checked required ones existed. | A driver calling the verb directly (the palette does) ran `run()` with a missing required arg. |
 | F3 | `collectShortcuts` returns a `Map` keyed by shortcut string, so duplicates collapsed — and `validateShortcuts` took that `Map`. | The conflict detector could not see the conflicts it exists to report. |
 
+And in `feat(ui): every word the palette says is a label a consumer owns`:
+
+| # | Fix |
+|---|---|
+| U2 | All copy moved into one `PaletteLabels` object with neutral defaults, overridable per key. The playground supplies its own. Regression test pins that no demo string can reach a consumer. |
+| U9 | `node.weight` is behind `showWeight`, off by default. |
+
 ## The backlog, ranked
 
 Severity is about the shippable artifact, not about effort.
@@ -44,7 +51,6 @@ Severity is about the shippable artifact, not about effort.
 | K2 | The evidence tag is 32-bit. A forged sig is brute-forceable in **~12 minutes** on one core, against the exact attacker the design names. | [01](01-kernel.md#k2) |
 | K1 | A function provider is silently dropped when `roots()`/`chords()` are called without a `ctx`. | [01](01-kernel.md#k1) |
 | K3 | An unresolvable path segment returns empty `completions`, indistinguishable from "nothing matched". | [01](01-kernel.md#k3) |
-| U2 | Demo copy is hardcoded in the published palette (`"Backoffice"`, `"Everything lives here now"`). | [02](02-ui-driver.md#u2) |
 | U3 | No accessibility: no combobox/listbox roles, no `aria-activedescendant`, no input label. | [02](02-ui-driver.md#u3) |
 | U4 | Arrowing past the fold does not scroll the selected row into view. | [02](02-ui-driver.md#u4) |
 | U5 | The "use *typed*" free-text row is unreachable by keyboard. | [02](02-ui-driver.md#u5) |
@@ -60,8 +66,7 @@ K11 audit hook is blind to denials · K6 `kind:"entity"` vs `entity` ref can
 disagree · K4 chords/shortcuts only scan roots · K10 `Ranker` is sync while
 `GatePolicy` is async · U7 one cancellation token shared by two async streams ·
 U13 `isMac` is frozen at import with no override · K9 an unknown role reads as
-"below everything" · U9 debug chrome (`node.weight`) in a shipped row · K5
-intermediate-segment args are second-class · K8 deeplink edge cases · U8 stale
+"below everything" · K5 intermediate-segment args are second-class · K8 deeplink edge cases · U8 stale
 frames when `roots` changes while open · U10 one `<span>` per character · U11
 always-on window listeners · U12 two files over the repo's own size limit · K7
 schema loses `multiple`/`validate` detail · P4 no repo/homepage/keywords

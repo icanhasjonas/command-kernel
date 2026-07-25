@@ -26,5 +26,12 @@ export {
 } from "./invokers.js";
 export { Kbd } from "./Kbd.js";
 export { KernelInvoker, type KernelInvokerProps } from "./KernelInvoker.js";
+// every word the palette says — override any subset via <CommandPalette labels>
+export {
+  defaultLabels,
+  type PaletteLabelOverrides,
+  type PaletteLabels,
+  resolveLabels,
+} from "./labels.js";
 export type { Mode } from "./usePalette.js";
 export { usePalette } from "./usePalette.js";

@@ -258,3 +258,80 @@ describe("CommandPalette — mounted smoke", () => {
     expect(results.map((r) => r.message)).toEqual(["opened"]);
   });
 });
+
+describe("CommandPalette — labels are the consumer's, not the package's", () => {
+  const mount = (labels?: Parameters<typeof CommandPalette>[0]["labels"]) => {
+    const roots = buildRoots();
+    const kernel = createKernel({ roots });
+    render(
+      <CommandPalette
+        open
+        kernel={kernel}
+        ctx={ctx()}
+        roots={roots}
+        {...(labels !== undefined && { labels })}
+        onClose={() => {}}
+        onResult={() => {}}
+        onExecuted={() => {}}
+      />,
+    );
+    return document.body;
+  };
+
+  // regression: the published palette used to hardcode the playground's app name
+  // and its entity nouns. A consumer's users must never see them.
+  it("ships neutral defaults — no demo copy anywhere in the rendered palette", () => {
+    const body = mount();
+    for (const leak of ["Backoffice", "users, forms, submissions", "Everything lives here now"]) {
+      expect(body.textContent ?? "").not.toContain(leak);
+    }
+    expect(body.textContent ?? "").toContain("Commands"); // the neutral root label
+    expect(body.querySelector("input")?.getAttribute("placeholder")).toBe("Search commands…");
+  });
+
+  it("a partial override replaces only the keys it sets", () => {
+    const body = mount({ root: "Acme", placeholder: "Search Acme…" });
+    expect(body.textContent ?? "").toContain("Acme");
+    expect(body.textContent ?? "").not.toContain("Commands");
+    expect(body.querySelector("input")?.getAttribute("placeholder")).toBe("Search Acme…");
+    // untouched key keeps its default
+    expect(body.textContent ?? "").toContain("drill in");
+  });
+
+  it("the search input carries an accessible name", () => {
+    const body = mount({ searchLabel: "Search Acme" });
+    expect(body.querySelector("input")?.getAttribute("aria-label")).toBe("Search Acme");
+  });
+
+  it("the weight diagnostic is off unless asked for", () => {
+    const weighted: CommandNode[] = [
+      {
+        id: "w",
+        title: "Weighted",
+        weight: 73,
+        run: async () => ({ kind: "toast", message: "w" }),
+      },
+    ];
+    const render1 = (showWeight: boolean) =>
+      render(
+        <CommandPalette
+          open
+          kernel={createKernel({ roots: weighted })}
+          ctx={ctx()}
+          roots={weighted}
+          showWeight={showWeight}
+          onClose={() => {}}
+          onResult={() => {}}
+          onExecuted={() => {}}
+        />,
+      );
+
+    render1(false);
+    expect(document.body.textContent ?? "").toContain("Weighted");
+    expect(document.body.textContent ?? "").not.toContain("73");
+
+    cleanup();
+    render1(true);
+    expect(document.body.textContent ?? "").toContain("73");
+  });
+});
