@@ -2,6 +2,7 @@ import { pickTool } from "@command-kernel/agent";
 import type {
   ArgValues,
   CommandNode,
+  CommandResponse,
   CommandResult,
   Ctx,
   GateVerdict,
@@ -36,6 +37,8 @@ interface Entry {
   values?: ArgValues;
   status?: CallStatus;
   verdict?: GateVerdict;
+  /** the kernel's gate response — the ONLY correct thing to mint a grant from */
+  gate?: Extract<CommandResponse, { kind: "gate" }>;
 }
 
 const EXAMPLES = [
@@ -97,6 +100,7 @@ export function AgentPanel({
         values: pick.values,
         status: res.verdict.allowed ? "gated" : "blocked",
         verdict: res.verdict,
+        gate: res,
       });
       return;
     }
@@ -126,21 +130,22 @@ export function AgentPanel({
     add({ kind: "agent", text: result?.message ?? "Done." });
   }
 
-  // operator clicked Allow: mint a grant bound to THIS exact tool+args, set it
-  // as the tip's evidence, and re-issue the identical verb.
+  // operator clicked Allow: mint a grant over the args the KERNEL resolved (the
+  // gate response carries them, so prefill / entity resolution can't drift the
+  // binding), set it as the tip's evidence, and re-issue the identical verb.
   async function allow(entry: Entry) {
-    if (!entry.node || !entry.values) return;
-    const seg = { id: entry.node.id, args: entry.values };
+    if (!entry.node || !entry.values || !entry.gate) return;
     const res = await kernel.command(
       {
-        path: [{ ...seg, evidence: kernel.evidence.grantForPath([seg]) }],
+        path: [{ id: entry.node.id, args: entry.values, evidence: kernel.grantFor(entry.gate) }],
         execute: true,
         role: ctx.user.role,
       },
       ctx,
       AGENT_TOOLS,
     );
-    if (res.kind === "result") finish(entry.node, entry.values, res.result, entry.id);
+    if (res.kind === "result") return finish(entry.node, entry.values, res.result, entry.id);
+    add({ kind: "agent", text: `Approval didn't take — the kernel answered "${res.kind}".` });
   }
 
   // operator clicked Always allow: record the standing rule, then re-issue with
@@ -153,7 +158,8 @@ export function AgentPanel({
       ctx,
       AGENT_TOOLS,
     );
-    if (res.kind === "result") finish(entry.node, entry.values, res.result, entry.id);
+    if (res.kind === "result") return finish(entry.node, entry.values, res.result, entry.id);
+    add({ kind: "agent", text: `Always-allow didn't take — the kernel answered "${res.kind}".` });
   }
 
   // lab proof: the agent FABRICATES a grant. verifyGrant fails (wrong salt/sig)

@@ -67,7 +67,11 @@ export function CommandPalette({
 
   const activeSpec = p.arg?.node.args?.find((a) => a.id === p.arg?.activeArg);
   const freeText = activeSpec ? activeSpec.kind !== "enum" : false;
-  const namedArgs = (p.arg?.node.args ?? []).filter((a) => !a.positional);
+  // named args get a pill each; a positional arg only appears when it IS the one
+  // being collected (otherwise the query line is its input)
+  const namedArgs = (p.arg?.node.args ?? []).filter(
+    (a) => !a.positional || a.id === p.arg?.activeArg,
+  );
   const filledCount = namedArgs.filter((a) => isFilled(p.arg?.values[a.id])).length;
   const activeChips = activeSpec?.multiple ? argList(p.arg?.values[activeSpec.id]) : [];
 

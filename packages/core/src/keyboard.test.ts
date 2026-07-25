@@ -1,4 +1,5 @@
 import { describe, expect, it } from "bun:test";
+import { createKernel } from "./create-kernel.js";
 import {
   createKeyboard,
   type KernelKeyEvent,
@@ -7,7 +8,14 @@ import {
   validateShortcuts,
 } from "./keyboard.js";
 import { isMac, parseShortcut } from "./shortcut.js";
-import type { CommandNode } from "./types.js";
+import type { CommandNode, Ctx } from "./types.js";
+
+const ctx: Ctx = {
+  location: { module: "home" },
+  user: { id: "u1", name: "T", role: "admin", brand: "circle" },
+  now: 0,
+  frecency: {},
+};
 
 // The driver is pure and instance-scoped — events are structural
 // (KernelKeyEvent), so the whole layer stack + chord machine runs under bun
@@ -176,6 +184,26 @@ describe("validateShortcuts", () => {
     );
     expect(conflicts).toHaveLength(1);
     expect(conflicts[0]?.nodeIds.sort()).toEqual(["docs", "dupes"]);
+  });
+
+  // regression: a Map keyed by shortcut string has ALREADY eaten the duplicate,
+  // so the conflict this function exists to find is invisible through it.
+  it("finds a same-string collision when given the node LIST", () => {
+    const nodes = [node("docs", "mod+d"), node("dupes", "mod+d")];
+    expect(new Map(nodes.map((n) => [n.shortcut ?? "", n])).size).toBe(1); // the Map lies
+    const conflicts = validateShortcuts(nodes);
+    expect(conflicts).toHaveLength(1);
+    expect(conflicts[0]?.nodeIds.sort()).toEqual(["docs", "dupes"]);
+  });
+
+  it("kernel.shortcutConflicts reports collisions across the live roots", () => {
+    const k = createKernel({
+      roots: [node("docs", "mod+d"), node("dupes", "mod+d"), node("agent", "mod+a")],
+    });
+    const conflicts = k.shortcutConflicts(ctx);
+    expect(conflicts).toHaveLength(1);
+    expect(conflicts[0]?.nodeIds.sort()).toEqual(["docs", "dupes"]);
+    expect(k.shortcuts(ctx).size).toBe(2); // the lookup still collapses them
   });
 });
 

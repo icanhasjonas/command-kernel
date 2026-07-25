@@ -23,7 +23,15 @@ export interface EvidenceStore {
   sign(commandId: string, args: ArgValues, priorKey: string, nonce?: string): Grant;
   /** True only if the grant was minted for THIS command+args+prior-path here. */
   verify(grant: Grant | undefined, commandId: string, args: ArgValues, priorKey: string): boolean;
-  /** Mint the grant for the TIP of a path, bound to everything before it. */
+  /**
+   * Mint the grant for the TIP of a path, bound to everything before it, using
+   * the args AS WRITTEN on the segment.
+   *
+   * Only correct when the kernel will run those exact args. `prefill` and
+   * entity auto-resolution DERIVE different ones, and the grant would then be
+   * bound to values that never reach `run()`. Prefer `kernel.grantFor(gateRes)`,
+   * which signs the effective args the `gate` response hands back.
+   */
   grantForPath(path: PathSegment[]): Grant;
   /** New session salt — invalidate every outstanding grant. */
   rotate(): void;

@@ -11,11 +11,13 @@ import {
   executeNode,
   resolveChildren,
   searchNodes,
+  shortcutNodes,
 } from "./kernel.js";
+import { type ShortcutConflict, validateShortcuts } from "./keyboard.js";
 import { createMemoryPolicyStore, type PolicyStore } from "./policy.js";
 import { type Ranker, rank } from "./rank.js";
 import type { Registry } from "./registry.js";
-import type { ArgValues, CommandNode, Ctx, FallbackSearch, Ranked } from "./types.js";
+import type { ArgValues, CommandNode, Ctx, FallbackSearch, Grant, Ranked } from "./types.js";
 
 /**
  * createKernel — where the SEAMS meet.
@@ -75,12 +77,25 @@ export interface Kernel {
     ctx: Ctx,
     confirmation?: Confirmation,
   ): Promise<ExecuteOutcome>;
+  /**
+   * Mint the grant for a `gate` response — the ONE correct way for a driver to
+   * turn a human's "Allow" into evidence. It signs the kernel's EFFECTIVE args
+   * (post-prefill, post-entity-resolution) against the response's `priorKey`, so
+   * re-issuing the same request with this grant verifies. Minting by hand from
+   * the args you typed does not, whenever the kernel derived anything.
+   */
+  grantFor(res: Extract<CommandResponse, { kind: "gate" }>): Grant;
   /** the assembled root list (from the registry, or the static roots) */
   roots(ctx?: Ctx): CommandNode[];
   /** chord-leader lookup over the roots */
   chords(ctx?: Ctx): Map<string, CommandNode>;
-  /** all nodes that carry a `shortcut`, filtered by `when` + gate visibility */
+  /**
+   * Nodes carrying a `shortcut`, filtered by `when(ctx)`, keyed by the shortcut
+   * string. Duplicates collapse — see `shortcutConflicts`.
+   */
   shortcuts(ctx: Ctx): Map<string, CommandNode>;
+  /** shortcut strings bound to more than one visible node (empty when clean) */
+  shortcutConflicts(ctx: Ctx): ShortcutConflict[];
   /** opt-in fallback when the primary search yields no results (null if none) */
   readonly fallback: FallbackSearch | null;
   readonly ranker: Ranker;
@@ -126,9 +141,11 @@ export function createKernel(config: KernelConfig = {}): Kernel {
     resolveChildren,
     executeNode: (node, args, ctx, confirmation) =>
       executeNode(node, args, ctx, deps, confirmation),
+    grantFor: (res) => evidence.sign(res.node.id, res.args, res.priorKey),
     roots,
     chords: (ctx) => collectChords(roots(ctx)),
     shortcuts: (ctx) => collectShortcuts(roots(ctx), ctx),
+    shortcutConflicts: (ctx) => validateShortcuts(shortcutNodes(roots(ctx), ctx)),
     fallback,
     ranker,
     gate,

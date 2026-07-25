@@ -55,6 +55,8 @@ export interface ExecuteOutcome {
   autoAllowed: boolean;
   /** present-but-invalid args (bad email/enum/custom); non-empty => did not run */
   argErrors: ArgError[];
+  /** required args with no value; non-empty => did not run */
+  missing: string[];
 }
 
 /**
@@ -70,12 +72,17 @@ export interface Confirmation {
 }
 
 /**
- * Execute a node. Order is non-negotiable: gate FIRST, then run. A confirm-gated
- * command runs only when (a) a standing always-allow rule matches, or (b) a
- * valid grant for this exact command+args+prior-path is supplied. Anything
- * else — no grant, a forged grant, a grant for different args, a grant from a
- * rotated session — leaves the confirm owed. The gate, policy, and evidence are
- * INJECTED, so the same enforcement runs whatever a consumer plugged in.
+ * Execute a node. Order is non-negotiable: args COMPLETE and VALID first, then
+ * gate, then run. A confirm-gated command runs only when (a) a standing
+ * always-allow rule matches, or (b) a valid grant for this exact
+ * command+args+prior-path is supplied. Anything else — no grant, a forged grant,
+ * a grant for different args, a grant from a rotated session — leaves the confirm
+ * owed. The gate, policy, and evidence are INJECTED, so the same enforcement runs
+ * whatever a consumer plugged in.
+ *
+ * The arg contract is enforced HERE, not in the caller: a driver that calls this
+ * verb directly (the palette does) can no more run a command with a missing
+ * required arg than with an invalid one.
  */
 export async function executeNode(
   node: CommandNode,
@@ -84,7 +91,25 @@ export async function executeNode(
   deps: ExecuteDeps,
   confirmation: Confirmation = {},
 ): Promise<ExecuteOutcome> {
-  // VALIDATE first — the kernel checks what ANY driver sends, before the gate.
+  // COMPLETE first — a required arg with no value is not a runnable command.
+  const missing = missingArgs(node, args);
+  if (missing.length > 0) {
+    const labels = new Map((node.args ?? []).map((a) => [a.id, a.label]));
+    return {
+      verdict: {
+        allowed: false,
+        needsConfirm: false,
+        checks: missing.map((id) => ({ label: `${labels.get(id) ?? id} is required`, ok: false })),
+      },
+      result: null,
+      awaitingConfirm: false,
+      autoAllowed: false,
+      argErrors: [],
+      missing,
+    };
+  }
+
+  // VALIDATE next — the kernel checks what ANY driver sends, before the gate.
   // A node never runs with a present-but-invalid arg (a hallucinated email/enum).
   const argErrors = validateArgs(node, args);
   if (argErrors.length > 0) {
@@ -98,13 +123,21 @@ export async function executeNode(
       awaitingConfirm: false,
       autoAllowed: false,
       argErrors,
+      missing: [],
     };
   }
 
   const verdict = await deps.gate(node, ctx);
 
   if (!verdict.allowed) {
-    return { verdict, result: null, awaitingConfirm: false, autoAllowed: false, argErrors: [] };
+    return {
+      verdict,
+      result: null,
+      awaitingConfirm: false,
+      autoAllowed: false,
+      argErrors: [],
+      missing: [],
+    };
   }
 
   let autoAllowed = false;
@@ -114,15 +147,29 @@ export async function executeNode(
       autoAllowed ||
       deps.evidence.verify(confirmation.grant, node.id, args, confirmation.priorKey ?? "");
     if (!proven) {
-      return { verdict, result: null, awaitingConfirm: true, autoAllowed: false, argErrors: [] };
+      return {
+        verdict,
+        result: null,
+        awaitingConfirm: true,
+        autoAllowed: false,
+        argErrors: [],
+        missing: [],
+      };
     }
   }
   if (!node.run) {
-    return { verdict, result: null, awaitingConfirm: false, autoAllowed, argErrors: [] };
+    return {
+      verdict,
+      result: null,
+      awaitingConfirm: false,
+      autoAllowed,
+      argErrors: [],
+      missing: [],
+    };
   }
 
   const result = await node.run(args, ctx);
-  return { verdict, result, awaitingConfirm: false, autoAllowed, argErrors: [] };
+  return { verdict, result, awaitingConfirm: false, autoAllowed, argErrors: [], missing: [] };
 }
 
 /** Flatten a node tree's chord bindings into a lookup for the chord leader. */
@@ -134,14 +181,22 @@ export function collectChords(nodes: CommandNode[]): Map<string, CommandNode> {
   return map;
 }
 
+/**
+ * Nodes that carry a `shortcut`, filtered by `when(ctx)`, keyed by the shortcut
+ * string. NOTE: this is a lookup, so two nodes on the SAME shortcut collapse to
+ * the last one — use `shortcutNodes` + `validateShortcuts` (or
+ * `kernel.shortcutConflicts(ctx)`) to see the collision before it silently eats
+ * a binding.
+ */
 export function collectShortcuts(nodes: CommandNode[], ctx: Ctx): Map<string, CommandNode> {
   const map = new Map<string, CommandNode>();
-  for (const n of nodes) {
-    if (!n.shortcut) continue;
-    if (n.when && !n.when(ctx)) continue;
-    map.set(n.shortcut, n);
-  }
+  for (const n of shortcutNodes(nodes, ctx)) map.set(n.shortcut as string, n);
   return map;
+}
+
+/** Every visible node that declares a `shortcut` — duplicates INCLUDED. */
+export function shortcutNodes(nodes: CommandNode[], ctx: Ctx): CommandNode[] {
+  return nodes.filter((n) => n.shortcut && (!n.when || n.when(ctx)));
 }
 
 /** Required args still missing a value. Drives the "2 of 3" arg counter. */
