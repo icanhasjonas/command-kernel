@@ -18,21 +18,21 @@ other way round.
 ## The point
 
 ```
-                    ┌────────────────────────────────────┐
-                    │     @command-kernel/core (headless) │
-                    │     pure TS, no React / DOM / Worker │
-                    │                                      │
-                    │  createKernel({ roots, ...seams })   │
-                    │  kernel.command(req, ctx)  ← one verb│
-                    │  search / resolveChildren / execute  │
-                    │  gate + evidence + policy (trust core)│
-                    └────────────────────────────────────┘
-                       ▲          ▲          ▲         ▲
-            ┌──────────┘   ┌──────┘    ┌─────┘    ┌────┘
-   ┌────────┴───────┐ ┌────┴─────┐ ┌───┴──────┐ ┌─┴───────────┐
-   │ @ck/ui         │ │ @ck/agent │ │ CHORDS    │ │ DEEPLINKS    │
-   │ (human, cmdk)  │ │ (LLM)     │ │ Cmd/Ctrl+X│ │ /cmd/...      │
-   └────────────────┘ └───────────┘ └───────────┘ └──────────────┘
+              ┌──────────────────────────────────────────┐
+              │      @command-kernel/core (headless)     │
+              │      pure TS, no React / DOM / Worker    │
+              │                                          │
+              │  createKernel({ roots, ...seams })       │
+              │  kernel.command(req, ctx)   ← one verb   │
+              │  search / resolveChildren / execute      │
+              │  gate + evidence + policy (trust core)   │
+              └──────────────────────────────────────────┘
+                    ▲          ▲          ▲          ▲
+         ┌──────────┘   ┌──────┘    ┌─────┘     ┌────┘
+   ┌─────┴──────────┐ ┌─┴─────────┐ ┌┴──────────┐ ┌┴─────────────┐
+   │ @ck/ui         │ │ @ck/agent │ │ CHORDS     │ │ DEEPLINKS    │
+   │ (human, cmdk)  │ │ (LLM)     │ │ Cmd/Ctrl+X │ │ /cmd/...     │
+   └────────────────┘ └───────────┘ └────────────┘ └──────────────┘
 ```
 
 > The headless **kernel** is the hero AND the shippable artifact. The palette is
@@ -53,7 +53,7 @@ same gate — see [`docs/dom-invoker.md`](docs/dom-invoker.md) (Driver #5).
 
 ```
                     ┌───────────────────────────────────┐
-                    │      @command-kernel/core + gate    │   the hero
+                    │      @command-kernel/core + gate  │   the hero
                     └───────────────────────────────────┘
                                      │
             four verbs:  search · resolve · execute · discover
