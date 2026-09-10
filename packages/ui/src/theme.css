@@ -31,5 +31,18 @@
     0 8px 32px -8px rgba(228, 19, 98, 0.45)
   );
 
+  /*
+    The keycap. Broken out because `Kbd` used to hardcode `border-white/10
+    bg-white/5 text-white/70` plus an inset shadow, which made the one component
+    whose entire job is to ADVERTISE a shortcut invisible on any light theme --
+    and unusable in a design system that separates surfaces by border alone.
+    A consumer sets these three and the keycap is theirs; setting
+    `--shadow-ck-kbd: none` drops the bevel without forking the component.
+  */
+  --color-ck-kbd-bg: var(--color-ck-surface-raised, rgba(255, 255, 255, 0.05));
+  --color-ck-kbd-fg: var(--color-ck-fg-muted, rgba(255, 255, 255, 0.7));
+  --color-ck-kbd-border: var(--color-ck-border, rgba(255, 255, 255, 0.1));
+  --shadow-ck-kbd: var(--shadow-kbd, inset 0 -1px 0 rgba(0, 0, 0, 0.4));
+
   --radius-pill: 9999px;
 }

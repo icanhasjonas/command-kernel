@@ -71,6 +71,7 @@ export {
 export {
   type ChordListener,
   createKeyboard,
+  isEditableTarget,
   type KernelKeyEvent,
   type KeyBindings,
   type Keyboard,
