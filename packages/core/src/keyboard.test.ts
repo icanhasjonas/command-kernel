@@ -179,6 +179,137 @@ describe("validateShortcuts", () => {
   });
 });
 
+// The guard the port dropped. remote-claude's key-layers.ts:368 reads
+//   if (inTextInput && !isModified && !isNonPrintable) return
+// and without it a bare `n` bound to "New task" fires while somebody types the
+// letter n into a title field. Ported here with the same three-part rule: only
+// UNMODIFIED PRINTABLE keys are surrendered to the editable surface.
+describe("editable-target guard", () => {
+  const field = { tagName: "INPUT", isContentEditable: false };
+
+  it("a bare printable key does not fire while typing into a field", () => {
+    const kb = createKeyboard();
+    const hits: string[] = [];
+    kb.pushLayer({ n: () => hits.push("new") });
+    const e = key("n", { target: field });
+    kb.handleKeydown(e);
+    expect(hits).toEqual([]);
+    expect(e.prevented).toBe(false); // the field must still receive the n
+  });
+
+  it("the same key still fires when focus is not in a field", () => {
+    const kb = createKeyboard();
+    const hits: string[] = [];
+    kb.pushLayer({ n: () => hits.push("new") });
+    kb.handleKeydown(key("n"));
+    expect(hits).toEqual(["new"]);
+  });
+
+  it("a modified shortcut still fires inside a field — mod+k is never typing", () => {
+    const kb = createKeyboard();
+    const hits: string[] = [];
+    kb.pushLayer({ "mod+k": () => hits.push("palette") });
+    kb.handleKeydown({ ...modKey("k"), target: field } as ReturnType<typeof key>);
+    expect(hits).toEqual(["palette"]);
+  });
+
+  it("a non-printable key still fires inside a field — Escape is never typing", () => {
+    const kb = createKeyboard();
+    const hits: string[] = [];
+    kb.pushLayer({ Escape: () => hits.push("close") });
+    kb.handleKeydown(key("Escape", { target: field }));
+    expect(hits).toEqual(["close"]);
+  });
+
+  it("contentEditable counts as a field even though its tagName does not", () => {
+    const kb = createKeyboard();
+    const hits: string[] = [];
+    kb.pushLayer({ n: () => hits.push("new") });
+    kb.handleKeydown(key("n", { target: { tagName: "DIV", isContentEditable: true } }));
+    expect(hits).toEqual([]);
+  });
+
+  it("a bare chord prefix does not arm while typing", () => {
+    const kb = createKeyboard();
+    kb.pushLayer({ "g d": () => {} });
+    kb.handleKeydown(key("g", { target: field }));
+    expect(kb.chordPrefix).toBeNull();
+  });
+
+  it("the host can replace the guard entirely", () => {
+    const kb = createKeyboard({ isEditableTarget: () => true });
+    const hits: string[] = [];
+    kb.pushLayer({ n: () => hits.push("new") });
+    kb.handleKeydown(key("n"));
+    expect(hits).toEqual([]);
+  });
+});
+
+// key-layers.ts:257-264. A key RECORDER cannot know which layer owns the key the
+// user is about to press, so the mute is global rather than per-layer.
+describe("suspend", () => {
+  it("suspended mutes every layer, and resuming restores them", () => {
+    const kb = createKeyboard();
+    const hits: string[] = [];
+    kb.pushLayer({ g: () => hits.push("g") });
+    kb.setSuspended(true);
+    kb.handleKeydown(key("g"));
+    expect(hits).toEqual([]);
+    expect(kb.suspended).toBe(true);
+    kb.setSuspended(false);
+    kb.handleKeydown(key("g"));
+    expect(hits).toEqual(["g"]);
+  });
+
+  it("a suspended keyboard does not cancel the event either", () => {
+    const kb = createKeyboard();
+    kb.pushLayer({ g: () => {} });
+    kb.setSuspended(true);
+    const e = key("g");
+    kb.handleKeydown(e);
+    expect(e.prevented).toBe(false);
+  });
+
+  it("suspending mid-chord clears the armed prefix", () => {
+    const kb = createKeyboard();
+    kb.pushLayer({ "g d": () => {} });
+    kb.handleKeydown(key("g"));
+    expect(kb.chordPrefix).toBe("g");
+    kb.setSuspended(true);
+    expect(kb.chordPrefix).toBeNull();
+  });
+});
+
+// validateShortcuts only ever sees a STATIC node list, so it is blind to anything
+// a driver registered ad hoc through pushLayer. This asks the live stack.
+describe("isBindingRegistered", () => {
+  it("sees a binding on a live layer, normalized across spellings", () => {
+    const kb = createKeyboard();
+    kb.pushLayer({ [normalizeShortcut(parseShortcut("mod+k"))]: () => {} });
+    expect(kb.isBindingRegistered("cmd+k")).toBe(true);
+    expect(kb.isBindingRegistered("mod+j")).toBe(false);
+  });
+
+  it("can exclude the layer doing the asking, so a rebind is not its own conflict", () => {
+    const kb = createKeyboard();
+    const mine = kb.pushLayer({ g: () => {} }, { id: "editor" });
+    expect(kb.isBindingRegistered("g")).toBe(true);
+    expect(kb.isBindingRegistered("g", mine.id)).toBe(false);
+  });
+
+  it("ignores a disabled layer", () => {
+    const kb = createKeyboard();
+    kb.pushLayer({ g: () => {} }, { enabled: false });
+    expect(kb.isBindingRegistered("g")).toBe(false);
+  });
+
+  it("finds a chord binding by its full pattern", () => {
+    const kb = createKeyboard();
+    kb.pushLayer({ "g d": () => {} });
+    expect(kb.isBindingRegistered("g d")).toBe(true);
+  });
+});
+
 describe("parseShortcut (integration)", () => {
   it("handles shift+mod+key for shortcut strings on nodes", () => {
     const n = node("docs", "shift+mod+d");
