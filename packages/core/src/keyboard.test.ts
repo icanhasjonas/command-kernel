@@ -236,6 +236,81 @@ describe("editable-target guard", () => {
     expect(kb.chordPrefix).toBeNull();
   });
 
+  // THE TAGNAME CHECK IS NOT ENOUGH, and every headless UI library proves it: Base UI, Radix and
+  // Headless UI all render a listbox as a `div` with a role, and focus lands on the OPTION. Measured
+  // in Chrome against Base UI's Select on 2026-09-10: with the popup open, `document.activeElement`
+  // was a `DIV` with `role="option"` — so a bare `n` bound to "New task" fired instead of doing the
+  // listbox's own typeahead, and the dialog opened over the menu the user was reading.
+  const OPTION = { tagName: "DIV", role: "option" };
+
+  it("a bare key does not fire on a focused listbox option", () => {
+    const kb = createKeyboard();
+    const hits: string[] = [];
+    kb.pushLayer({ n: () => hits.push("new") });
+    kb.handleKeydown(key("n", { target: OPTION }));
+    expect(hits).toEqual([]);
+  });
+
+  it("covers the widget roles that own their own typeahead", () => {
+    const kb = createKeyboard();
+    const hits: string[] = [];
+    kb.pushLayer({ n: () => hits.push("new") });
+    for (const role of [
+      "combobox",
+      "listbox",
+      "menu",
+      "menuitem",
+      "textbox",
+      "searchbox",
+      "tree",
+    ]) {
+      kb.handleKeydown(key("n", { target: { tagName: "DIV", role } }));
+    }
+    expect(hits).toEqual([]);
+  });
+
+  it("reads the role attribute when the property is not reflected", () => {
+    const kb = createKeyboard();
+    const hits: string[] = [];
+    kb.pushLayer({ n: () => hits.push("new") });
+    kb.handleKeydown(
+      key("n", {
+        target: { tagName: "DIV", getAttribute: (a: string) => (a === "role" ? "option" : null) },
+      }),
+    );
+    expect(hits).toEqual([]);
+  });
+
+  it("finds the widget when focus is on a child of it", () => {
+    const kb = createKeyboard();
+    const hits: string[] = [];
+    kb.pushLayer({ n: () => hits.push("new") });
+    // A trigger that keeps focus while its popup is open: the element itself has no role, but it
+    // sits inside one.
+    kb.handleKeydown(
+      key("n", {
+        target: { tagName: "SPAN", closest: (sel: string) => (sel.includes("role") ? {} : null) },
+      }),
+    );
+    expect(hits).toEqual([]);
+  });
+
+  it("an ordinary div is still fair game — a role is required, not a tag", () => {
+    const kb = createKeyboard();
+    const hits: string[] = [];
+    kb.pushLayer({ n: () => hits.push("new") });
+    kb.handleKeydown(key("n", { target: { tagName: "DIV" } }));
+    expect(hits).toEqual(["new"]);
+  });
+
+  it("a modified shortcut still reaches the kernel from inside a listbox", () => {
+    const kb = createKeyboard();
+    const hits: string[] = [];
+    kb.pushLayer({ "mod+k": () => hits.push("palette") });
+    kb.handleKeydown({ ...modKey("k"), target: OPTION } as ReturnType<typeof key>);
+    expect(hits).toEqual(["palette"]);
+  });
+
   it("the host can replace the guard entirely", () => {
     const kb = createKeyboard({ isEditableTarget: () => true });
     const hits: string[] = [];
