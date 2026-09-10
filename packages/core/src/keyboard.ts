@@ -45,16 +45,78 @@ const IGNORE = new Set(["Control", "Meta", "Alt", "Shift"]);
 const EDITABLE_TAGS = new Set(["INPUT", "TEXTAREA", "SELECT"]);
 
 /**
+ * ARIA roles whose widget owns the printable keys itself — a listbox does its own typeahead, a menu
+ * jumps to the item you spelled, a textbox is a textbox however it was built.
+ *
+ * THE TAG CHECK ABOVE IS NOT ENOUGH and every headless UI library is why. Base UI, Radix and
+ * Headless UI all render a select as a `div` with a role, and focus lands on the OPTION rather than
+ * on anything a `tagName` test would catch. Measured in Chrome against Base UI's Select: with the
+ * popup open, `document.activeElement` was `DIV[role=option]`, and a bare `n` bound to "New task"
+ * opened a dialog over the menu the user was reading instead of jumping to "Nok".
+ */
+const WIDGET_ROLES = new Set([
+  "combobox",
+  "grid",
+  "gridcell",
+  "listbox",
+  "menu",
+  "menubar",
+  "menuitem",
+  "menuitemcheckbox",
+  "menuitemradio",
+  "option",
+  "searchbox",
+  "slider",
+  "spinbutton",
+  "textbox",
+  "tree",
+  "treegrid",
+  "treeitem",
+]);
+
+/** `[role=combobox], [role=grid], ...` — built once, for the `closest` probe. */
+const WIDGET_SELECTOR = [...WIDGET_ROLES].map((r) => `[role="${r}"]`).join(",");
+
+/** What the guard duck-types its way through. Every member is optional and probed before use. */
+interface TargetLike {
+  tagName?: unknown;
+  isContentEditable?: unknown;
+  role?: unknown;
+  getAttribute?: unknown;
+  closest?: unknown;
+}
+
+/** The element's ARIA role, from the reflected property or the attribute, whichever it has. */
+function roleOf(el: TargetLike): string | null {
+  if (typeof el.role === "string" && el.role !== "") return el.role;
+  if (typeof el.getAttribute === "function") {
+    const attr = (el.getAttribute as (name: string) => unknown)("role");
+    if (typeof attr === "string" && attr !== "") return attr;
+  }
+  return null;
+}
+
+/**
  * The default answer to "is this keystroke being TYPED?" — a structural sniff at
  * the event target, so core still imports no DOM lib. A host with a different
  * event system (a terminal, React Native, a canvas) replaces it wholesale via
  * `createKeyboard({ isEditableTarget })`.
  */
 export function isEditableTarget(e: KernelKeyEvent): boolean {
-  const el = e.target as { tagName?: unknown; isContentEditable?: unknown } | null | undefined;
+  const el = e.target as TargetLike | null | undefined;
   if (!el) return false;
   if (typeof el.tagName === "string" && EDITABLE_TAGS.has(el.tagName.toUpperCase())) return true;
-  return el.isContentEditable === true;
+  if (el.isContentEditable === true) return true;
+
+  const role = roleOf(el);
+  if (role !== null && WIDGET_ROLES.has(role.toLowerCase())) return true;
+
+  // Focus can sit on a child of the widget, or on a trigger inside it, rather than on the element
+  // carrying the role. `closest` is the DOM's own answer and costs nothing when it is absent.
+  if (typeof el.closest === "function") {
+    return (el.closest as (selector: string) => unknown)(WIDGET_SELECTOR) != null;
+  }
+  return false;
 }
 
 /**
