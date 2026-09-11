@@ -394,3 +394,99 @@ describe("parseShortcut (integration)", () => {
     expect(parsed.shift).toBe(true);
   });
 });
+
+describe("chordCompletions", () => {
+  /**
+   * A CHORD THE USER CANNOT SEE IS A CHORD THE USER HAS TO MEMORISE.
+   *
+   * `subscribeChordMode` could say a prefix went live and nothing more, so a host that wanted to
+   * draw "you pressed g, here is what follows" had to filter its own copy of the bindings. That
+   * copy is a second source of truth, and it goes stale the moment anything is bound at runtime
+   * through `pushLayer` -- which is exactly when a hint matters most.
+   */
+  const node = (id: string): CommandNode => ({ id, title: id, run: async () => ({ kind: "noop" }) });
+
+  it("lists every key that completes the prefix, with the node each runs", () => {
+    const kb = createKeyboard();
+    kb.registerShortcuts(
+      new Map([
+        ["g p", node("people")],
+        ["g t", node("teams")],
+        ["c t", node("task.new")],
+      ]),
+      { onActivate: () => {} },
+    );
+
+    const out = kb.chordCompletions("g");
+    expect(out.map((c) => c.key).sort()).toEqual(["p", "t"]);
+    expect(out.find((c) => c.key === "p")?.node?.id).toBe("people");
+    expect(out.find((c) => c.key === "t")?.shortcut).toBe("g t");
+  });
+
+  it("defaults to the armed prefix, which is the common call", () => {
+    const kb = createKeyboard();
+    kb.registerShortcuts(new Map([["g p", node("people")]]), { onActivate: () => {} });
+    expect(kb.chordCompletions()).toEqual([]);
+
+    kb.handleKeydown(key("g"));
+    expect(kb.chordPrefix).toBe("g");
+    expect(kb.chordCompletions().map((c) => c.key)).toEqual(["p"]);
+  });
+
+  it("offers nothing for a prefix nothing is bound under", () => {
+    const kb = createKeyboard();
+    kb.registerShortcuts(new Map([["g p", node("people")]]), { onActivate: () => {} });
+    expect(kb.chordCompletions("z")).toEqual([]);
+  });
+
+  it("agrees with the decision to arm -- isChordPrefix reads the same walk", () => {
+    // The two were one loop with the result discarded. If they ever disagree, the app arms a chord
+    // it cannot draw, or draws one it will not fire.
+    const kb = createKeyboard();
+    kb.registerShortcuts(new Map([["g p", node("people")]]), { onActivate: () => {} });
+    kb.handleKeydown(key("z"));
+    expect(kb.chordPrefix).toBeNull();
+    kb.handleKeydown(key("g"));
+    expect(kb.chordPrefix).toBe("g");
+  });
+
+  it("lets a later layer win the same second key, as a real press would", () => {
+    const kb = createKeyboard();
+    kb.registerShortcuts(new Map([["g p", node("people")]]), { onActivate: () => {} });
+    kb.pushLayer({ "g p": () => {} }, { id: "modal" });
+
+    const out = kb.chordCompletions("g");
+    expect(out).toHaveLength(1);
+    // The modal layer bound it without a node, and it is the one that would fire.
+    expect(out[0]?.node).toBeUndefined();
+  });
+
+  it("skips a disabled layer, because a disabled layer fires nothing", () => {
+    const kb = createKeyboard();
+    kb.registerShortcuts(new Map([["g p", node("people")]]), { onActivate: () => {} });
+    const layer = kb.pushLayer({ "g t": () => {} }, { id: "modal" });
+    expect(kb.chordCompletions("g").map((c) => c.key).sort()).toEqual(["p", "t"]);
+
+    layer.options.enabled = false;
+    expect(kb.chordCompletions("g").map((c) => c.key)).toEqual(["p"]);
+  });
+
+  it("offers nothing while the stack is suspended", () => {
+    const kb = createKeyboard();
+    kb.registerShortcuts(new Map([["g p", node("people")]]), { onActivate: () => {} });
+    kb.setSuspended(true);
+    expect(kb.chordCompletions("g")).toEqual([]);
+  });
+
+  it("does not report a deeper sequence as a completion of this prefix", () => {
+    const kb = createKeyboard();
+    kb.registerShortcuts(
+      new Map([
+        ["g p", node("people")],
+        ["g p x", node("deeper")],
+      ]),
+      { onActivate: () => {} },
+    );
+    expect(kb.chordCompletions("g").map((c) => c.key)).toEqual(["p"]);
+  });
+});

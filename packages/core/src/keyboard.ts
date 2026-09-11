@@ -232,6 +232,37 @@ export interface Keyboard {
   isBindingRegistered(pattern: string, excludeLayerId?: string): boolean;
   /** the armed chord prefix, or null when not in chord mode */
   readonly chordPrefix: string | null;
+  /**
+   * Every second key that would complete `prefix`, and the node each one runs.
+   *
+   * THIS EXISTS SO A HOST CAN DRAW THE CHORD IT HAS ARMED. `subscribeChordMode` already says a
+   * prefix went live, and until now that was the whole story: a UI that wanted to answer "you
+   * pressed `g`, so what follows?" had to filter its own copy of the bindings. That copy is a
+   * second source of truth for something this object knows exactly -- `isChordPrefix` walks the
+   * live layer stack to decide whether to arm at all, and then discards the matches it found.
+   *
+   * The consequence of not having it is a real one rather than a tidiness argument: a chord the
+   * user cannot see is a chord the user has to memorise, and a host-side copy of the binding list
+   * goes stale the moment anything is bound through `pushLayer` at runtime, which is precisely
+   * when a hint is most needed.
+   *
+   * Layer precedence is honoured exactly as a real press honours it -- later layers win, a
+   * disabled layer is not consulted, and a suspended stack completes nothing -- so what comes back
+   * is what WOULD FIRE, not what merely appears somewhere in the registry.
+   *
+   * `prefix` defaults to the armed one, so the common call is `chordCompletions()`.
+   */
+  chordCompletions(prefix?: string): ChordCompletion[];
+}
+
+/** One key that would complete an armed chord, and the node it would run. */
+export interface ChordCompletion {
+  /** the second key, normalized as the stack stores it -- `p`, `t`, `arrowdown` */
+  key: string;
+  /** the whole binding as registered -- `g p` */
+  shortcut: string;
+  /** the node this activates, when the binding came in through `registerShortcuts` */
+  node?: CommandNode;
 }
 
 // ── Binding lookup (pure) ───────────────────────────────────────────────────
@@ -251,6 +282,14 @@ export function createKeyboard(options: KeyboardOptions = {}): Keyboard {
   let chordTimeoutMs = options.chordTimeoutMs ?? 2000;
   let activeChord: { prefix: string; timeoutId: ReturnType<typeof setTimeout> } | null = null;
   const chordListeners = new Set<ChordListener>();
+  /**
+   * Which node each binding of a `registerShortcuts` layer runs.
+   *
+   * A WeakMap keyed by the layer, so it cannot outlive a popped layer and there is nothing to
+   * clean up in `popLayer` -- the alternative is a second registry that has to be kept in step
+   * with `layers` by hand, and forgetting one line there is a leak nobody sees.
+   */
+  const layerNodes = new WeakMap<KeyLayer, Map<string, CommandNode>>();
   const editableTarget = options.isEditableTarget ?? isEditableTarget;
   let suspended = false;
 
@@ -279,15 +318,44 @@ export function createKeyboard(options: KeyboardOptions = {}): Keyboard {
   }
 
   function isChordPrefix(normalized: string): boolean {
-    const prefix = `${normalized} `;
+    return chordCompletions(normalized).length > 0;
+  }
+
+  /**
+   * What `isChordPrefix` used to answer yes/no, answered with the matches themselves.
+   *
+   * The two were one loop with the result thrown away, so they are one loop again -- a second walk
+   * of the layer stack with its own idea of precedence is exactly the pair that drifts, and the
+   * decision to ARM a chord has to agree with the list the host draws for it.
+   *
+   * Top layer first, and the first layer to claim a second key keeps it, which is the same "later
+   * layers win" rule `handleKeydown` dispatches by. A suspended stack returns nothing: nothing
+   * would fire, so nothing should be offered.
+   */
+  function chordCompletions(prefix?: string): ChordCompletion[] {
+    const armed = prefix ?? activeChord?.prefix;
+    if (armed === undefined || armed === null || suspended) return [];
+
+    const head = `${armed} `;
+    const seen = new Map<string, ChordCompletion>();
+
     for (let i = layers.length - 1; i >= 0; i--) {
       const layer = layers[i];
       if (!layer || layer.options.enabled === false) continue;
-      for (const key of Object.keys(layer.bindings)) {
-        if (key.startsWith(prefix)) return true;
+      const nodes = layerNodes.get(layer);
+      for (const shortcut of Object.keys(layer.bindings)) {
+        if (!shortcut.startsWith(head)) continue;
+        const key = shortcut.slice(head.length);
+        // A chord is exactly two presses here; anything with a further space is a deeper
+        // sequence and is not a completion OF THIS prefix.
+        if (key.length === 0 || key.includes(" ")) continue;
+        if (seen.has(key)) continue;
+        const node = nodes?.get(shortcut);
+        seen.set(key, node === undefined ? { key, shortcut } : { key, shortcut, node });
       }
     }
-    return false;
+
+    return [...seen.values()];
   }
 
   function handleKeydown(e: KernelKeyEvent): void {
@@ -371,10 +439,18 @@ export function createKeyboard(options: KeyboardOptions = {}): Keyboard {
     },
     registerShortcuts(nodes, driverOptions) {
       const bindings: KeyBindings = {};
+      // The node is kept BESIDE the binding, not inside the closure. A `KeyHandler` is an opaque
+      // function once registered, so a layer built here could say which keys it owned but never
+      // what any of them ran -- which is the whole thing `chordCompletions` has to report.
+      const byShortcut = new Map<string, CommandNode>();
       for (const [shortcut, node] of nodes) {
-        bindings[normalizeShortcut(parseShortcut(shortcut))] = () => driverOptions.onActivate(node);
+        const normalized = normalizeShortcut(parseShortcut(shortcut));
+        bindings[normalized] = () => driverOptions.onActivate(node);
+        byShortcut.set(normalized, node);
       }
-      return pushLayer(bindings, { base: true, id: "kernel-shortcuts" });
+      const layer = pushLayer(bindings, { base: true, id: "kernel-shortcuts" });
+      layerNodes.set(layer, byShortcut);
+      return layer;
     },
     subscribeChordMode(fn) {
       chordListeners.add(fn);
@@ -393,6 +469,7 @@ export function createKeyboard(options: KeyboardOptions = {}): Keyboard {
     get suspended() {
       return suspended;
     },
+    chordCompletions,
     isBindingRegistered(pattern, excludeLayerId) {
       // Compare in the dispatcher's own dialect, so `cmd+k`, `mod+k` and (off a
       // Mac) `ctrl+k` are recognised as the one physical chord they are. A chord
