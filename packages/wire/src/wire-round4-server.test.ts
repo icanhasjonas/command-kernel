@@ -18,7 +18,6 @@ import { createWireServer } from "./server.js";
 
 const frame = async (w: ReturnType<typeof createWireServer>, msg: object, who: Ctx = ctx) =>
   JSON.parse(await w.handleFrame(JSON.stringify(msg), who));
-const at = (now: number): Ctx => ({ ...ctx, now });
 const header = grantHeader;
 const call = (evidence: Grant, n = 1) => ({
   t: "cmd",
@@ -50,15 +49,17 @@ describe("W1: a grant cannot be forged over the wire", () => {
 });
 
 describe("W2: a grant expires, and a spend hook makes it single-use", () => {
+  // on the kernel's clock since core review round 7 (ctx.now is never read for it)
   it("a grant used after its 5 minutes is confirmRequired (socket and HTTP)", async () => {
-    const { wire } = server({ confirm: () => true });
-    const grant = await mint(wire, at(0));
-    expect((await frame(wire, call(grant), at(5 * 60_000 + 1))).error.code).toBe("confirmRequired");
+    let clock = 0;
+    const { wire } = server({ confirm: () => true }, () => clock);
+    const grant = await mint(wire);
+    clock = 5 * 60_000 + 1;
+    expect((await frame(wire, call(grant))).error.code).toBe("confirmRequired");
     const headers = { ...JSON_TYPE, "command-evidence": header(grant) };
-    const late = await post(wire, "danger", { body: '{"n":1}', headers }, at(5 * 60_000 + 1));
-    expect(late?.status).toBe(409);
-    const inTime = await post(wire, "danger", { body: '{"n":1}', headers }, at(1000));
-    expect(inTime?.status).toBe(200);
+    expect((await post(wire, "danger", { body: '{"n":1}', headers }))?.status).toBe(409);
+    clock = 1000;
+    expect((await post(wire, "danger", { body: '{"n":1}', headers }))?.status).toBe(200);
   });
 
   it("with a spend hook the second use is refused", async () => {

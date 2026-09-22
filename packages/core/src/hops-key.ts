@@ -1,6 +1,7 @@
 import type { ArgValues } from "./args.js";
 import { coerceArgs } from "./coerce.js";
 import { pathKey } from "./evidence-key.js";
+import { setOwn } from "./own.js";
 import { signingArgs } from "./signing.js";
 import type { CommandNode, Ctx } from "./types.js";
 
@@ -27,7 +28,19 @@ export function hopArgs(node: CommandNode, args: ArgValues | undefined, ctx: Ctx
  * the hops before it with this, and any driver that walks a chain itself must key
  * it the SAME way, or a grant minted under `box(id=inbox) > purge` would verify
  * under `box(id=archive)`.
+ *
+ * An empty text arg is no search at all, so it is left out of the key: the palette
+ * opens a search step with `q: ""` and `command()` walks it with no args, and both
+ * must bind a grant to the same `search()`.
  */
 export function hopsKey(hops: Hop[]): string {
-  return pathKey(hops.map((h) => ({ id: h.node.id, args: signingArgs(h.node, h.args ?? {}) })));
+  return pathKey(hops.map((h) => ({ id: h.node.id, args: keyedArgs(h.node, h.args ?? {}) })));
+}
+
+/** A hop's args as keyed: the signing form, without empty text. */
+function keyedArgs(node: CommandNode, args: ArgValues): ArgValues {
+  const signed = signingArgs(node, args);
+  const out: ArgValues = {};
+  for (const [k, v] of Object.entries(signed)) if (v !== "") setOwn(out, k, v);
+  return out;
 }

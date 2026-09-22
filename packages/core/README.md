@@ -112,7 +112,10 @@ agent go through the identical path.
 - **Validation** — before the gate, `executeNode` runs `validateArgs` against the
   arg schema (email shape, enum membership, custom `validate`). A driver — the
   agent above all — can't run a node with a hallucinated value; the call comes
-  back as an `args` response carrying `errors`.
+  back as an `args` response carrying `errors`. An arg the node does not declare is
+  refused the same way, naming the key (a `prefill` included), and a `json` arg holds
+  plain JSON only (no `Date`, `Map` or class instance). Coercion writes `-0` as `0`,
+  and treats a `multiple` arg with no items (`[]`) as absent, on every driver.
 - **Gate** (`GatePolicy`) — given a node + ctx, is it allowed and does it still
   owe a confirm? The single enforcement point. May be **sync or async** (hit a DB
   / flag service); `executeNode` awaits it. The default is `createRoleGate(ladder)`
@@ -125,15 +128,18 @@ agent go through the identical path.
   gone through the gate. Args are bound (approve `email→A` can't run `email→B`); the
   prior path is bound (a grant is valid only inside the chain it was minted in); the
   principal is bound (another user replaying it gets the gate). A grant expires 5
-  minutes after it was minted, measured on `ctx.now` (`createHmacEvidenceStore(key, {
-  ttlMs })`); until then it may be reused, unless the caller passes `command({ spend })`
+  minutes after it was minted, measured on the kernel's clock (`createKernel({ now })`,
+  default `Date.now`; `ctx.now` is never read for it) with the TTL from
+  `createHmacEvidenceStore(key, { ttlMs })`, which also caps any grant a store verifies;
+  until then it may be reused, unless the caller passes `command({ spend })`
   to allow each nonce once. `rotate()` (or a browser reload) draws a new key and
   invalidates every outstanding grant. The default store's key is random per store; a
   host with several isolates passes one shared key to `createHmacEvidenceStore(key)` in
   each.
 - **Policy** (`PolicyStore`) — the standing "always allow" exception, checked
   BEFORE evidence is requested. Scope is `command` (any args), `arg` (this value),
-  or `prefix` (this folder), session-scoped.
+  or `prefix` (this folder), session-scoped. A rule over a list arg matches only when
+  it covers EVERY value in the call's list.
 
 `executeNode` runs the order non-negotiably: gate FIRST, then run. A confirm-gated
 command runs only when a standing rule matches OR a valid grant is supplied.

@@ -127,7 +127,7 @@ export async function command(
         args: values,
         priorKey,
         ...(principal !== undefined && { principal }),
-        now: ectx.now,
+        now: deps.now ? deps.now() : Date.now(),
       };
     }
     if (outcome.result) return { kind: "result", node: tip, result: outcome.result };

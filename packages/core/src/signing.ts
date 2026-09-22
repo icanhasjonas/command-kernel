@@ -19,7 +19,8 @@ import type { CommandNode } from "./types.js";
  *                      its whole list being one canonical string
  *
  * For text-only args this is the identity, so their grants key exactly as before.
- * An arg the node does not declare has no kind to coerce to, so it keeps its own
+ * An arg the node does not declare never reaches a grant (`validateArgs` refuses it);
+ * where one is keyed anyway (a hop's args, a store signing raw args) it keeps its own
  * type, and the evidence key keeps a number apart from the same-looking text.
  */
 

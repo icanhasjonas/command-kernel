@@ -34,7 +34,6 @@ function userActions(u: User): CommandNode[] {
           placeholder: "Write a message…",
         },
       ],
-      prefill: () => ({ to: u.email }),
       run: async (a) => toast(`Email “${a.subject}” queued to ${u.email}`),
     },
     {

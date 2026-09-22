@@ -1,4 +1,5 @@
 import type { ArgSpec, ArgValue, ArgValues } from "./args.js";
+import { isPlainObject, zeroed } from "./json-shape.js";
 import { getOwn, setOwn } from "./own.js";
 import type { JsonSchemaNode } from "./schema.js";
 import type { CommandNode } from "./types.js";
@@ -46,8 +47,8 @@ function parse(t: string): ArgValue | undefined {
   }
 }
 
-const isObject = (v: unknown): v is Record<string, ArgValue> =>
-  typeof v === "object" && v !== null && !Array.isArray(v);
+/** A plain object only: a Date or a Map is left as it came, for validation to refuse. */
+const isObject = (v: unknown): v is Record<string, ArgValue> => isPlainObject(v);
 
 /** `v` fitted to `schema` where it can be; otherwise `v` unchanged. */
 function fit(schema: JsonSchemaNode, v: ArgValue): ArgValue {
@@ -92,11 +93,18 @@ function schemaOf(spec: ArgSpec): JsonSchemaNode {
 
 const isBlank = (v: unknown) => typeof v === "string" && v.trim() === "";
 
+/** `v` fitted to its spec, with -0 written as 0 (it would sign as "0" and run as -0). */
 function coerceValue(spec: ArgSpec, v: ArgValue): ArgValue {
   const schema = schemaOf(spec);
-  if (!spec.multiple) return fit(schema, v);
+  if (!spec.multiple) return zeroed(fit(schema, v));
   const items = (Array.isArray(v) ? v : [v]) as ArgValue[];
-  return items.filter((x) => !isBlank(x)).map((x) => fit(schema, x)) as ArgValue;
+  return zeroed(items.filter((x) => !isBlank(x)).map((x) => fit(schema, x)) as ArgValue);
+}
+
+/** No value at all: blank text for a typed kind, or a `multiple` list with no items. */
+function absent(spec: ArgSpec, v: ArgValue): boolean {
+  if (spec.multiple && Array.isArray(v) && v.length === 0) return true;
+  return typeof v === "string" && v.trim() === "" && blankIsAbsent(spec);
 }
 
 /** Typed kinds treat blank text as no value, except a json arg whose schema IS text. */
@@ -133,7 +141,9 @@ function withoutUndefined(values: ArgValues): ArgValues {
 /**
  * The args fitted to their declared kinds. Never mutates `values`. A key whose value
  * is undefined is dropped first, declared or not: `{ note: undefined }` is `{}` to the
- * gate, the signature and run() alike, never a second spelling of `{ note: "" }`.
+ * gate, the signature and run() alike, never a second spelling of `{ note: "" }`. So
+ * is a `multiple` arg left with no items (`[]`, or only blanks): every driver hands
+ * run() the same absent value, where a URL could never carry an empty list at all.
  */
 export function coerceArgs(node: CommandNode, input: ArgValues): ArgValues {
   const values = withoutUndefined(input);
@@ -143,13 +153,13 @@ export function coerceArgs(node: CommandNode, input: ArgValues): ArgValues {
   for (const spec of specs) {
     const v = getOwn(values, spec.id);
     if (v === undefined) continue;
+    const c = coerceValue(spec, v);
     // an untouched field or `?n=` means "no value" for a typed arg, as it does for text
-    if (typeof v === "string" && v.trim() === "" && blankIsAbsent(spec)) {
+    if (absent(spec, v) || absent(spec, c)) {
       out ??= { ...values };
       delete out[spec.id];
       continue;
     }
-    const c = coerceValue(spec, v);
     if (!same(c, v)) {
       out ??= { ...values };
       setOwn(out, spec.id, c);

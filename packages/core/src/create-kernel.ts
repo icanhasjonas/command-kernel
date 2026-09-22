@@ -67,11 +67,19 @@ export interface KernelConfig {
    * by a different caller. Return undefined to bind no principal.
    */
   principalOf?: (ctx: Ctx) => string | undefined;
+  /**
+   * The clock grants are minted and checked against, wall-clock ms (default
+   * `Date.now`). Never `ctx.now`: a host that builds its ctx once per socket (or
+   * rebuilds it from what a hibernating Durable Object saved) would freeze it, and a
+   * grant would never expire. Pass a fake clock in tests.
+   */
+  now?: () => number;
 }
 
 /**
  * What `grantFor` signs: a `gate` response, or the same fields a driver holds itself.
- * `now` is when the human approved (`ctx.now`); the grant expires a TTL after it.
+ * `now` is when the human approved, on the kernel's clock (default: the clock, now);
+ * the grant expires a TTL after it.
  */
 export type GrantRequest = Pick<
   Extract<CommandResponse, { kind: "gate" }>,
@@ -139,12 +147,14 @@ export function createKernel(config: KernelConfig = {}): Kernel {
   const fallback = config.fallback ?? null;
   const staticRoots = config.roots ?? [];
   const principalOf = config.principalOf ?? ((ctx: Ctx) => ctx.user.id);
+  const clock = config.now ?? (() => Date.now());
   const deps: CommandDeps = {
     ranker,
     gate,
     evidence,
     policy,
     principalOf,
+    now: clock,
     ...(entities != null && { entities }),
   };
 
@@ -166,7 +176,7 @@ export function createKernel(config: KernelConfig = {}): Kernel {
         res.node.id,
         signingArgs(res.node, res.args),
         bindingKey(res.principal, res.priorKey),
-        res.now !== undefined ? { now: res.now } : {},
+        { now: res.now ?? clock() },
       ),
     principalOf,
     roots,

@@ -20,9 +20,13 @@ const throwers = ["timeout", "weird"].map(thrower);
 
 export const reviewSpecs = [toast, quiet, gated, ...throwers];
 
-/** A server over the review commands; `extra` overrides any option, `specs` included. */
-export function server(extra: Partial<WireServerOptions> = {}) {
+/**
+ * A server over the review commands; `extra` overrides any option, `specs` included.
+ * `now` is the kernel's clock (grant expiry), default the real one.
+ */
+export function server(extra: Partial<WireServerOptions> = {}, now?: () => number) {
   const kernel = createKernel({
+    ...(now && { now }),
     roots: [
       { ...toast.node, run: async () => ({ kind: "toast", message: "hi", payload: { x: 1 } }) },
       implement(quiet, async () => undefined),

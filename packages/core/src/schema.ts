@@ -173,5 +173,17 @@ export function validateArgs(node: CommandNode, values: ArgValues): ArgError[] {
       }
     }
   }
-  return errors;
+  return [...errors, ...undeclared(node, values)];
+}
+
+/**
+ * An arg the node does not declare has no kind, so nothing can say how it signs or
+ * what run() should make of it (a list of text would sign as an order-free set, NaN
+ * as null): it is refused, naming the key. An undefined value is no value.
+ */
+function undeclared(node: CommandNode, values: ArgValues): ArgError[] {
+  const declared = new Set((node.args ?? []).map((a) => a.id));
+  return Object.keys(values)
+    .filter((k) => !declared.has(k) && values[k] !== undefined)
+    .map((k) => ({ argId: k, message: `${k} is not an argument of ${node.title}` }));
 }

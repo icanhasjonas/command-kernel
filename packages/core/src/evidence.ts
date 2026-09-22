@@ -15,9 +15,10 @@ export { bindingKey, pathKey } from "./evidence-key.js";
  * grant into another, or extend one: without the key no valid signature can be
  * computed for any other command, args, path, principal, nonce or expiry.
  *
- * A grant EXPIRES: it is issued at `now` (the kernel passes `ctx.now`) and verifies
- * until `now + ttlMs` (default 5 minutes). Within that window it may be used again;
- * a host that needs single use records spent nonces (`command({ spend })`).
+ * A grant EXPIRES: it is issued at `now` (the kernel passes its clock,
+ * `KernelConfig.now`) and verifies until `now + ttlMs` (default 5 minutes). Within
+ * that window it may be used again; a host that needs single use records spent
+ * nonces (`command({ spend })`).
  *
  * An `EvidenceStore` owns the key and the sign/verify pair. The default
  * `createMemoryEvidenceStore()` draws a random 32-byte key per INSTANCE (no module
@@ -36,7 +37,7 @@ export interface EvidenceStore {
   sign(commandId: string, args: ArgValues, priorKey: string, opts?: SignOptions): Grant;
   /**
    * True only if the grant was minted for THIS command+args+binding context here,
-   * and `now` (the kernel passes `ctx.now`; default the store's clock) is not past
+   * and `now` (the kernel passes its clock; default the store's own) is not past
    * its expiry.
    */
   verify(
@@ -72,12 +73,16 @@ export interface EvidenceStore {
 export interface SignOptions {
   /** the grant's nonce (default: 16 random bytes, hex) */
   nonce?: string;
-  /** when it is issued, wall-clock ms (the kernel passes `ctx.now`; default the store's clock) */
+  /** when it is issued, wall-clock ms (the kernel passes its clock; default the store's own) */
   now?: number;
 }
 
 export interface HmacStoreOptions {
-  /** how long a grant verifies after it is issued, ms (default 5 minutes) */
+  /**
+   * how long a grant verifies after it is issued, ms (default 5 minutes). It also
+   * caps verification: a grant expiring further ahead than this (minted by a store
+   * with a longer TTL under the same key) is refused.
+   */
   ttlMs?: number;
 }
 
@@ -139,6 +144,9 @@ export function createHmacEvidenceStore(
         return false;
       const exp = grant.expiresAt;
       if (typeof exp !== "number" || !Number.isFinite(exp) || now > exp) return false;
+      // THIS store's TTL caps every grant it accepts, even one a longer-lived store
+      // sharing the key minted: no grant outlives the window configured here
+      if (exp - now > ttl) return false;
       return sameText(mac(commandId, args, priorKey, grant.nonce, exp), grant.sig);
     },
     grantForPath(path, principal) {

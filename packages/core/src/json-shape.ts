@@ -1,3 +1,4 @@
+import { setOwn } from "./own.js";
 import type { JsonSchemaNode } from "./schema.js";
 
 const NOT_JSON: Record<string, string> = {
@@ -8,27 +9,67 @@ const NOT_JSON: Record<string, string> = {
 };
 
 /**
+ * A plain object: what JSON.parse makes (or one with no prototype). A Date, a Map or
+ * a class instance is an object too, but its state lives outside its own keys, so it
+ * would sign (and fit) as `{}` while run() received something else.
+ */
+export function isPlainObject(v: unknown): v is Record<string, unknown> {
+  if (typeof v !== "object" || v === null || Array.isArray(v)) return false;
+  const proto: unknown = Object.getPrototypeOf(v);
+  return proto === Object.prototype || proto === null;
+}
+
+/**
  * Where a value holds something JSON cannot carry: NaN or an infinity, undefined (a
- * list hole included), a function, a symbol, a bigint, or a cycle. JSON.stringify
- * would quietly write such a value as null or leave it out, so it would be signed as
- * something other than what runs; the kernel refuses it instead. Own keys only.
+ * list hole included), a function, a symbol, a bigint, a cycle, or an object that is
+ * not plain (a Date, a Map, a class instance). JSON.stringify would quietly write
+ * such a value as null, `{}` or leave it out, so it would be signed as something
+ * other than what runs; the kernel refuses it instead. Own keys only.
  */
 export function notJson(value: unknown, path: string, seen = new Set<object>()): string[] {
   if (typeof value === "number")
     return Number.isFinite(value) ? [] : [`${path} must be a finite number`];
   if (typeof value === "string" || typeof value === "boolean" || value === null) return [];
   if (typeof value !== "object") return [`${path} is ${NOT_JSON[typeof value]}, not JSON`];
+  if (!Array.isArray(value) && !isPlainObject(value))
+    return [`${path} must be a plain JSON object`];
   if (seen.has(value)) return [`${path} contains itself`];
   seen.add(value);
   const out: string[] = [];
   if (Array.isArray(value)) {
     for (let i = 0; i < value.length; i++) out.push(...notJson(value[i], `${path}[${i}]`, seen));
   } else {
-    const obj = value as Record<string, unknown>; // a non-null, non-array object
+    const obj = value as Record<string, unknown>; // checked above: a plain object
     for (const k of Object.keys(obj)) out.push(...notJson(obj[k], `${path}.${k}`, seen));
   }
   seen.delete(value);
   return out;
+}
+
+/**
+ * `v` with every -0 written as 0, at any depth (lists and plain objects). JSON and the
+ * text form a grant signs both write -0 as "0", so a -0 that reached run() would be a
+ * value the approval never showed. Returns `v` itself when there is none; a cycle is
+ * left as it is (validation refuses it).
+ */
+export function zeroed<T>(v: T, seen = new Set<object>()): T {
+  if (typeof v === "number") return (Object.is(v, -0) ? 0 : v) as T;
+  if (Array.isArray(v)) {
+    if (seen.has(v)) return v;
+    seen.add(v);
+    const fixed = v.map((x: unknown) => zeroed(x, seen));
+    seen.delete(v);
+    // Object.is: `0 === -0`, so === would call a fixed -0 unchanged
+    return fixed.every((x, i) => Object.is(x, v[i])) ? v : (fixed as T);
+  }
+  if (!isPlainObject(v) || seen.has(v)) return v;
+  seen.add(v);
+  const entries = Object.entries(v).map(([k, x]): [string, unknown] => [k, zeroed(x, seen)]);
+  seen.delete(v);
+  if (entries.every(([k, x]) => Object.is(x, v[k]))) return v;
+  const out: Record<string, unknown> = {};
+  for (const [k, x] of entries) setOwn(out, k, x); // "__proto__" stays a key (own.ts)
+  return out as T;
 }
 
 /**

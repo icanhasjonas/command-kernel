@@ -16,7 +16,7 @@ const verifies = async (node: CommandNode, signed: ArgValues, ran: ArgValues) =>
   const d = deps(confirm);
   const grant = d.evidence.sign(node.id, signingArgs(node, signed), "");
   const out = await executeNode(node, ran, ctx, d, { grant, priorKey: "" });
-  return !out.awaitingConfirm;
+  return out.result !== null;
 };
 
 describe("the same act verifies across representations", () => {
@@ -61,9 +61,9 @@ describe("a different act never verifies", () => {
     );
   });
 
-  it("an undeclared number against the same-looking text", async () => {
-    expect(await verifies(trim, { n: 1, extra: "5" }, { n: 1, extra: 5 })).toBe(false);
-    expect(await verifies(trim, { n: 1, extra: 5 }, { n: 1, extra: 5 })).toBe(true);
+  // core review round 7, C1: an undeclared arg is refused, whatever it holds
+  it("an undeclared arg, even one signed exactly as sent", async () => {
+    expect(await verifies(trim, { n: 1, extra: 5 }, { n: 1, extra: 5 })).toBe(false);
   });
 });
 
@@ -87,6 +87,10 @@ describe("review round 4", () => {
     id: "p",
     title: "p",
     gate: { confirm: true },
+    args: [
+      { id: "t", label: "t", kind: "string", multiple: true },
+      { id: "u", label: "u", kind: "string" },
+    ],
     run: async () => ({ kind: "noop", message: "" }),
   };
 

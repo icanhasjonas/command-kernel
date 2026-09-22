@@ -54,6 +54,14 @@ function sameRule(a: AllowRule, b: AllowRule): boolean {
 /** An arg's values as text (json in canonical form), read from own keys only. */
 const texts = (args: ArgValues, argId: string) => argList(getOwn(args, argId));
 
+/**
+ * A rule over one arg covers a call only when it covers EVERY value the call holds
+ * for that arg: "always allow to jon@x.io" must not wave through a list that adds
+ * evil@y.io. No value at all is not covered.
+ */
+const covers = (values: string[], ok: (v: string) => boolean) =>
+  values.length > 0 && values.every(ok);
+
 /** The default policy store: an in-memory, per-instance, session-scoped rule list. */
 export function createMemoryPolicyStore(): PolicyStore {
   let rules: AllowRule[] = [];
@@ -75,8 +83,8 @@ export function createMemoryPolicyStore(): PolicyStore {
         if (r.commandId !== commandId) continue;
         const s = r.scope;
         if (s.kind === "command") return r;
-        if (s.kind === "arg" && texts(args, s.argId).includes(s.value)) return r;
-        if (s.kind === "prefix" && texts(args, s.argId).some((v) => v.startsWith(s.prefix)))
+        if (s.kind === "arg" && covers(texts(args, s.argId), (v) => v === s.value)) return r;
+        if (s.kind === "prefix" && covers(texts(args, s.argId), (v) => v.startsWith(s.prefix)))
           return r;
       }
       return null;

@@ -18,6 +18,7 @@ const reset: CommandNode = {
   id: "reset",
   title: "Send password reset",
   gate: { roles: ["admin"], confirm: true },
+  args: [{ id: "user", label: "user", kind: "email" }],
   run: async () => ({ kind: "toast", message: "sent" }),
 };
 

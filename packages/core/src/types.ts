@@ -142,7 +142,10 @@ export interface CommandNode {
 export interface Ctx {
   location: { module: string; recordId?: string; label?: string };
   user: { id: string; name: string; role: Role; brand: string };
-  /** wall-clock ms (`Date.now()`); grants are issued and expire against it */
+  /**
+   * The host's wall-clock ms, for its own commands. Grant expiry never reads it: that
+   * runs on the kernel's clock (`KernelConfig.now`), so a ctx built once and kept is fine.
+   */
   now: number;
   /** commandId -> learned recency*frequency score */
   frecency: Record<string, number>;

@@ -219,7 +219,6 @@ export function usePalette({
       args: confirm.values,
       priorKey: ancestorKey(),
       ...(principal !== undefined && { principal }),
-      now: ctx.now,
     });
     void proceedGate(confirm.node, confirm.values, grant);
   }, [confirm, ancestorKey, proceedGate, kernel, ctx]);

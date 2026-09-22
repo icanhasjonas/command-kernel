@@ -46,6 +46,11 @@ export interface ExecuteDeps {
    * returning undefined, a grant binds no principal.
    */
   principalOf?: (ctx: Ctx) => string | undefined;
+  /**
+   * The clock grant expiry is measured on, wall-clock ms. `createKernel` defaults it
+   * to `Date.now`; absent (raw deps), the evidence store uses its own.
+   */
+  now?: () => number;
 }
 
 /** How far `executeNode` goes. */
@@ -150,8 +155,9 @@ export async function executeNode(
     autoAllowed = deps.policy.match(node.id, args) !== null;
     // verify over the canonical signing form, so a grant minted from the palette's
     // text ("yes") verifies the same act arriving typed (true) and vice versa; for
-    // THIS principal, so a grant minted for someone else never verifies; at ctx.now,
-    // so an expired grant does not; and, when the host keeps track, only once
+    // THIS principal, so a grant minted for someone else never verifies; on the
+    // kernel's clock (never ctx.now, which a host may have built once and kept), so
+    // an expired grant does not; and, when the host keeps track, only once
     const { grant, spend } = confirmation;
     const proven =
       autoAllowed ||
@@ -161,7 +167,7 @@ export async function executeNode(
           node.id,
           signingArgs(node, args),
           bindingKey(deps.principalOf?.(ctx), confirmation.priorKey ?? ""),
-          ctx.now,
+          deps.now?.(),
         ) &&
         (spend ? await spend(grant) : true));
     if (!proven) return stopped(verdict, { awaitingConfirm: true });

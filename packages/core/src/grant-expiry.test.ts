@@ -5,9 +5,9 @@ import type { CommandNode, Ctx, Grant } from "./types.js";
 
 /**
  * Wire review round 4, W2 (the core half): a grant expires, and a host can make it
- * single-use. The expiry is inside the signed payload (issued at ctx.now plus the
- * store's TTL, default 5 minutes) and checked against ctx.now on use; `spend` is
- * asked once a grant has verified, before run().
+ * single-use. The expiry is inside the signed payload (issued on the kernel's clock
+ * plus the store's TTL, default 5 minutes) and checked on that clock on use; `spend`
+ * is asked once a grant has verified, before run().
  */
 
 const ARGS = { user: "a@b.io" };
@@ -47,13 +47,17 @@ describe("a grant expires", () => {
     expect(store.verify(bare, "reset", ARGS, "", 0)).toBe(false);
   });
 
-  it("the kernel mints at ctx.now and refuses the grant 5 minutes later", async () => {
-    const k = createKernel({ roots: [reset] });
+  // core review round 7: on the kernel's clock (KernelConfig.now), never ctx.now
+  it("the kernel mints on its clock and refuses the grant 5 minutes later", async () => {
+    let clock = 0;
+    const k = createKernel({ roots: [reset], now: () => clock });
     const gate = await k.command({ path: [{ id: "reset", args: ARGS }], execute: true }, at(0));
     if (gate.kind !== "gate") throw new Error(gate.kind);
     const evidence = k.grantFor(gate);
-    const use = (now: number) =>
-      k.command({ path: [{ id: "reset", args: ARGS, evidence }], execute: true }, at(now));
+    const use = (now: number) => {
+      clock = now;
+      return k.command({ path: [{ id: "reset", args: ARGS, evidence }], execute: true }, at(0));
+    };
     expect((await use(5 * 60_000 + 1)).kind).toBe("gate");
     expect((await use(5 * 60_000)).kind).toBe("result");
   });

@@ -20,7 +20,7 @@ const verifies = async (node: CommandNode, signed: ArgValues, ran: ArgValues) =>
   const d = deps(confirm);
   const grant = d.evidence.sign(node.id, signingArgs(node, signed), "");
   const out = await executeNode(node, ran, ctx, d, { grant, priorKey: "" });
-  return !out.awaitingConfirm;
+  return out.result !== null;
 };
 
 describe("K1-D2/D3: an undeclared arg's key encodes arity", () => {
@@ -36,10 +36,11 @@ describe("K1-D2/D3: an undeclared arg's key encodes arity", () => {
     expect(key(["a,b"])).not.toBe(key(["a", "b"]));
   });
 
-  it("a grant for {targets: 'prod'} does not verify {targets: ['prod']}", async () => {
-    expect(await verifies(plain, { targets: "prod" }, { targets: ["prod"] })).toBe(false);
-    expect(await verifies(plain, { targets: [] }, { targets: [""] })).toBe(false);
-    expect(await verifies(plain, { targets: ["b", "a"] }, { targets: ["a", "b"] })).toBe(true);
+  // core review round 7, C1: an undeclared arg no longer reaches a grant at all
+  it("an undeclared arg is refused before any grant is checked", async () => {
+    const out = await executeNode(plain, { targets: ["prod"] }, ctx, deps(confirm));
+    expect(out.argErrors.map((e) => e.argId)).toEqual(["targets"]);
+    expect(await verifies(plain, { targets: ["prod"] }, { targets: ["prod"] })).toBe(false);
   });
 });
 

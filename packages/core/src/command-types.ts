@@ -63,7 +63,7 @@ export type CommandResponse =
       priorKey: string;
       /** who asked (`principalOf(ctx)`): the grant is bound to them; absent = nobody */
       principal?: string;
-      /** `ctx.now` when the gate was asked: a grant minted from this response expires a TTL after it */
+      /** the kernel's clock when the gate was asked: a grant minted from this response expires a TTL after it */
       now: number;
     }
   | { kind: "result"; node: CommandNode; result: CommandResult };

@@ -79,6 +79,7 @@ describe("gate enforcement (via the kernel's trust core)", () => {
     id: "users.reset",
     title: "Send password reset",
     gate: { roles: ["admin"], confirm: true },
+    args: [{ id: "user", label: "user", kind: "email" }],
     run: async () => ({ kind: "toast", message: "sent" }),
   };
 

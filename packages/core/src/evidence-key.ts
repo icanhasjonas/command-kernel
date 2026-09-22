@@ -36,7 +36,7 @@ const textList = (xs: string[]) =>
 /**
  * Stable, order-independent serialization of an arg bag. The kernel signs
  * `signingArgs(node, args)` (signing.ts), in which every DECLARED arg is text or a
- * list of text. A non-text value (an undeclared typed arg, or raw typed args a
+ * list of text. A non-text value (an undeclared arg on a hop, or raw typed args a
  * driver signed itself) is written as the TYPED mark plus canonical JSON, so the
  * number 5 and the text "5" never share a key. Only own keys are read.
  */
