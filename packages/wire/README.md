@@ -169,6 +169,13 @@ conflict`. A grant is bound to the caller who confirmed (`principalOf`, by defau
 title }`) and never echoes the args, which after `prefill` can hold server-side values. A
 confirm policy, gate or prefill that throws answers `serverFail`, never the exception.
 
+A prefilled arg is the server's value: a call that sends one of the keys `prefill(ctx)` set
+is `400 invalidArguments` naming it, on every transport and on confirm, whatever the value
+(accepting an equal one would let a caller guess it one try at a time). The kernel itself
+merges `{ ...prefill, ...args }`, which is right for a palette's editable default; the wire
+is where a caller must not replace it. A prefill of `undefined` or `""` set nothing, and a
+prefilled arg cannot be a GET route param (every such call would be refused).
+
 A grant is an HMAC-SHA256 signature over the caller, the command, its args, a nonce and an
 expiry, so it cannot be forged or reworked into another call. It **expires** 5 minutes
 after it was minted on the kernel's clock (`createKernel({ now })`, default `Date.now`),

@@ -81,11 +81,17 @@ export function createWireServer(opts: WireServerOptions): WireServer {
   // an undeclared command answers word for word as one that does not exist
   const unknown = (name: string) => refusal("unknownCommand", `No command ${name}`);
 
-  const guards = argGuards(opts.specs);
+  const guards = argGuards(opts.kernel, opts.specs);
 
   const call = async (name: string, args: ArgValues, ctx: Ctx, evidence?: Grant) => {
     if (!commandIds.has(name)) return unknown(name);
-    return guards.check(name, args) ?? runCall(opts.kernel, name, args, ctx, evidence, opts);
+    let refusedArgs: Outcome | null;
+    try {
+      refusedArgs = guards.check(name, args, ctx);
+    } catch (err) {
+      return thrown(err, name, opts); // a throwing prefill, as a throwing run()
+    }
+    return refusedArgs ?? runCall(opts.kernel, name, args, ctx, evidence, opts);
   };
 
   /** The gate's verdict for a call (a dry run: never executed), turned into a grant when the host allows it. */
@@ -116,10 +122,8 @@ export function createWireServer(opts: WireServerOptions): WireServer {
   async function confirmCall(name: string, args: ArgValues, ctx: Ctx): Promise<Outcome> {
     if (!commandIds.has(name)) return unknown(name);
     if (!opts.confirm) return refusal("forbidden", "Confirmations are not enabled here");
-    const refusedArgs = guards.check(name, args);
-    if (refusedArgs) return refusedArgs;
     try {
-      return await approve(opts.confirm, name, args, ctx);
+      return guards.check(name, args, ctx) ?? (await approve(opts.confirm, name, args, ctx));
     } catch (err) {
       // a throwing policy, gate or prefill answers as a throwing run() does
       return thrown(err, name, opts);
