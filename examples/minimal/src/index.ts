@@ -87,9 +87,11 @@ const seg = { id: "danger.reset", args: { user: "jon@wall.north" } };
 const gated = await kernel.command({ path: [seg], execute: true }, ctx);
 console.log("reset (no grant) ->", gated.kind); // "gate"
 
-// 5. The "human" clicks Allow: mint a grant bound to THIS exact command+args,
-//    set it as the tip's evidence, and re-issue the IDENTICAL call.
-const evidence = kernel.evidence.grantForPath([seg]);
+// 5. The "human" clicks Allow: mint a grant from the GATE RESPONSE — it carries
+//    the effective args (post-prefill, post-entity-resolution) and the prior-path
+//    key, so the grant covers exactly what will run. Set it as the tip's evidence
+//    and re-issue the IDENTICAL call.
+const evidence = gated.kind === "gate" ? kernel.grantFor(gated) : { nonce: "", sig: "" };
 const allowed = await kernel.command({ path: [{ ...seg, evidence }], execute: true }, ctx);
 console.log("reset (with grant) ->", allowed.kind === "result" && allowed.result.message);
 

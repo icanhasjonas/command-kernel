@@ -15,11 +15,15 @@ export function Pill({
   value,
   state,
   required,
+  requiredLabel = "required",
+  optionalLabel = "optional",
 }: {
   label: string;
   value?: string;
   state: PillState;
   required?: boolean;
+  requiredLabel?: string;
+  optionalLabel?: string;
 }) {
   return (
     <motion.span
@@ -37,7 +41,7 @@ export function Pill({
       {value ? (
         <span className="truncate font-medium">{value}</span>
       ) : (
-        <span className="opacity-50">{required ? "required" : "optional"}</span>
+        <span className="opacity-50">{required ? requiredLabel : optionalLabel}</span>
       )}
     </motion.span>
   );

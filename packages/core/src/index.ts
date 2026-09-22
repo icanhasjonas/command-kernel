@@ -65,6 +65,7 @@ export {
   missingArgs,
   resolveChildren,
   searchNodes,
+  shortcutNodes,
 } from "./kernel.js";
 // keyboard driver — instance-scoped layer stack + chord state machine.
 // The HOST attaches `keyboard.handleKeydown` to its key source; core stays DOM-free.

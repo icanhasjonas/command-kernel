@@ -16,6 +16,7 @@ import { ConfirmPanel } from "./ConfirmPanel.js";
 import { cn } from "./cn.js";
 import { Icon } from "./icon.js";
 import { Kbd } from "./Kbd.js";
+import { type PaletteLabelOverrides, resolveLabels } from "./labels.js";
 import { Pill } from "./Pill.js";
 import { ResultRow } from "./ResultRow.js";
 import { usePalette } from "./usePalette.js";
@@ -26,6 +27,10 @@ interface Props {
   ctx: Ctx;
   roots: CommandNode[];
   trigger?: { id: string; nonce: number } | null;
+  /** every word the palette says; unset keys keep the English default */
+  labels?: PaletteLabelOverrides;
+  /** show each node's authoring `weight` in its row (an authoring diagnostic) */
+  showWeight?: boolean;
   onClose: () => void;
   onResult: (r: CommandResult) => void;
   onExecuted: (id: string) => void;
@@ -37,10 +42,13 @@ export function CommandPalette({
   ctx,
   roots,
   trigger,
+  labels,
+  showWeight = false,
   onClose,
   onResult,
   onExecuted,
 }: Props) {
+  const text = resolveLabels(labels);
   const p = usePalette({ kernel, ctx, roots, open, trigger, onResult, onExecuted, onClose });
   const browseRef = useRef<HTMLInputElement>(null);
   const argRef = useRef<HTMLInputElement>(null);
@@ -67,7 +75,11 @@ export function CommandPalette({
 
   const activeSpec = p.arg?.node.args?.find((a) => a.id === p.arg?.activeArg);
   const freeText = activeSpec ? activeSpec.kind !== "enum" : false;
-  const namedArgs = (p.arg?.node.args ?? []).filter((a) => !a.positional);
+  // named args get a pill each; a positional arg only appears when it IS the one
+  // being collected (otherwise the query line is its input)
+  const namedArgs = (p.arg?.node.args ?? []).filter(
+    (a) => !a.positional || a.id === p.arg?.activeArg,
+  );
   const filledCount = namedArgs.filter((a) => isFilled(p.arg?.values[a.id])).length;
   const activeChips = activeSpec?.multiple ? argList(p.arg?.values[activeSpec.id]) : [];
 
@@ -153,7 +165,7 @@ export function CommandPalette({
                       <span key={f.node?.id ?? "root"} className="flex items-center gap-1.5">
                         {i > 0 && <span className="text-white/20">▸</span>}
                         <span className={i === p.frames.length - 1 ? "text-white/80" : ""}>
-                          {f.node?.title ?? "Backoffice"}
+                          {f.node?.title ?? text.root}
                         </span>
                       </span>
                     ))}
@@ -203,7 +215,9 @@ export function CommandPalette({
                                   p.setSelected(0);
                                 }}
                                 placeholder={
-                                  spec.multiple ? "add… (↵ done)" : (spec.placeholder ?? "…")
+                                  spec.multiple
+                                    ? text.addMore
+                                    : (spec.placeholder ?? text.argPlaceholder)
                                 }
                                 className="w-44 bg-transparent font-mono text-[12px] text-ck-accent-soft outline-none placeholder:text-ck-accent-soft/40"
                               />
@@ -216,12 +230,14 @@ export function CommandPalette({
                             label={spec.label}
                             value={argText(val)}
                             state={isFilled(val) ? "filled" : "empty"}
+                            requiredLabel={text.required}
+                            optionalLabel={text.optional}
                             {...(spec.required !== undefined && { required: spec.required })}
                           />
                         );
                       })}
                       <span className="ml-auto font-mono text-[11px] text-white/35">
-                        {filledCount} of {namedArgs.length}
+                        {text.argCounter(filledCount, namedArgs.length)}
                       </span>
                     </div>
                   ) : (
@@ -234,7 +250,8 @@ export function CommandPalette({
                           p.setQuery(e.target.value);
                           p.setSelected(0);
                         }}
-                        placeholder="Search commands, users, forms, submissions…"
+                        aria-label={text.searchLabel}
+                        placeholder={text.placeholder}
                         className="flex-1 bg-transparent text-[15px] text-white/90 outline-none placeholder:text-white/30"
                       />
                       {p.resolving && <Loader2 size={15} className="animate-spin text-white/40" />}
@@ -251,6 +268,7 @@ export function CommandPalette({
                       blocked={p.confirm.blocked}
                       role={ctx.user.role}
                       alwaysLabel={p.confirmAlwaysLabel}
+                      labels={text}
                       onProceed={p.confirmProceed}
                       onAlways={p.confirmAlways}
                     />
@@ -261,13 +279,14 @@ export function CommandPalette({
                       selected={p.selected}
                       freeText={freeText}
                       typed={p.argQuery}
+                      labels={text}
                       onPick={p.commitArg}
                       onHover={p.setSelected}
                     />
                   ) : p.ranked.length === 0 ? (
                     <div className="flex flex-col items-center gap-2 px-3 py-10 text-white/35">
                       <SearchX size={22} />
-                      <span className="text-[13px]">no commands match “{p.query}”</span>
+                      <span className="text-[13px]">{text.noMatch(p.query)}</span>
                     </div>
                   ) : (
                     <div className="max-h-[44vh] overflow-y-auto px-2 py-2">
@@ -277,6 +296,7 @@ export function CommandPalette({
                           item={item}
                           active={i === p.selected}
                           modHeld={modHeld}
+                          showWeight={showWeight}
                           onActivate={(exec) => p.activate(item.node, exec)}
                           onHover={() => p.setSelected(i)}
                         />
@@ -287,17 +307,17 @@ export function CommandPalette({
 
                 {/* footer */}
                 <div className="flex items-center gap-3 border-white/5 border-t px-4 py-2 text-[11px] text-white/35">
-                  <Hint k="↵" label={p.mode === "browse" ? "select" : "confirm"} />
-                  {p.mode === "browse" && <Hint k="→" label="drill in" />}
-                  {p.mode === "browse" && <Hint k="⌘↵" label="run as page" />}
-                  <Hint k="esc" label="back" />
+                  <Hint k="↵" label={p.mode === "browse" ? text.hintSelect : text.hintConfirm} />
+                  {p.mode === "browse" && <Hint k="→" label={text.hintDrill} />}
+                  {p.mode === "browse" && <Hint k="⌘↵" label={text.hintRunAsPage} />}
+                  <Hint k="esc" label={text.hintBack} />
                   <span
                     className={cn(
                       "ml-auto flex items-center gap-1.5 transition-opacity",
                       modHeld ? "opacity-100" : "opacity-50",
                     )}
                   >
-                    hold <Kbd glow={modHeld}>⌘</Kbd> for chords
+                    {text.chordHint(<Kbd glow={modHeld}>⌘</Kbd>)}
                   </span>
                 </div>
               </motion.div>

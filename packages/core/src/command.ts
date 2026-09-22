@@ -78,7 +78,20 @@ export type CommandResponse =
   | { kind: "completions"; at: CommandNode | null; items: Completion[] }
   | { kind: "args"; node: CommandNode; missing: string[]; errors: ArgError[]; items: Completion[] }
   | { kind: "disambiguate"; node: CommandNode; arg: ArgSpec; query: string; candidates: Entity[] }
-  | { kind: "gate"; node: CommandNode; verdict: GateVerdict }
+  | {
+      kind: "gate";
+      node: CommandNode;
+      verdict: GateVerdict;
+      /**
+       * The EFFECTIVE args this node will run with — the segment's args after
+       * `prefill` merging and entity auto-resolution. A grant must be minted over
+       * THESE (with `priorKey`), not over what the caller typed, or verification
+       * fails against values the kernel derived. `kernel.grantFor(res)` does it.
+       */
+      args: ArgValues;
+      /** canonical key of the path BEFORE this node — the grant's binding context */
+      priorKey: string;
+    }
   | { kind: "result"; node: CommandNode; result: CommandResult };
 
 /**
@@ -206,7 +219,9 @@ export async function command(
       };
     }
     if (!outcome.verdict.allowed || outcome.awaitingConfirm) {
-      return { kind: "gate", node: tip, verdict: outcome.verdict };
+      // hand back the EFFECTIVE args + binding context so the approving driver
+      // mints a grant the kernel will actually verify (see the `gate` variant)
+      return { kind: "gate", node: tip, verdict: outcome.verdict, args: values, priorKey };
     }
     if (outcome.result) return { kind: "result", node: tip, result: outcome.result };
   }

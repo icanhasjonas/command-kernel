@@ -2,6 +2,7 @@ import type { ArgOption } from "@command-kernel/core";
 import { CornerDownLeft, Loader2 } from "lucide-react";
 import { cn } from "./cn.js";
 import { Icon } from "./icon.js";
+import type { PaletteLabels } from "./labels.js";
 
 export function ArgOptions({
   options,
@@ -9,6 +10,7 @@ export function ArgOptions({
   selected,
   freeText,
   typed,
+  labels,
   onPick,
   onHover,
 }: {
@@ -17,6 +19,7 @@ export function ArgOptions({
   selected: number;
   freeText: boolean;
   typed: string;
+  labels: PaletteLabels;
   onPick: (value: string) => void;
   onHover: (i: number) => void;
 }) {
@@ -24,7 +27,7 @@ export function ArgOptions({
     <div className="px-2 pb-2">
       {loading && (
         <div className="flex items-center gap-2 px-3 py-2 text-[12px] text-white/40">
-          <Loader2 size={13} className="animate-spin" /> resolving…
+          <Loader2 size={13} className="animate-spin" /> {labels.resolving}
         </div>
       )}
 
@@ -55,14 +58,12 @@ export function ArgOptions({
           )}
         >
           <CornerDownLeft size={14} className="text-ck-accent-soft" />
-          <span className="text-white/70">
-            use “<span className="text-white/90">{typed}</span>”
-          </span>
+          <span className="text-white/70">{labels.freeTextOption(typed)}</span>
         </button>
       )}
 
       {!loading && options.length === 0 && !typed.trim() && (
-        <div className="px-3 py-2 text-[12px] text-white/35">start typing to search…</div>
+        <div className="px-3 py-2 text-[12px] text-white/35">{labels.startTyping}</div>
       )}
     </div>
   );

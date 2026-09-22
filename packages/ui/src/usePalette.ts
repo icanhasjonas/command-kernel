@@ -187,6 +187,15 @@ export function usePalette({
         ...(grant !== undefined && { grant }),
         priorKey: ancestorKey(),
       });
+      // the kernel refused on completeness, not permission — collect the args
+      // instead of showing the human a lock they can do nothing about
+      if (outcome.missing.length > 0) {
+        setMode("args");
+        setArg({ node, values, activeArg: outcome.missing[0] as string });
+        setArgQuery("");
+        setSelected(0);
+        return;
+      }
       if (!outcome.verdict.allowed) {
         setMode("confirm");
         setConfirm({ node, values, verdict: outcome.verdict, blocked: true });
@@ -220,9 +229,10 @@ export function usePalette({
   const beginExecute = useCallback(
     (node: CommandNode) => {
       const values = node.prefill ? node.prefill(ctx) : {};
-      const named = (node.args ?? []).filter((a) => !a.positional);
+      // ANY missing required arg is collected, positional included — the kernel
+      // refuses to run without them, so skipping the prompt just dead-ends.
       const missing = missingArgs(node, values);
-      if (named.length > 0 && missing.length > 0) {
+      if (missing.length > 0) {
         setMode("args");
         setArg({ node, values, activeArg: missing[0] as string });
         setArgQuery("");

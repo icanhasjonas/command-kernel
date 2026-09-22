@@ -240,13 +240,20 @@ async function runGoal(kernel, goal: string, ctx) {
   // 3. if the kernel asks for approval, get it from the human, mint a grant,
   //    and RE-ISSUE the identical call with the grant on the tip segment
   if (res.kind === "gate" && res.verdict.allowed && (await askHuman(res))) {
-    const evidence = kernel.evidence.grantForPath([seg]);
+    const evidence = kernel.grantFor(res);
     res = await kernel.command({ path: [{ ...seg, evidence }], execute: true }, ctx);
   }
 
   if (res.kind === "result") return res.result;
 }
 ```
+
+`kernel.grantFor(res)` is the only mint you should need. A `gate` response
+carries `args` — the **effective** values, after `prefill` merging and entity
+auto-resolution — plus the `priorKey` they bind against, so the grant covers what
+will actually run. Signing the args you *typed* (`evidence.grantForPath`) is
+correct only when the kernel derives nothing; otherwise verification is checked
+against values that never reach your hands and the gate re-asks forever.
 
 The agent driver does exactly this with `pickTool` from `@command-kernel/agent`;
 the palette does it with frames + arg chips in `@command-kernel/ui`. A driver
@@ -256,8 +263,9 @@ that tried to skip the gate physically can't — `run` only fires inside
 ## API reference
 
 **Factory** — `createKernel(config?) => Kernel`. `Kernel` methods: `command`,
-`search`, `resolveChildren`, `executeNode`, `roots`, `chords`; and the wired
-`ranker`, `gate`, `evidence`, `policy`, `registry`.
+`search`, `resolveChildren`, `executeNode`, `grantFor`, `roots`, `chords`,
+`shortcuts`, `shortcutConflicts`; and the wired `ranker`, `gate`, `evidence`,
+`policy`, `registry`, `entities`, `fallback`.
 
 **The verb** — `command(roots, req, ctx, deps)` (the free form; `kernel.command`
 binds `deps`). Types: `CommandRequest`, `CommandResponse`, `Completion`,

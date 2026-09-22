@@ -10,12 +10,15 @@ export function ResultRow({
   item,
   active,
   modHeld,
+  showWeight = false,
   onActivate,
   onHover,
 }: {
   item: Ranked;
   active: boolean;
   modHeld: boolean;
+  /** authoring diagnostic — off by default; a consumer's users don't want it */
+  showWeight?: boolean;
   onActivate: (exec: boolean) => void;
   onHover: () => void;
 }) {
@@ -60,7 +63,7 @@ export function ResultRow({
       </span>
 
       <span className="flex shrink-0 items-center gap-2">
-        {typeof node.weight === "number" && node.weight > 0 && (
+        {showWeight && typeof node.weight === "number" && node.weight > 0 && (
           <span className="font-mono text-[11px] tabular-nums text-white/25">{node.weight}</span>
         )}
         {node.chord && (
