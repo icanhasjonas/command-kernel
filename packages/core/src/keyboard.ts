@@ -8,7 +8,7 @@
  *   const kb = createKeyboard();
  *   window.addEventListener("keydown", kb.handleKeydown, { capture: true });
  *
- * Core never touches window/document/KeyboardEvent - events arrive as the
+ * Core never touches window/document/KeyboardEvent — events arrive as the
  * structural `KernelKeyEvent`, which any real browser event satisfies. State
  * is INSTANCE-scoped (like every other seam): two kernels on one page get two
  * independent layer stacks, never shared chord state.
@@ -18,518 +18,64 @@
  * - Chord sequences (leader key -> timeout -> fire)
  * - Platform-agnostic key normalization (mod = Cmd on Mac, Ctrl elsewhere)
  * - Conflict detection
- */
-
-import { isMac, type KeyEventLike, type ParsedShortcut, parseShortcut } from "./shortcut.js";
-import type { CommandNode } from "./types.js";
-
-// ── Key normalization (pure, module-level) ──────────────────────────────────
-
-/** A key event the dispatcher can consume AND cancel - a browser keydown fits. */
-export interface KernelKeyEvent extends KeyEventLike {
-  /**
-   * Whatever the host's event system calls the focused thing. `unknown` rather
-   * than a structural `{ tagName?: string }`, because an all-optional shape is a
-   * WEAK TYPE in TypeScript: a DOM `EventTarget` shares none of its properties
-   * and would fail to assign, which would break the one line of host wiring this
-   * whole interface exists to make possible.
-   */
-  readonly target?: unknown;
-  preventDefault(): void;
-  stopPropagation(): void;
-}
-
-const IGNORE = new Set(["Control", "Meta", "Alt", "Shift"]);
-
-/** Tags that consume a printable keystroke as text rather than as a command. */
-const EDITABLE_TAGS = new Set(["INPUT", "TEXTAREA", "SELECT"]);
-
-/**
- * ARIA roles whose widget owns the printable keys itself - a listbox does its own typeahead, a menu
- * jumps to the item you spelled, a textbox is a textbox however it was built.
  *
- * THE TAG CHECK ABOVE IS NOT ENOUGH and every headless UI library is why. Base UI, Radix and
- * Headless UI all render a select as a `div` with a role, and focus lands on the OPTION rather than
- * on anything a `tagName` test would catch. Measured in Chrome against Base UI's Select: with the
- * popup open, `document.activeElement` was `DIV[role=option]`, and a bare `n` bound to "New task"
- * opened a dialog over the menu the user was reading instead of jumping to "Nok".
+ * Split by responsibility across five files, this one composing the rest:
+ * `keyboard-normalize.ts` (key normalization, pure), `keyboard-types.ts` (the
+ * public shapes), `keyboard-layers.ts` (the layer stack), `keyboard-chord.ts`
+ * (chord-mode state), `keyboard-dispatch.ts` (turning a keydown into a call),
+ * and `keyboard-conflicts.ts` (static `validateShortcuts`).
  */
-const WIDGET_ROLES = new Set([
-  "combobox",
-  "grid",
-  "gridcell",
-  "listbox",
-  "menu",
-  "menubar",
-  "menuitem",
-  "menuitemcheckbox",
-  "menuitemradio",
-  "option",
-  "searchbox",
-  "slider",
-  "spinbutton",
-  "textbox",
-  "tree",
-  "treegrid",
-  "treeitem",
-]);
 
-/** `[role=combobox], [role=grid], ...` - built once, for the `closest` probe. */
-const WIDGET_SELECTOR = [...WIDGET_ROLES].map((r) => `[role="${r}"]`).join(",");
-
-/** What the guard duck-types its way through. Every member is optional and probed before use. */
-interface TargetLike {
-  tagName?: unknown;
-  isContentEditable?: unknown;
-  role?: unknown;
-  getAttribute?: unknown;
-  closest?: unknown;
-}
-
-/** The element's ARIA role, from the reflected property or the attribute, whichever it has. */
-function roleOf(el: TargetLike): string | null {
-  if (typeof el.role === "string" && el.role !== "") return el.role;
-  if (typeof el.getAttribute === "function") {
-    const attr = (el.getAttribute as (name: string) => unknown)("role");
-    if (typeof attr === "string" && attr !== "") return attr;
-  }
-  return null;
-}
-
-/**
- * The default answer to "is this keystroke being TYPED?" - a structural sniff at
- * the event target, so core still imports no DOM lib. A host with a different
- * event system (a terminal, React Native, a canvas) replaces it wholesale via
- * `createKeyboard({ isEditableTarget })`.
- */
-export function isEditableTarget(e: KernelKeyEvent): boolean {
-  const el = e.target as TargetLike | null | undefined;
-  if (!el) return false;
-  if (typeof el.tagName === "string" && EDITABLE_TAGS.has(el.tagName.toUpperCase())) return true;
-  if (el.isContentEditable === true) return true;
-
-  const role = roleOf(el);
-  if (role !== null && WIDGET_ROLES.has(role.toLowerCase())) return true;
-
-  // Focus can sit on a child of the widget, or on a trigger inside it, rather than on the element
-  // carrying the role. `closest` is the DOM's own answer and costs nothing when it is absent.
-  if (typeof el.closest === "function") {
-    return (el.closest as (selector: string) => unknown)(WIDGET_SELECTOR) != null;
-  }
-  return false;
-}
-
-/**
- * Whether a normalized binding carries a modifier that makes it a COMMAND rather
- * than typing. Shift is deliberately excluded: `shift+/` is a `?` character, not
- * a chord, and treating it as one steals the key from every text field.
- */
-const PASS_THROUGH_MODS = new Set(["mod", "ctrl", "alt"]);
-
-function hasModifier(normalized: string): boolean {
-  return normalized.split("+").some((p) => PASS_THROUGH_MODS.has(p));
-}
-
-function altCodeToKey(code: string): string | null {
-  if (code.startsWith("Digit")) return code.slice(5);
-  if (code.startsWith("Numpad")) return code.slice(6);
-  if (code.startsWith("Key") && code.length === 4) return code.slice(3).toLowerCase();
-  return null;
-}
-
-export function normalizeEvent(e: KeyEventLike): string {
-  const parts: string[] = [];
-  if (isMac ? e.metaKey : e.ctrlKey) parts.push("mod");
-  if (isMac && e.ctrlKey) parts.push("ctrl");
-  if (e.altKey) parts.push("alt");
-  if (e.shiftKey) parts.push("shift");
-  if (!IGNORE.has(e.key)) {
-    const altKey = e.altKey ? altCodeToKey(e.code) : null;
-    const key =
-      altKey ?? (e.key === " " ? "Space" : e.key.length === 1 ? e.key.toLowerCase() : e.key);
-    parts.push(key);
-  }
-  return parts.join("+");
-}
-
-/**
- * Normalize a parsed shortcut string to the same canonical form
- * `normalizeEvent` yields for the matching keydown - the pure counterpart, so
- * registering a shortcut never has to construct a DOM event.
- */
-export function normalizeShortcut(parsed: ParsedShortcut): string {
-  const parts: string[] = [];
-  if (isMac ? parsed.mod : parsed.mod || parsed.ctrl) parts.push("mod");
-  if (isMac && parsed.ctrl) parts.push("ctrl");
-  if (parsed.alt) parts.push("alt");
-  if (parsed.shift) parts.push("shift");
-  parts.push(
-    parsed.key === " " ? "Space" : parsed.key.length === 1 ? parsed.key.toLowerCase() : parsed.key,
-  );
-  return parts.join("+");
-}
-
-// ── Types ───────────────────────────────────────────────────────────────────
-
-export type KeyHandler = (e: KernelKeyEvent) => void;
-export type KeyBindings = Record<string, KeyHandler>;
-
-export interface KeyLayerOptions {
-  base?: boolean;
-  id?: string;
-  enabled?: boolean;
-}
-
-export interface KeyLayer {
-  id: string;
-  bindings: KeyBindings;
-  options: KeyLayerOptions;
-}
-
-export type ChordListener = (prefix: string | null) => void;
-
-export interface ShortcutDriverOptions {
-  onActivate: (node: CommandNode) => void;
-}
-
-export interface KeyboardOptions {
-  /** how long a chord prefix stays armed before it expires (default 2000ms) */
-  chordTimeoutMs?: number;
-  /**
-   * Decide whether a keystroke is being typed into an editable surface rather
-   * than aimed at a command. Defaults to `isEditableTarget`, which sniffs
-   * `e.target` structurally.
-   */
-  isEditableTarget?: (e: KernelKeyEvent) => boolean;
-}
-
-/** One independent keyboard state machine - layers + chord state, no DOM. */
-export interface Keyboard {
-  /** the host's keydown entrypoint; bound, so it can be passed as a listener */
-  handleKeydown: (e: KernelKeyEvent) => void;
-  pushLayer(bindings: KeyBindings, options?: KeyLayerOptions): KeyLayer;
-  popLayer(layer: KeyLayer): void;
-  /** bind a Map of shortcut strings -> nodes as one base layer */
-  registerShortcuts(nodes: Map<string, CommandNode>, options: ShortcutDriverOptions): KeyLayer;
-  /** observe chord-mode edges (prefix armed / cleared) for UI hints */
-  subscribeChordMode(fn: ChordListener): () => void;
-  exitChordMode(): void;
-  setChordTimeout(ms: number): void;
-  /**
-   * Mute the whole stack. GLOBAL rather than per-layer because the caller that
-   * needs it most - a key RECORDER capturing the chord a user is about to bind -
-   * cannot know which layer owns the key it is about to swallow.
-   */
-  setSuspended(value: boolean): void;
-  /** whether the stack is currently muted */
-  readonly suspended: boolean;
-  /**
-   * Whether any LIVE layer already owns this binding. `validateShortcuts` only
-   * sees a static node list, so it cannot see anything registered ad hoc through
-   * `pushLayer`; this asks the stack itself. Pass `excludeLayerId` so a layer
-   * rebinding its own key does not report itself as the conflict.
-   */
-  isBindingRegistered(pattern: string, excludeLayerId?: string): boolean;
-  /** the armed chord prefix, or null when not in chord mode */
-  readonly chordPrefix: string | null;
-  /**
-   * Every second key that would complete `prefix`, and the node each one runs.
-   *
-   * THIS EXISTS SO A HOST CAN DRAW THE CHORD IT HAS ARMED. `subscribeChordMode` already says a
-   * prefix went live, and until now that was the whole story: a UI that wanted to answer "you
-   * pressed `g`, so what follows?" had to filter its own copy of the bindings. That copy is a
-   * second source of truth for something this object knows exactly -- `isChordPrefix` walks the
-   * live layer stack to decide whether to arm at all, and then discards the matches it found.
-   *
-   * The consequence of not having it is a real one rather than a tidiness argument: a chord the
-   * user cannot see is a chord the user has to memorise, and a host-side copy of the binding list
-   * goes stale the moment anything is bound through `pushLayer` at runtime, which is precisely
-   * when a hint is most needed.
-   *
-   * Layer precedence is honoured exactly as a real press honours it -- later layers win, a
-   * disabled layer is not consulted, and a suspended stack completes nothing -- so what comes back
-   * is what WOULD FIRE, not what merely appears somewhere in the registry.
-   *
-   * `prefix` defaults to the armed one, so the common call is `chordCompletions()`.
-   */
-  chordCompletions(prefix?: string): ChordCompletion[];
-}
-
-/** One key that would complete an armed chord, and the node it would run. */
-export interface ChordCompletion {
-  /** the second key, normalized as the stack stores it -- `p`, `t`, `arrowdown` */
-  key: string;
-  /** the whole binding as registered -- `g p` */
-  shortcut: string;
-  /** the node this activates, when the binding came in through `registerShortcuts` */
-  node?: CommandNode;
-}
-
-// ── Binding lookup (pure) ───────────────────────────────────────────────────
-
-function findBinding(bindings: KeyBindings, normalized: string): KeyHandler | undefined {
-  const handler = bindings[normalized];
-  if (handler) return handler;
-  if (normalized.includes("mod")) return bindings[normalized.replace("mod", "ctrl")];
-  if (normalized.includes("ctrl")) return bindings[normalized.replace("ctrl", "mod")];
-  return undefined;
-}
-
-// ── The instance ────────────────────────────────────────────────────────────
+import { createChordState } from "./keyboard-chord.js";
+import { createDispatch } from "./keyboard-dispatch.js";
+import { createLayerStack } from "./keyboard-layers.js";
+import { isEditableTarget } from "./keyboard-normalize.js";
+import type { Keyboard, KeyboardOptions } from "./keyboard-types.js";
 
 export function createKeyboard(options: KeyboardOptions = {}): Keyboard {
-  const layers: KeyLayer[] = [];
-  let chordTimeoutMs = options.chordTimeoutMs ?? 2000;
-  let activeChord: { prefix: string; timeoutId: ReturnType<typeof setTimeout> } | null = null;
-  const chordListeners = new Set<ChordListener>();
-  /**
-   * Which node each binding of a `registerShortcuts` layer runs.
-   *
-   * A WeakMap keyed by the layer, so it cannot outlive a popped layer and there is nothing to
-   * clean up in `popLayer` -- the alternative is a second registry that has to be kept in step
-   * with `layers` by hand, and forgetting one line there is a leak nobody sees.
-   */
-  const layerNodes = new WeakMap<KeyLayer, Map<string, CommandNode>>();
+  const stack = createLayerStack();
+  const chord = createChordState(options.chordTimeoutMs ?? 2000);
   const editableTarget = options.isEditableTarget ?? isEditableTarget;
   let suspended = false;
-
-  function notifyChord(prefix: string | null): void {
-    for (const fn of chordListeners) fn(prefix);
-  }
-
-  function exitChordMode(): void {
-    if (activeChord) {
-      clearTimeout(activeChord.timeoutId);
-      activeChord = null;
-      notifyChord(null);
-    }
-  }
-
-  function enterChordMode(prefix: string): void {
-    exitChordMode();
-    activeChord = {
-      prefix,
-      timeoutId: setTimeout(() => {
-        activeChord = null;
-        notifyChord(null);
-      }, chordTimeoutMs),
-    };
-    notifyChord(prefix);
-  }
-
-  function isChordPrefix(normalized: string): boolean {
-    return chordCompletions(normalized).length > 0;
-  }
-
-  /**
-   * What `isChordPrefix` used to answer yes/no, answered with the matches themselves.
-   *
-   * The two were one loop with the result thrown away, so they are one loop again -- a second walk
-   * of the layer stack with its own idea of precedence is exactly the pair that drifts, and the
-   * decision to ARM a chord has to agree with the list the host draws for it.
-   *
-   * Top layer first, and the first layer to claim a second key keeps it, which is the same "later
-   * layers win" rule `handleKeydown` dispatches by. A suspended stack returns nothing: nothing
-   * would fire, so nothing should be offered.
-   */
-  function chordCompletions(prefix?: string): ChordCompletion[] {
-    const armed = prefix ?? activeChord?.prefix;
-    if (armed === undefined || armed === null || suspended) return [];
-
-    const head = `${armed} `;
-    const seen = new Map<string, ChordCompletion>();
-
-    for (let i = layers.length - 1; i >= 0; i--) {
-      const layer = layers[i];
-      if (!layer || layer.options.enabled === false) continue;
-      const nodes = layerNodes.get(layer);
-      for (const shortcut of Object.keys(layer.bindings)) {
-        if (!shortcut.startsWith(head)) continue;
-        const key = shortcut.slice(head.length);
-        // A chord is exactly two presses here; anything with a further space is a deeper
-        // sequence and is not a completion OF THIS prefix.
-        if (key.length === 0 || key.includes(" ")) continue;
-        if (seen.has(key)) continue;
-        const node = nodes?.get(shortcut);
-        seen.set(key, node === undefined ? { key, shortcut } : { key, shortcut, node });
-      }
-    }
-
-    return [...seen.values()];
-  }
-
-  function handleKeydown(e: KernelKeyEvent): void {
-    if (suspended) return;
-    if (IGNORE.has(e.key)) return;
-    const normalized = normalizeEvent(e);
-
-    if (activeChord) {
-      const full = `${activeChord.prefix} ${normalized}`;
-      for (let i = layers.length - 1; i >= 0; i--) {
-        const layer = layers[i];
-        if (!layer || layer.options.enabled === false) continue;
-        const handler = findBinding(layer.bindings, full);
-        if (handler) {
-          e.preventDefault();
-          e.stopPropagation();
-          exitChordMode();
-          handler(e);
-          return;
-        }
-      }
-      if (isChordPrefix(full)) {
-        e.preventDefault();
-        enterChordMode(full);
-        return;
-      }
-      exitChordMode();
-      return;
-    }
-
-    // TYPING BEATS COMMANDING. A printable key with no mod, aimed at an editable
-    // surface, belongs to that surface: without this, a bare `n` bound to "New
-    // task" fires on every n somebody types into a title field. Modified combos
-    // (mod+k) and non-printables (Escape, ArrowDown) are never typing, so they
-    // pass. Deliberately placed AFTER the chord block - a prefix the user already
-    // armed on purpose still resolves - and BEFORE arming, so a bare prefix does
-    // not swallow the first letter of a word.
-    if (editableTarget(e) && !hasModifier(normalized) && e.key.length === 1) return;
-
-    if (isChordPrefix(normalized)) {
-      e.preventDefault();
-      enterChordMode(normalized);
-      return;
-    }
-
-    for (let i = layers.length - 1; i >= 0; i--) {
-      const layer = layers[i];
-      if (!layer || layer.options.enabled === false) continue;
-      const handler = findBinding(layer.bindings, normalized);
-      if (handler) {
-        e.preventDefault();
-        e.stopPropagation();
-        handler(e);
-        return;
-      }
-    }
-  }
-
-  function pushLayer(bindings: KeyBindings, layerOptions: KeyLayerOptions = {}): KeyLayer {
-    const layer: KeyLayer = {
-      id: layerOptions.id ?? `layer-${layers.length}`,
-      bindings,
-      options: layerOptions,
-    };
-    if (layerOptions.base) {
-      const firstNonBase = layers.findIndex((l) => !l.options.base);
-      if (firstNonBase === -1) layers.push(layer);
-      else layers.splice(firstNonBase, 0, layer);
-    } else {
-      layers.push(layer);
-    }
-    return layer;
-  }
+  const dispatch = createDispatch({ stack, chord, editableTarget, isSuspended: () => suspended });
 
   return {
-    handleKeydown,
-    pushLayer,
-    popLayer(layer) {
-      const i = layers.indexOf(layer);
-      if (i !== -1) layers.splice(i, 1);
-    },
-    registerShortcuts(nodes, driverOptions) {
-      const bindings: KeyBindings = {};
-      // The node is kept BESIDE the binding, not inside the closure. A `KeyHandler` is an opaque
-      // function once registered, so a layer built here could say which keys it owned but never
-      // what any of them ran -- which is the whole thing `chordCompletions` has to report.
-      const byShortcut = new Map<string, CommandNode>();
-      for (const [shortcut, node] of nodes) {
-        const normalized = normalizeShortcut(parseShortcut(shortcut));
-        bindings[normalized] = () => driverOptions.onActivate(node);
-        byShortcut.set(normalized, node);
-      }
-      const layer = pushLayer(bindings, { base: true, id: "kernel-shortcuts" });
-      layerNodes.set(layer, byShortcut);
-      return layer;
-    },
-    subscribeChordMode(fn) {
-      chordListeners.add(fn);
-      return () => chordListeners.delete(fn);
-    },
-    exitChordMode,
-    setChordTimeout(ms) {
-      chordTimeoutMs = ms;
-    },
+    handleKeydown: dispatch.handleKeydown,
+    pushLayer: stack.pushLayer,
+    popLayer: stack.popLayer,
+    registerShortcuts: stack.registerShortcuts,
+    subscribeChordMode: chord.subscribeChordMode,
+    exitChordMode: chord.exitChordMode,
+    setChordTimeout: chord.setChordTimeout,
     setSuspended(value) {
       suspended = value;
       // A prefix armed before the mute would still be sitting there when the
       // stack wakes up, and would then eat the next unrelated keystroke.
-      if (value) exitChordMode();
+      if (value) chord.exitChordMode();
     },
     get suspended() {
       return suspended;
     },
-    chordCompletions,
-    isBindingRegistered(pattern, excludeLayerId) {
-      // Compare in the dispatcher's own dialect, so `cmd+k`, `mod+k` and (off a
-      // Mac) `ctrl+k` are recognised as the one physical chord they are. A chord
-      // pattern is normalized segment by segment.
-      const canonical = (p: string) =>
-        p
-          .trim()
-          .split(/\s+/)
-          .map((seg) => normalizeShortcut(parseShortcut(seg)))
-          .join(" ");
-      const wanted = canonical(pattern);
-      for (const layer of layers) {
-        if (layer.options.enabled === false) continue;
-        if (excludeLayerId !== undefined && layer.id === excludeLayerId) continue;
-        for (const key of Object.keys(layer.bindings)) {
-          if (canonical(key) === wanted) return true;
-        }
-      }
-      return false;
-    },
+    chordCompletions: dispatch.chordCompletions,
+    isBindingRegistered: stack.isBindingRegistered,
     get chordPrefix() {
-      return activeChord?.prefix ?? null;
+      return chord.chordPrefix;
     },
   };
 }
 
-// ── Conflict detection (pure) ───────────────────────────────────────────────
-
-export interface ShortcutConflict {
-  shortcut: string;
-  nodeIds: string[];
-}
-
-/**
- * Report shortcuts bound to more than one node, normalized so `mod+k` and
- * `cmd+k` (and, off a Mac, `ctrl+k`) count as the SAME binding.
- *
- * Pass a node LIST - a `Map` keyed by shortcut string has already collapsed the
- * duplicates this function exists to find, so it can only ever report conflicts
- * between different spellings of one key. `kernel.shortcutConflicts(ctx)` passes
- * the list for you.
- */
-export function validateShortcuts(
-  nodes: Map<string, CommandNode> | Iterable<CommandNode>,
-): ShortcutConflict[] {
-  const pairs: Array<[string, CommandNode]> =
-    nodes instanceof Map
-      ? [...nodes]
-      : [...nodes].flatMap((n) => (n.shortcut ? [[n.shortcut, n] as [string, CommandNode]] : []));
-  const byKey = new Map<string, string[]>();
-  for (const [shortcut, node] of pairs) {
-    const parsed = parseShortcut(shortcut);
-    // the SAME canonical form the dispatcher registers under, so two spellings
-    // of one physical chord (mod+k / cmd+k, and ctrl+k off a Mac) collide here
-    const key = normalizeShortcut(parsed);
-    const existing = byKey.get(key) ?? [];
-    existing.push(node.id);
-    byKey.set(key, existing);
-  }
-  return [...byKey.entries()]
-    .filter(([, ids]) => ids.length > 1)
-    .map(([shortcut, nodeIds]) => ({ shortcut, nodeIds }));
-}
+export type { ShortcutConflict } from "./keyboard-conflicts.js";
+export { validateShortcuts } from "./keyboard-conflicts.js";
+export type { KernelKeyEvent } from "./keyboard-normalize.js";
+export { isEditableTarget, normalizeEvent, normalizeShortcut } from "./keyboard-normalize.js";
+export type {
+  ChordCompletion,
+  ChordListener,
+  KeyBindings,
+  Keyboard,
+  KeyboardOptions,
+  KeyHandler,
+  KeyLayer,
+  KeyLayerOptions,
+  ShortcutDriverOptions,
+} from "./keyboard-types.js";
