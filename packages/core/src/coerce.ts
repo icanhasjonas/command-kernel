@@ -68,21 +68,42 @@ function shaped(schema: JsonSchemaNode, v: ArgValue): ArgValue {
   return v.map((x) => (typeof x === "string" ? fromText(items, x) : x)) as ArgValue;
 }
 
-function coerceValue(spec: ArgSpec, v: ArgValue): ArgValue {
+/** Blank text: an untouched field, or `?n=`. */
+const isBlank = (v: unknown) => typeof v === "string" && v.trim() === "";
+
+function coerceOne(spec: ArgSpec, x: ArgValue): ArgValue {
   if (spec.kind === "json") {
     const schema = spec.schema ?? { type: "object" };
-    return typeof v === "string" ? fromText(schema, v) : shaped(schema, v);
+    return typeof x === "string" ? fromText(schema, x) : shaped(schema, x);
   }
-  if (spec.kind !== "number" && spec.kind !== "boolean") return v;
-  const one = (x: ArgValue) =>
-    typeof x !== "string" ? x : spec.kind === "number" ? num(x) : bool(x);
-  // a `multiple` arg arrives from a URL as a list of texts, or one text for one item
-  if (spec.multiple) return (Array.isArray(v) ? v : [v]).map((x) => one(x as ArgValue)) as ArgValue;
-  return one(v);
+  if (typeof x === "string") return spec.kind === "number" ? num(x) : bool(x);
+  return x;
+}
+
+function coerceValue(spec: ArgSpec, v: ArgValue): ArgValue {
+  const typed = spec.kind === "number" || spec.kind === "boolean" || spec.kind === "json";
+  if (!typed) {
+    // a model or an RPC may send 5 or true for a text arg; its text is what it means
+    if (typeof v === "number" || typeof v === "boolean") return String(v);
+    if (
+      spec.multiple &&
+      Array.isArray(v) &&
+      v.every((x) => typeof x === "number" || typeof x === "boolean")
+    )
+      return v.map(String);
+    return v;
+  }
+  // a `multiple` arg holds a list (from a URL: repeated keys, or one text for one item);
+  // each item is coerced on its own, blank items are dropped as they are for text
+  if (spec.multiple) {
+    const items = (Array.isArray(v) ? v : [v]) as ArgValue[];
+    return items.filter((x) => !isBlank(x)).map((x) => coerceOne(spec, x)) as ArgValue;
+  }
+  return coerceOne(spec, v);
 }
 
 /** Typed kinds treat blank text as no value, except a json arg whose schema IS text. */
-function blankIsAbsent(spec: ArgSpec): boolean {
+export function blankIsAbsent(spec: ArgSpec): boolean {
   if (spec.kind === "number" || spec.kind === "boolean") return true;
   return spec.kind === "json" && spec.schema?.type !== "string";
 }

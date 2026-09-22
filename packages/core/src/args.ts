@@ -42,7 +42,7 @@ export interface ArgOption {
 
 /**
  * A reference from an arg to a registered entity TYPE (see entity.ts), with an
- * optional opaque constraint — the runtime form of `Person<'with-email-address'>`.
+ * optional opaque constraint -- the runtime form of `Person<'with-email-address'>`.
  * The arg's value is the chosen entity's id; the registered `EntityType` is the
  * completion source and the agent-queryable catalog.
  */

@@ -1,6 +1,8 @@
 import { describe, expect, it } from "bun:test";
 import { coerceArgs } from "./coerce.js";
 import { parseDeeplink, serializePath } from "./deeplink.js";
+import { describeNode } from "./describe.js";
+import { missingArgs } from "./kernel.js";
 import { validateArgs } from "./schema.js";
 import { setSeen, trim } from "./typed-args.fixtures.test-util.js";
 import type { CommandNode } from "./types.js";
@@ -85,5 +87,42 @@ describe("json that arrives as text", () => {
       "p.constructor is required",
       "p.toString is not allowed",
     ]);
+  });
+});
+
+describe("review round 3", () => {
+  const rows: CommandNode = {
+    id: "r",
+    title: "r",
+    args: [
+      { id: "rows", label: "rows", kind: "json", multiple: true, schema: { type: "object" } },
+      { id: "ids", label: "ids", kind: "number", multiple: true, required: true },
+      { id: "name", label: "name", kind: "string" },
+    ],
+  };
+
+  it("a json + multiple arg sent as texts is parsed per item", () => {
+    const back = coerceArgs(rows, { rows: ['{"a":1}', '{"a":2}'], ids: [1] });
+    expect(back.rows).toEqual([{ a: 1 }, { a: 2 }]);
+    expect(validateArgs(rows, back)).toEqual([]);
+  });
+
+  it("blank items in a typed list are dropped; an all-blank list is missing", () => {
+    expect(coerceArgs(rows, { ids: ["1", ""] }).ids).toEqual([1]);
+    expect(missingArgs(rows, { ids: [] })).toEqual(["ids"]);
+    expect(missingArgs(rows, { ids: [""] })).toEqual(["ids"]);
+  });
+
+  it("missingArgs on raw blank text agrees with executeNode", () => {
+    expect(missingArgs(trim, { n: "" })).toEqual(["n"]);
+  });
+
+  it("a number or boolean sent for a text arg is its text", () => {
+    expect(coerceArgs(rows, { name: 5, ids: [1] }).name).toBe("5");
+  });
+
+  it("describe tells an agent a json arg's schema and that it is a list", () => {
+    const arg = describeNode(rows).args.find((a) => a.id === "rows");
+    expect([arg?.multiple, arg?.schema]).toEqual([true, { type: "object" }]);
   });
 });

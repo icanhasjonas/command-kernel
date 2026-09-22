@@ -1,5 +1,6 @@
 import type { ArgKind, ArgSpec, EntityRef } from "./args.js";
 import { isGated } from "./gate.js";
+import type { JsonSchemaNode } from "./schema.js";
 import type { CommandNode, Ctx, EffectMode, EnumerateMode, Gate } from "./types.js";
 
 /**
@@ -31,6 +32,10 @@ export interface ArgDescriptor {
   options: "enum" | "entity" | "async" | "free";
   /** when options === "entity", the type + constraint an agent queries to resolve a value */
   entity?: EntityRef;
+  /** the value is a list */
+  multiple: boolean;
+  /** for a `json` arg: the JSON Schema its value must satisfy */
+  schema?: JsonSchemaNode;
 }
 
 export interface NodeDescriptor {
@@ -74,6 +79,8 @@ function describeArg(a: ArgSpec): ArgDescriptor {
     positional: Boolean(a.positional),
     options: a.enumValues ? "enum" : a.entity ? "entity" : a.complete ? "async" : "free",
     ...(a.entity !== undefined && { entity: a.entity }),
+    multiple: Boolean(a.multiple),
+    ...(a.schema !== undefined && { schema: a.schema }),
   };
 }
 

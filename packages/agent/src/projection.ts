@@ -1,4 +1,5 @@
 import type {
+  ArgValue,
   ArgValues,
   CommandNode,
   CommandResponse,
@@ -131,23 +132,18 @@ function str(v: unknown): string {
   return typeof v === "string" ? v : "";
 }
 
-/** One model-supplied value as text: objects as JSON, so a `json` arg coerces back intact. */
-function text(v: unknown): string {
-  return typeof v === "object" && v !== null ? JSON.stringify(v) : String(v);
-}
-
 /**
- * Coerce a model-supplied args object to the kernel's ArgValues (arrays preserved).
- * Everything becomes text; the kernel parses typed args (number / boolean / json)
- * back to their declared type before validating, so a text arg can never receive a
- * number the model happened to emit.
+ * A model-supplied args object as the kernel's ArgValues: the JSON values exactly as
+ * the model sent them (a null means "not given"). The kernel does the rest by each
+ * arg's declared kind: a number sent for a text arg becomes its text, text sent for a
+ * typed arg is parsed, and anything that still does not fit is refused by validation,
+ * so the model hears what was wrong instead of a value being silently reshaped.
  */
 function toArgValues(v: unknown): ArgValues {
-  if (!v || typeof v !== "object") return {};
+  if (!v || typeof v !== "object" || Array.isArray(v)) return {};
   const out: ArgValues = {};
-  for (const [k, val] of Object.entries(v as Record<string, unknown>)) {
-    if (val === undefined || val === null) continue;
-    out[k] = Array.isArray(val) ? val.map(text) : text(val);
+  for (const [k, val] of Object.entries(v as Record<string, ArgValue | null | undefined>)) {
+    if (val !== undefined && val !== null) out[k] = val; // parsed JSON: already JSON-shaped
   }
   return out;
 }

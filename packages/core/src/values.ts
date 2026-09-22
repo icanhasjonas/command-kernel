@@ -1,4 +1,5 @@
 import type { ArgSpec, ArgValue } from "./args.js";
+import { blankIsAbsent } from "./coerce.js";
 
 /**
  * Arg-value helpers. A text arg's value is `string | string[]` (a `multiple` arg
@@ -31,11 +32,17 @@ export function argText(v: ArgValue | undefined): string {
 }
 
 /**
- * Whether an arg has a value, by its kind. A text kind needs non-blank text; a
- * typed kind needs any value at all, so `0`, `false` and an empty JSON list count.
+ * Whether an arg has a value, by its kind. A text kind needs non-blank text. A typed
+ * kind needs a value, so `0`, `false` and an empty JSON list count; blank text does
+ * not (the same rule coercion applies, so `missingArgs` on raw input agrees with
+ * `executeNode`). A `multiple` list needs at least one real item.
  */
 export function hasValue(spec: ArgSpec, v: ArgValue | undefined): boolean {
-  if (spec.kind === "number" || spec.kind === "boolean" || spec.kind === "json")
-    return v !== undefined;
-  return isFilled(v);
+  if (spec.kind !== "number" && spec.kind !== "boolean" && spec.kind !== "json") return isFilled(v);
+  const present = (x: unknown) =>
+    x !== undefined &&
+    x !== null &&
+    !(typeof x === "string" && x.trim() === "" && blankIsAbsent(spec));
+  if (spec.multiple && Array.isArray(v)) return v.some(present);
+  return present(v);
 }

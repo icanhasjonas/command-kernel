@@ -25,7 +25,7 @@ export async function resolveEntities(
   for (const a of node.args ?? []) {
     if (!a.entity) continue;
     const raw = values[a.id];
-    if (typeof raw !== "string") continue; // empty or multi-value (listOf) — handled elsewhere
+    if (typeof raw !== "string") continue; // empty or multi-value (listOf) -- handled elsewhere
     const v = raw.trim();
     if (!v) continue;
 

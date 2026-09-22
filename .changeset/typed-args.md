@@ -30,3 +30,7 @@ except a bare null, so code that narrows with `typeof v === "string" ? v : v.joi
 longer compiles. Read values through `argText` / `argList`. Text-only args behave as before
 and their grants key exactly as before (text starting with the ASCII record separator
 U+001E is escaped). Vendored copies are unaffected until they re-vendor.
+
+Known and unchanged: the palette binds a grant to its ancestor nodes by id only (a search
+text is a live filter there, not a bound arg), while `command()` keys each hop with its
+args; a grant therefore verifies within the same path shape it was minted in.
