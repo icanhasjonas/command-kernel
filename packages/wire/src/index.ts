@@ -49,3 +49,4 @@ export {
 } from "./protocol.js";
 export { fillRoute, matchRoute } from "./route.js";
 export { createWireServer, type WireServer, type WireServerOptions } from "./server.js";
+export { negotiateSubprotocol, type SubprotocolAnswer } from "./subprotocol.js";

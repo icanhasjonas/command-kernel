@@ -195,6 +195,26 @@ one 32-byte environment secret. The default key is per store, right for one proc
 `handleHttp(request, ctx)` and `handleFrame(message, ctx)` take the context the host built:
 authenticate once (per request, or on the upgrade), put the caller in `ctx`, let the gate decide.
 
+## Subprotocols
+
+To version the socket, the client offers a subprotocol and the upgrade handler picks it:
+
+```ts
+// client: the default socket factory passes these to `new WebSocket(url, protocols)`
+createWireClient({ http: "/api", ws: "wss://app.example/ws", protocols: ["mail.v1"] });
+
+// server, in the upgrade handler
+const sub = negotiateSubprotocol(request, "mail.v1");
+if (!sub.ok) return sub.response; // 400 naming mail.v1: the client offered only others
+return new Response(null, { status: 101, webSocket: client, headers: sub.headers });
+```
+
+A browser that offers protocols fails the connection when the server echoes none, so a
+server must echo the one it speaks; `negotiateSubprotocol` does that. Offered nothing (a
+native client, a script): ok, nothing to echo. Offered it among others: ok, and `headers`
+echo it. Offered only others: a `400` problem to return instead of upgrading. A custom
+`socket` factory ignores `protocols`; pass them to your own constructor.
+
 ## Reference docs
 
 ```ts

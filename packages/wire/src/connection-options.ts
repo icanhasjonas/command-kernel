@@ -37,7 +37,11 @@ export interface ConnectionOptions {
   connectTimeoutMs?: number;
   /** liveness checks; `false` turns them off */
   heartbeat?: Heartbeat | false;
-  /** WebSocket subprotocols for the default socket factory */
+  /**
+   * WebSocket subprotocols the default socket factory offers. A browser fails the
+   * connection when the server echoes none of them: answer the upgrade through
+   * `negotiateSubprotocol`. A custom `socket` factory ignores this.
+   */
   protocols?: string[];
   /** 0..1, for tests */
   random?: () => number;
