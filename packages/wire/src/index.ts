@@ -15,7 +15,9 @@ export {
   type WireClientOptions,
 } from "./client.js";
 export { WireCallError } from "./client-error.js";
-export type { ConnectionStatus, WebSocketLike } from "./connection.js";
+export type { StatusListener } from "./client-listeners.js";
+export type { CloseInfo, ConnectionStatus, WebSocketLike } from "./connection.js";
+export { APPLICATION_CLOSE } from "./connection-options.js";
 export {
   type DeclaredNode,
   defineCommand,

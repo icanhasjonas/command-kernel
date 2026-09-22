@@ -1,7 +1,12 @@
 import type { ArgValues, Grant } from "@command-kernel/core";
 import { failure } from "./client-error.js";
-import { createListeners } from "./client-listeners.js";
-import { type ConnectionOptions, type ConnectionStatus, createConnection } from "./connection.js";
+import { createListeners, type StatusListener } from "./client-listeners.js";
+import {
+  type CloseInfo,
+  type ConnectionOptions,
+  type ConnectionStatus,
+  createConnection,
+} from "./connection.js";
 import type { EventSpec, HttpRoute, WireSpec } from "./define.js";
 import { type FetchLike, httpCall } from "./http.js";
 import type { CallFrame, ServerFrame } from "./protocol.js";
@@ -55,9 +60,14 @@ export interface WireClient {
   /** Call by name, untyped (tools, scripts). */
   callName(name: string, args?: ArgValues, opts?: CallOpts): Promise<unknown>;
   on<D>(event: EventSpec<D>, handler: (data: D) => void): () => void;
-  /** Called with the current status at once, then on every change. */
-  onStatus(listener: (status: ConnectionStatus) => void): () => void;
+  /**
+   * Called with the current status at once, then on every change. `closedBy` is the
+   * server's close code and reason when it ended the connection for good (`finalClose`).
+   */
+  onStatus(listener: StatusListener): () => void;
   readonly status: ConnectionStatus;
+  /** the server's final close while that is why the socket is closed; null otherwise */
+  readonly closedBy: CloseInfo | null;
   connect(): void;
   /** reconnect now instead of waiting out the backoff (e.g. the network came back) */
   retryNow(): void;
@@ -91,9 +101,9 @@ export function createWireClient(opts: WireClientOptions): WireClient {
     calls.answer(frame);
   }
 
-  function onConnStatus(s: ConnectionStatus) {
+  function onConnStatus(s: ConnectionStatus, closedBy: CloseInfo | null) {
     if (s !== "open") calls.dropAll();
-    listeners.status(s);
+    listeners.status(s, closedBy);
   }
 
   const conn = opts.ws
@@ -146,9 +156,12 @@ export function createWireClient(opts: WireClientOptions): WireClient {
     // the handler takes the event's declared payload type
     on: <D>(event: EventSpec<D>, handler: (data: D) => void) =>
       listeners.on(event.name, handler as (data: unknown) => void),
-    onStatus: (fn) => listeners.onStatus(fn, conn?.status ?? "idle"),
+    onStatus: (fn) => listeners.onStatus(fn, conn?.status ?? "idle", conn?.closedBy ?? null),
     get status() {
       return conn?.status ?? "idle";
+    },
+    get closedBy() {
+      return conn?.closedBy ?? null;
     },
     connect: () => conn?.start(),
     retryNow: () => conn?.retryNow(),

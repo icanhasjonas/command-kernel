@@ -99,6 +99,12 @@ is reported to `onError` (which may throw too) and stops nothing; a listener tha
 the client (calls `close()`) cannot reorder what the others see, and each listener's last
 call is the current status. `client.onStatus(fn)` calls `fn` with the current status at once.
 
+A server that closes with an application code (4000-4999: "signed out", "not a member") has
+said something a reconnect cannot fix, so the client does not retry: the status goes to
+`closed` and listeners get the code and reason as a second argument, `fn(status, closedBy)`
+(also `client.closedBy`). A later `connect()` starts over. `finalClose: (code) => boolean`
+chooses which codes are final; `() => false` reconnects on everything.
+
 `handleFrame` answers `ping` with `pong`, so any host works out of the box. A Durable
 Object can answer it without waking at all:
 

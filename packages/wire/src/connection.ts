@@ -1,6 +1,10 @@
 import {
+  APPLICATION_CLOSE,
+  type CloseInfo,
+  type Connection,
   type ConnectionOptions,
   type ConnectionStatus,
+  closeInfo,
   DEFAULT_BEAT,
   defaultSocket,
   OPEN,
@@ -8,6 +12,8 @@ import {
 } from "./connection-options.js";
 
 export type {
+  CloseInfo,
+  Connection,
   ConnectionOptions,
   ConnectionStatus,
   Heartbeat,
@@ -27,28 +33,16 @@ export type {
  * so throttling delays the next ping instead of killing the connection.
  *
  * Every timer is armed BEFORE the status is reported, so a status listener that
- * throws can never leave a socket unwatched or a reconnect unscheduled.
+ * throws can never leave a socket unwatched or a reconnect unscheduled. A server close
+ * with a final code (`finalClose`) is not retried: "closed", with the code in `closedBy`.
  */
-
-export interface Connection {
-  readonly status: ConnectionStatus;
-  /** true when a frame sent now will go out */
-  readonly isOpen: boolean;
-  start(): void;
-  /** skip the backoff wait and try now (e.g. the host saw the network come back) */
-  retryNow(): void;
-  /** check this socket is still alive (a call just timed out): ping, and replace it if silent */
-  probe(): void;
-  stop(): void;
-  send(data: string): boolean;
-}
 
 type Timer = ReturnType<typeof setTimeout>;
 
 export function createConnection(
   opts: ConnectionOptions,
   onMessage: (text: string) => void,
-  onStatus: (s: ConnectionStatus) => void,
+  onStatus: (s: ConnectionStatus, closedBy: CloseInfo | null) => void,
 ): Connection {
   const make = opts.socket ?? defaultSocket(opts.protocols);
   const minMs = opts.backoff?.minMs ?? 500;
@@ -58,6 +52,7 @@ export function createConnection(
   const beat = opts.heartbeat === undefined ? DEFAULT_BEAT : opts.heartbeat;
   const pongWait = beat ? (beat.pongWaitMs ?? Math.min(10_000, beat.intervalMs)) : 0;
   const random = opts.random ?? Math.random;
+  const final = opts.finalClose ?? APPLICATION_CLOSE;
 
   let ws: WebSocketLike | null = null;
   let status: ConnectionStatus = "idle";
@@ -68,11 +63,12 @@ export function createConnection(
   let connecting: Timer | null = null;
   let stable: Timer | null = null;
   let wanted = false;
+  let closedBy: CloseInfo | null = null;
 
   const set = (s: ConnectionStatus) => {
     if (s === status) return;
     status = s;
-    onStatus(s);
+    onStatus(s, closedBy);
   };
   const clearTimers = () => {
     for (const t of [retry, deadline, connecting, stable]) if (t) clearTimeout(t);
@@ -137,7 +133,7 @@ export function createConnection(
     sock.onerror = () => {
       // every error is followed by a close; that is where recovery happens
     };
-    sock.onclose = () => lost(sock);
+    sock.onclose = (ev) => lost(sock, closeInfo(ev));
     set(attempt === 0 ? "connecting" : "reconnecting");
   }
 
@@ -150,10 +146,15 @@ export function createConnection(
   }
 
   /** `sock` is gone (closed, or declared dead): forget it and, if still wanted, come back. */
-  function lost(sock: WebSocketLike) {
+  function lost(sock: WebSocketLike, info: CloseInfo | null = null) {
     if (ws !== sock) return; // a late close of an already-replaced socket means nothing
     ws = null;
     clearTimers();
+    if (info && final(info.code)) {
+      wanted = false; // the server said no; only a new connect() tries again
+      attempt = 0;
+      closedBy = info;
+    }
     if (!wanted) return set("closed");
     schedule();
   }
@@ -162,11 +163,15 @@ export function createConnection(
     get status() {
       return status;
     },
+    get closedBy() {
+      return closedBy;
+    },
     get isOpen() {
       return ws?.readyState === OPEN;
     },
     start() {
       wanted = true;
+      closedBy = null;
       if (!ws && !retry) open();
     },
     retryNow() {

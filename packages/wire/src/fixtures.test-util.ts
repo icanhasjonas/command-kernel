@@ -132,6 +132,12 @@ export class FakeSocket implements WebSocketLike {
     this.readyState = 3;
     this.onclose?.({});
   }
+  /** The server closes, with a code and reason, as a CloseEvent carries them. */
+  serverClose(code: number, reason: string) {
+    if (this.readyState === 3) return;
+    this.readyState = 3;
+    this.onclose?.({ code, reason });
+  }
 }
 
 /** Wait until `cond` holds, instead of sleeping a fixed time (robust under load). */

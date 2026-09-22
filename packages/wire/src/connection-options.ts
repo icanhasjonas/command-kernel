@@ -1,4 +1,20 @@
-/** What a connection is built from: the socket shape, its statuses, and the knobs. */
+/** What a connection is built from and what it offers: the socket shape, its statuses, the knobs. */
+
+/** A socket that stays up (connection.ts). */
+export interface Connection {
+  readonly status: ConnectionStatus;
+  /** the server's final close, while closed because of it; null otherwise */
+  readonly closedBy: CloseInfo | null;
+  /** true when a frame sent now will go out */
+  readonly isOpen: boolean;
+  start(): void;
+  /** skip the backoff wait and try now (e.g. the host saw the network come back) */
+  retryNow(): void;
+  /** check this socket is still alive (a call just timed out): ping, and replace it if silent */
+  probe(): void;
+  stop(): void;
+  send(data: string): boolean;
+}
 
 /** The part of a WebSocket this needs; the browser's, Bun's and undici's all fit. */
 export interface WebSocketLike {
@@ -12,6 +28,22 @@ export interface WebSocketLike {
 }
 
 export type ConnectionStatus = "idle" | "connecting" | "open" | "reconnecting" | "closed";
+
+/** Why the server ended the connection for good: the close frame's code and reason. */
+export interface CloseInfo {
+  code: number;
+  reason: string;
+}
+
+/** 4000-4999 are the application's own codes (RFC 6455 7.4.2): a reconnect cannot fix them. */
+export const APPLICATION_CLOSE = (code: number) => code >= 4000 && code <= 4999;
+
+/** The code and reason of a close event, from any runtime's CloseEvent shape. */
+export function closeInfo(ev: unknown): CloseInfo | null {
+  const e = ev as { code?: unknown; reason?: unknown } | null;
+  if (typeof e?.code !== "number") return null;
+  return { code: e.code, reason: typeof e.reason === "string" ? e.reason : "" };
+}
 
 export interface Heartbeat {
   /** how often to ping while the socket is quiet (default 25,000 ms) */
@@ -37,6 +69,12 @@ export interface ConnectionOptions {
   connectTimeoutMs?: number;
   /** liveness checks; `false` turns them off */
   heartbeat?: Heartbeat | false;
+  /**
+   * A server close whose code this accepts is final: no reconnect, status "closed", and the
+   * code is reported (`closedBy`). Default: 4000-4999, the codes an application closes
+   * with on purpose ("signed out", "not a member"). `() => false` reconnects on anything.
+   */
+  finalClose?: (code: number) => boolean;
   /** WebSocket subprotocols for the default socket factory */
   protocols?: string[];
   /** 0..1, for tests */
