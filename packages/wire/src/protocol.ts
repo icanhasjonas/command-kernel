@@ -113,6 +113,7 @@ export function statusOf(code: string, fallback = 400): number {
  * The HTTP status a SERVER answers with for a code: the built-in table, then the
  * host's `statusFor`, then 400; anything outside 400-599 (a client-only code thrown
  * by a run(), a host mapping of 600) becomes 500, because a Response cannot carry it.
+ * A `statusFor` that throws is a 500 too: a broken mapper must not lose the answer.
  */
 export function serverStatus(
   code: string,
@@ -120,8 +121,16 @@ export function serverStatus(
 ): number {
   const s = Object.hasOwn(ERROR_STATUS, code)
     ? (ERROR_STATUS[code] as number)
-    : (statusFor?.(code) ?? 400);
+    : hostStatus(code, statusFor);
   return Number.isInteger(s) && s >= 400 && s <= 599 ? s : 500;
+}
+
+function hostStatus(code: string, statusFor?: (code: string) => number | undefined): number {
+  try {
+    return statusFor?.(code) ?? 400;
+  } catch {
+    return 500;
+  }
 }
 
 /** HTTP carries a grant (for a confirm-gated command) in this header as `nonce.expiresAt.sig`. */

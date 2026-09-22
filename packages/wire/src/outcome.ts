@@ -18,9 +18,12 @@ import { serverStatus, type WireError } from "./protocol.js";
 export type Outcome = { ok: true; result: CommandResult } | { ok: false; error: WireError };
 
 export interface CallOptions {
-  /** status for a CommandError code the built-in table does not know */
+  /** status for a CommandError code the built-in table does not know; one that throws is a 500 */
   statusFor?: (code: string) => number | undefined;
-  /** called with anything a run(), gate, prefill or confirm policy threw that was not a CommandError */
+  /**
+   * Called with anything a run(), gate, prefill or confirm policy threw that was not a
+   * CommandError. One that throws is swallowed: the caller still gets its serverFail.
+   */
   onError?: (err: unknown, name: string) => void;
   /**
    * Make grants single-use. Called once a grant has verified, just before the command
@@ -67,8 +70,17 @@ export function thrown(err: unknown, name: string, opts: CallOptions): Outcome {
       },
     };
   }
-  opts.onError?.(err, name);
+  report(opts, err, name);
   return fail("serverFail", "Something went wrong running this command");
+}
+
+/** Tell the host's `onError`; one that throws is swallowed, so the caller still gets its answer. */
+function report(opts: CallOptions, err: unknown, name: string): void {
+  try {
+    opts.onError?.(err, name);
+  } catch {
+    // the reporter itself failed; there is nobody left to tell
+  }
 }
 
 export async function runCall(
