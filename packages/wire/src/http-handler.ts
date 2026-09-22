@@ -1,4 +1,5 @@
 import type { ArgValues, Ctx, Grant } from "@command-kernel/core";
+import { isBag } from "./bag.js";
 import { readGrant, readLimited } from "./body.js";
 import type { HttpRoute } from "./define.js";
 import type { Outcome } from "./outcome.js";
@@ -19,9 +20,6 @@ export interface HttpDeps {
   call(name: string, args: ArgValues, ctx: Ctx, evidence?: Grant): Promise<Outcome>;
   confirmCall(name: string, args: ArgValues, ctx: Ctx): Promise<Outcome>;
 }
-
-const isBag = (v: unknown): v is ArgValues =>
-  typeof v === "object" && v !== null && !Array.isArray(v);
 
 /** Every method this transport answers: the Allow header of OPTIONS and of a 405. */
 const ALLOW = "GET, HEAD, POST, OPTIONS";

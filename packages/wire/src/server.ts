@@ -1,5 +1,6 @@
 import type { ArgValues, Ctx, Grant, Kernel } from "@command-kernel/core";
 import { argGuards } from "./arg-guards.js";
+import { isBag } from "./bag.js";
 import { overLimit, readGrant } from "./body.js";
 import { frameId } from "./frame-id.js";
 import { httpHandler } from "./http-handler.js";
@@ -65,9 +66,6 @@ export interface WireServer {
   /** Encode a server push for every socket that should see it. */
   event(name: string, data?: unknown): string;
 }
-
-const isBag = (v: unknown): v is ArgValues =>
-  typeof v === "object" && v !== null && !Array.isArray(v);
 
 export function createWireServer(opts: WireServerOptions): WireServer {
   checkSpecs(opts.specs);

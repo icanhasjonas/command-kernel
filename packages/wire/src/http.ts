@@ -1,4 +1,5 @@
 import type { ArgValues, Grant } from "@command-kernel/core";
+import { isBag } from "./bag.js";
 import { grantHeader } from "./body.js";
 import { failure, fromProblem, WireCallError } from "./client-error.js";
 import type { HttpRoute } from "./define.js";
@@ -29,13 +30,6 @@ export interface CallExtras {
   evidence?: Grant | undefined;
   /** ask the server to mint a grant for this call instead of running it */
   confirm?: boolean;
-}
-
-/** A non-data result, as both transports hand it to the caller. */
-export interface ResultEnvelope {
-  kind: string;
-  message: string;
-  payload?: unknown;
 }
 
 function target(o: HttpOptions, name: string, args: ArgValues, route?: HttpRoute): string {
@@ -115,8 +109,12 @@ export async function httpCall(
       throw failure("badResponse", `${name}: expected JSON, got ${type} (HTTP ${res.status})`);
     }
     if (!res.ok) throw fromProblem(body, res.status);
+    // the header says what the body IS: `data` (or none) is the payload, any other kind
+    // is its `{ kind, message, payload }` envelope, held to that claim
     const kind = res.headers.get(RESULT_KIND_HEADER) ?? "data";
-    return kind === "data" ? body : (body as ResultEnvelope); // a non-data body IS the result
+    if (kind === "data") return body;
+    if (isBag(body) && body.kind === kind && typeof body.message === "string") return body;
+    throw failure("badResponse", `${name}: a ${kind} result came back without its envelope`);
   } catch (e) {
     if (e instanceof WireCallError) throw e;
     if (signal?.aborted) throw failure("aborted", `${name} was cancelled`);

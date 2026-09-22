@@ -136,7 +136,11 @@ function hostStatus(code: string, statusFor?: (code: string) => number | undefin
 
 /** HTTP carries a grant (for a confirm-gated command) in this header as `nonce.expiresAt.sig`. */
 export const EVIDENCE_HEADER = "command-evidence";
-/** HTTP says what kind of result the body is: `data` (the body IS the payload) or another kind. */
+/**
+ * HTTP says what kind of result the body is: `data` (the body IS the payload) or another
+ * kind (the body is `{ kind, message, payload }`). The client refuses a body that does not
+ * match (`badResponse`); no header at all is read as `data`.
+ */
 export const RESULT_KIND_HEADER = "command-result-kind";
 
 /** Encode any server frame for a socket. */
