@@ -51,7 +51,9 @@ type SocketCtor = new (url: string, protocols?: string[]) => WebSocketLike;
 /** The runtime's own WebSocket (browsers, Workers, Bun, Node 22+). This package ships no DOM lib types. */
 export function defaultSocket(protocols: string[] | undefined): (url: string) => WebSocketLike {
   return (url) => {
-    const Ctor = (globalThis as { WebSocket?: SocketCtor }).WebSocket; // structural peek, no DOM types
+    // a structural peek, no DOM types. Through `unknown` because each runtime's own WebSocket
+    // type (DOM, Workers, Bun) differs from WebSocketLike in ways that do not matter here.
+    const Ctor = (globalThis as unknown as { WebSocket?: SocketCtor }).WebSocket;
     if (!Ctor) throw new Error("No global WebSocket here: pass `socket` to createWireClient");
     return new Ctor(url, protocols);
   };
