@@ -432,7 +432,11 @@ describe("chordCompletions", () => {
    * copy is a second source of truth, and it goes stale the moment anything is bound at runtime
    * through `pushLayer` -- which is exactly when a hint matters most.
    */
-  const node = (id: string): CommandNode => ({ id, title: id, run: async () => ({ kind: "noop" }) });
+  const node = (id: string): CommandNode => ({
+    id,
+    title: id,
+    run: async () => ({ kind: "noop", message: "" }),
+  });
 
   it("lists every key that completes the prefix, with the node each runs", () => {
     const kb = createKeyboard();
@@ -493,7 +497,12 @@ describe("chordCompletions", () => {
     const kb = createKeyboard();
     kb.registerShortcuts(new Map([["g p", node("people")]]), { onActivate: () => {} });
     const layer = kb.pushLayer({ "g t": () => {} }, { id: "modal" });
-    expect(kb.chordCompletions("g").map((c) => c.key).sort()).toEqual(["p", "t"]);
+    expect(
+      kb
+        .chordCompletions("g")
+        .map((c) => c.key)
+        .sort(),
+    ).toEqual(["p", "t"]);
 
     layer.options.enabled = false;
     expect(kb.chordCompletions("g").map((c) => c.key)).toEqual(["p"]);
