@@ -11,7 +11,7 @@
   "scripts": {
     "dev": "bun run --filter '@command-kernel/playground' dev",
     "build": "bun run --filter '@command-kernel/playground' build",
-    "build:packages": "bun run --filter '@command-kernel/core' build && bun run --filter '@command-kernel/agent' build && bun run --filter '@command-kernel/ui' build",
+    "build:packages": "bun run --filter '@command-kernel/core' build && bun run --filter '@command-kernel/agent' build && bun run --filter '@command-kernel/ui' build && bun run --filter '@command-kernel/wire' build",
     "deploy": "bun run --filter '@command-kernel/playground' deploy",
     "typecheck": "tsc --noEmit",
     "lint": "biome check .",

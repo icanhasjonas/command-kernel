@@ -59,7 +59,7 @@ function importSpecifiers(file: string): string[] {
   return specs;
 }
 
-function pkg(name: "core" | "agent" | "ui"): Record<string, unknown> {
+function pkg(name: "core" | "agent" | "ui" | "wire"): Record<string, unknown> {
   return JSON.parse(readFileSync(join(ROOT, "packages", name, "package.json"), "utf8"));
 }
 
@@ -73,8 +73,8 @@ function depNames(p: Record<string, unknown>): string[] {
   return names;
 }
 
-describe("kernel purity (core + agent are headless)", () => {
-  for (const name of ["core", "agent"] as const) {
+describe("kernel purity (core + agent + wire are headless)", () => {
+  for (const name of ["core", "agent", "wire"] as const) {
     it(`@command-kernel/${name} declares no framework runtime dependency`, () => {
       const offenders = depNames(pkg(name)).filter(isFramework);
       expect(offenders).toEqual([]);
@@ -124,14 +124,17 @@ describe("kernel purity (core + agent are headless)", () => {
     expect(offenders).toEqual([]);
   });
 
-  it("agent depends only on core (one allowed cross-package edge)", () => {
-    const external = depNames(pkg("agent")).filter((d) => !d.startsWith("@command-kernel/"));
-    expect(external).toEqual([]);
-  });
+  for (const name of ["agent", "wire"] as const) {
+    it(`${name} depends only on core (one allowed cross-package edge)`, () => {
+      const external = depNames(pkg(name)).filter((d) => !d.startsWith("@command-kernel/"));
+      expect(external).toEqual([]);
+      expect(depNames(pkg(name))).toEqual(["@command-kernel/core"]);
+    });
+  }
 });
 
 describe("sealed exports (deep imports are physically unresolvable)", () => {
-  for (const name of ["core", "agent", "ui"] as const) {
+  for (const name of ["core", "agent", "ui", "wire"] as const) {
     it(`@command-kernel/${name} exposes no deep code subpath`, () => {
       // ui also ships its CSS token sheet — an intentional public asset, not a
       // reachable internal. Code stays sealed behind "." everywhere.

@@ -110,6 +110,16 @@
         "react-dom": "^19.0.0",
       },
     },
+    "packages/wire": {
+      "name": "@command-kernel/wire",
+      "version": "0.1.0",
+      "devDependencies": {
+        "@command-kernel/core": "workspace:*",
+      },
+      "peerDependencies": {
+        "@command-kernel/core": "workspace:*",
+      },
+    },
   },
   "packages": {
     "@andrewbranch/untar.js": ["@andrewbranch/untar.js@1.0.3", "", {}, "sha512-Jh15/qVmrLGhkKJBdXlK1+9tY4lZruYjsgkDFj08ZmDiWVBLJcqkok7Z0/R0In+i1rScBpJlSvrTS2Lm41Pbnw=="],
@@ -209,6 +219,8 @@
     "@command-kernel/playground": ["@command-kernel/playground@workspace:examples/playground"],
 
     "@command-kernel/ui": ["@command-kernel/ui@workspace:packages/ui"],
+
+    "@command-kernel/wire": ["@command-kernel/wire@workspace:packages/wire"],
 
     "@cspotcode/source-map-support": ["@cspotcode/source-map-support@0.8.1", "", { "dependencies": { "@jridgewell/trace-mapping": "0.3.9" } }, "sha512-IchNf6dN4tHoMFIn/7OE8LWZ19Y6q/67Bmf6vnGREv8RSbBVb9LPJxEcnwrcwX6ixSvaiGoomAUvu4YSxXrVgw=="],
 

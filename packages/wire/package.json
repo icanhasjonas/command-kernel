@@ -1,0 +1,37 @@
+{
+  "name": "@command-kernel/wire",
+  "version": "0.1.0",
+  "description": "Driver #6 (headless): every command in a kernel callable over HTTP and over a WebSocket, through the same gate. Server adapter, reconnecting client, typed declarations, generated reference docs. Pure TS, depends only on @command-kernel/core.",
+  "type": "module",
+  "license": "MIT",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "publishConfig": {
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      }
+    }
+  },
+  "files": [
+    "dist",
+    "src",
+    "!src/**/*.test.ts",
+    "!src/**/*.test-util.ts"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json"
+  },
+  "peerDependencies": {
+    "@command-kernel/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@command-kernel/core": "workspace:*"
+  }
+}
