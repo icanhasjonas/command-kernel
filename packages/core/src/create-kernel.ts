@@ -61,7 +61,7 @@ export interface KernelConfig {
   /** opt-in fallback when the primary search yields no results */
   fallback?: FallbackSearch;
   /**
-   * observability hook — fires after every successful run (audit / telemetry / undo).
+   * observability hook - fires after every successful run (audit / telemetry / undo).
    * The command already ran: a hook that throws or rejects is swallowed and the caller
    * still gets the result, so catch and report inside the hook if you need to know.
    */
