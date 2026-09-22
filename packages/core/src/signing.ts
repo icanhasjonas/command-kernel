@@ -1,5 +1,6 @@
+import type { ArgValues } from "./args.js";
 import { coerceArgs } from "./coerce.js";
-import type { ArgValues, CommandNode } from "./types.js";
+import type { CommandNode } from "./types.js";
 
 /**
  * The one form a grant is signed and verified over.
@@ -16,7 +17,8 @@ import type { ArgValues, CommandNode } from "./types.js";
  *                      a JSON array is kept
  *
  * For text-only args this is the identity, so their grants key exactly as before.
- * An arg the node does not declare is written as canonical JSON if it is not text.
+ * An arg the node does not declare has no kind to coerce to, so it keeps its own
+ * type, and the evidence key keeps a number apart from the same-looking text.
  */
 
 export function canonicalJson(v: unknown): string {
@@ -44,7 +46,7 @@ export function signingArgs(node: CommandNode, values: ArgValues): ArgValues {
     else if (isText(v)) out[id] = v;
     else if (kind === "number" || kind === "boolean")
       out[id] = Array.isArray(v) ? v.map((x) => String(x)) : String(v);
-    else out[id] = canonicalJson(v);
+    else out[id] = v; // undeclared: bound as-is, type included (see evidence argStr)
   }
   return out;
 }

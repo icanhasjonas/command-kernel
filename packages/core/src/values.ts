@@ -1,4 +1,4 @@
-import type { ArgValue } from "./types.js";
+import type { ArgSpec, ArgValue } from "./args.js";
 
 /**
  * Arg-value helpers. A text arg's value is `string | string[]` (a `multiple` arg
@@ -28,4 +28,14 @@ export function isFilled(v: ArgValue | undefined): boolean {
 /** Human/display text for a value ("a, b" for a list). */
 export function argText(v: ArgValue | undefined): string {
   return argList(v).join(", ");
+}
+
+/**
+ * Whether an arg has a value, by its kind. A text kind needs non-blank text; a
+ * typed kind needs any value at all, so `0`, `false` and an empty JSON list count.
+ */
+export function hasValue(spec: ArgSpec, v: ArgValue | undefined): boolean {
+  if (spec.kind === "number" || spec.kind === "boolean" || spec.kind === "json")
+    return v !== undefined;
+  return isFilled(v);
 }

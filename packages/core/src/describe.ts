@@ -1,14 +1,6 @@
+import type { ArgKind, ArgSpec, EntityRef } from "./args.js";
 import { isGated } from "./gate.js";
-import type {
-  ArgKind,
-  ArgSpec,
-  CommandNode,
-  Ctx,
-  EffectMode,
-  EntityRef,
-  EnumerateMode,
-  Gate,
-} from "./types.js";
+import type { CommandNode, Ctx, EffectMode, EnumerateMode, Gate } from "./types.js";
 
 /**
  * Self-description — the layer that lets an AGENT navigate the command tree

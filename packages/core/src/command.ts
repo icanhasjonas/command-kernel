@@ -1,23 +1,14 @@
+import type { ArgOption, ArgSpec, ArgValues } from "./args.js";
 import { coerceArgs } from "./coerce.js";
+import { argCompletions, resolveEntities } from "./command-args.js";
 import { describeNode, type NodeDescriptor } from "./describe.js";
-import { type Entity, type EntityRegistry, entityOption } from "./entity.js";
+import type { Entity, EntityRegistry } from "./entity.js";
 import { pathKey } from "./evidence.js";
 import { type ExecuteDeps, executeNode, missingArgs, resolveChildren } from "./kernel.js";
 import type { Ranker } from "./rank.js";
 import type { ArgError } from "./schema.js";
 import { signingArgs } from "./signing.js";
-import type {
-  ArgOption,
-  ArgSpec,
-  ArgValues,
-  CommandNode,
-  CommandResult,
-  Ctx,
-  GateVerdict,
-  PathSegment,
-  Role,
-} from "./types.js";
-import { isFilled } from "./values.js";
+import type { CommandNode, CommandResult, Ctx, GateVerdict, PathSegment, Role } from "./types.js";
 
 /**
  * The ONE verb.
@@ -95,70 +86,6 @@ export type CommandResponse =
       priorKey: string;
     }
   | { kind: "result"; node: CommandNode; result: CommandResult };
-
-/**
- * Resolve a node's entity-typed args before running: a value that's already a
- * valid entity id passes; a single search match auto-resolves to its id; many
- * matches surface a `disambiguate` response. Returns the response to short-circuit
- * with, or null when every entity arg is resolved (mutating `values` in place).
- */
-async function resolveEntities(
-  node: CommandNode,
-  values: ArgValues,
-  ctx: Ctx,
-  entities: EntityRegistry,
-): Promise<CommandResponse | null> {
-  for (const a of node.args ?? []) {
-    if (!a.entity) continue;
-    const raw = values[a.id];
-    if (typeof raw !== "string") continue; // empty or multi-value (listOf) — handled elsewhere
-    const v = raw.trim();
-    if (!v) continue;
-
-    if (await entities.get(a.entity.type, v, ctx)) continue; // already a valid id
-    const candidates = await entities.search(
-      a.entity.type,
-      v,
-      ctx,
-      a.entity.constraint !== undefined ? { constraint: a.entity.constraint } : undefined,
-    );
-    const exact = candidates.find((c) => c.id === v);
-    if (exact) continue;
-    if (candidates.length === 1 && candidates[0]) values[a.id] = candidates[0].id;
-    else if (candidates.length > 1)
-      return { kind: "disambiguate", node, arg: a, query: v, candidates };
-  }
-  return null;
-}
-
-async function argCompletions(
-  node: CommandNode,
-  values: ArgValues,
-  ctx: Ctx,
-  entities?: EntityRegistry,
-): Promise<Completion[]> {
-  const out: Completion[] = [];
-  for (const a of node.args ?? []) {
-    if (a.positional) continue;
-    const filled = isFilled(values[a.id]);
-    let options: ArgOption[] = [];
-    if (!filled) {
-      // resolution order: closed enum -> registered entity catalog -> one-off complete
-      if (a.enumValues) options = a.enumValues;
-      else if (a.entity && entities) {
-        const found = await entities.search(
-          a.entity.type,
-          "",
-          ctx,
-          a.entity.constraint !== undefined ? { constraint: a.entity.constraint } : undefined,
-        );
-        options = found.map(entityOption);
-      } else if (a.complete) options = await a.complete("", ctx);
-    }
-    out.push({ kind: "arg", arg: a, options, filled });
-  }
-  return out;
-}
 
 export async function command(
   roots: CommandNode[],

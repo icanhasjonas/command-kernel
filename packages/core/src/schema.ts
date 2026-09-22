@@ -1,5 +1,6 @@
+import type { ArgSpec, ArgValue, ArgValues } from "./args.js";
 import { checkShape } from "./json-shape.js";
-import type { ArgSpec, ArgValue, ArgValues, CommandNode } from "./types.js";
+import type { CommandNode } from "./types.js";
 import { argList } from "./values.js";
 
 /** A text kind's value: a string, or a list of strings. */
@@ -16,10 +17,10 @@ function isText(v: ArgValue): boolean {
  * deeplink driver (deeplink.ts) reads the same specs. One declaration, every
  * surface — no per-surface duplication.
  *
- * Values are strings (`ArgValues = Record<string,string>`), so every property is
- * `type: "string"`; `email` carries `format`, `enum` carries `enum`. Schemas are
- * kept FLAT on purpose — MCP guidance is that nesting raises an LLM's token cost
- * and parse-error rate.
+ * Text kinds are `type: "string"` (`email` carries `format`, `enum` carries `enum`);
+ * typed kinds are `number` / `boolean`, and a `json` arg carries its own declared
+ * schema. The top level is kept FLAT on purpose -- MCP guidance is that nesting
+ * raises an LLM's token cost and parse-error rate.
  */
 
 export interface JsonSchemaProperty {
@@ -110,7 +111,7 @@ function argToProperty(a: ArgSpec): JsonSchemaNode {
 }
 
 /** Errors for one value of a typed arg (number / boolean / json), or null for a text kind. */
-function typedErrors(a: ArgSpec, v: ArgValue): string[] | null {
+function typedErrors(a: ArgSpec, v: unknown): string[] | null {
   if (a.kind === "number")
     return typeof v === "number" && Number.isFinite(v) ? [] : [`${a.label} must be a number`];
   if (a.kind === "boolean")
@@ -120,7 +121,7 @@ function typedErrors(a: ArgSpec, v: ArgValue): string[] | null {
 }
 
 /** The individual values of an arg: the list for a `multiple` arg, else the one value. */
-function valuesOf(a: ArgSpec, v: ArgValue | undefined): ArgValue[] {
+function valuesOf(a: ArgSpec, v: ArgValue | undefined): unknown[] {
   if (v === undefined) return [];
   return a.multiple && Array.isArray(v) ? v : [v];
 }

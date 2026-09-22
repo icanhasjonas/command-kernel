@@ -1,5 +1,6 @@
+import type { ArgSpec, ArgValue, ArgValues } from "./args.js";
 import type { JsonSchemaNode } from "./schema.js";
-import type { ArgSpec, ArgValue, ArgValues, CommandNode } from "./types.js";
+import type { CommandNode } from "./types.js";
 
 /**
  * Coercion -- how a text-only driver reaches a typed arg.
@@ -80,6 +81,12 @@ function coerceValue(spec: ArgSpec, v: ArgValue): ArgValue {
   return one(v);
 }
 
+/** Typed kinds treat blank text as no value, except a json arg whose schema IS text. */
+function blankIsAbsent(spec: ArgSpec): boolean {
+  if (spec.kind === "number" || spec.kind === "boolean") return true;
+  return spec.kind === "json" && spec.schema?.type !== "string";
+}
+
 /** The args with every typed arg parsed from text where possible. Never mutates `values`. */
 export function coerceArgs(node: CommandNode, values: ArgValues): ArgValues {
   const specs = node.args;
@@ -88,6 +95,12 @@ export function coerceArgs(node: CommandNode, values: ArgValues): ArgValues {
   for (const spec of specs) {
     const v = values[spec.id];
     if (v === undefined) continue;
+    // an untouched field or `?n=` means "no value" for a typed arg, as it does for text
+    if (typeof v === "string" && v.trim() === "" && blankIsAbsent(spec)) {
+      out ??= { ...values };
+      delete out[spec.id];
+      continue;
+    }
     const c = coerceValue(spec, v);
     if (c !== v) {
       out ??= { ...values };

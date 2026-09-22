@@ -16,6 +16,16 @@
  *   5. Registry      — registry.ts    (createRegistry)
  */
 
+// the arg vocabulary
+export type {
+  ArgKind,
+  ArgOption,
+  ArgSpec,
+  ArgValue,
+  ArgValues,
+  EntityRef,
+  JsonValue,
+} from "./args.js";
 // audit + replay — a serializable command record and a replay verb
 export { type CommandRecord, replay, toRecord } from "./audit.js";
 // typed args: text from a palette or URL parsed to the declared number/boolean/json
@@ -126,23 +136,16 @@ export {
 export { canonicalJson, signingArgs } from "./signing.js";
 // the data model
 export type {
-  ArgKind,
-  ArgOption,
-  ArgSpec,
-  ArgValue,
-  ArgValues,
   CommandNode,
   CommandResult,
   Ctx,
   EffectMode,
-  EntityRef,
   EnumerateMode,
   FallbackSearch,
   Gate,
   GateCheck,
   GateVerdict,
   Grant,
-  JsonValue,
   PathSegment,
   Ranked,
   ResultKind,

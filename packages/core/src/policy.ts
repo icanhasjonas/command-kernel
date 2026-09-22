@@ -1,4 +1,5 @@
-import type { ArgValues, CommandNode } from "./types.js";
+import type { ArgValues } from "./args.js";
+import type { CommandNode } from "./types.js";
 import { argList, isFilled } from "./values.js";
 
 /**

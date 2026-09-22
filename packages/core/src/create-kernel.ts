@@ -1,3 +1,4 @@
+import type { ArgValues } from "./args.js";
 import { type CommandRecord, toRecord } from "./audit.js";
 import { type CommandDeps, type CommandRequest, type CommandResponse, command } from "./command.js";
 import { createEntityRegistry, type EntityRegistry, type EntityType } from "./entity.js";
@@ -18,7 +19,7 @@ import { createMemoryPolicyStore, type PolicyStore } from "./policy.js";
 import { type Ranker, rank } from "./rank.js";
 import type { Registry } from "./registry.js";
 import { signingArgs } from "./signing.js";
-import type { ArgValues, CommandNode, Ctx, FallbackSearch, Grant, Ranked } from "./types.js";
+import type { CommandNode, Ctx, FallbackSearch, Grant, Ranked } from "./types.js";
 
 /**
  * createKernel — where the SEAMS meet.

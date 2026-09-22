@@ -1,5 +1,6 @@
+import type { ArgValues } from "./args.js";
 import { canonicalJson } from "./signing.js";
-import type { ArgValues, Grant, PathSegment } from "./types.js";
+import type { Grant, PathSegment } from "./types.js";
 
 /**
  * Evidence — SEAM #3, the honesty-tag layer of the TRUST CORE.
@@ -32,6 +33,12 @@ export interface EvidenceStore {
    * entity auto-resolution DERIVE different ones, and the grant would then be
    * bound to values that never reach `run()`. Prefer `kernel.grantFor(gateRes)`,
    * which signs the effective args the `gate` response hands back.
+   *
+   * TEXT ARGS ONLY. A store cannot see arg kinds, so it signs typed values as
+   * written while the kernel verifies a declared typed arg in its canonical text
+   * form (signing.ts): a grant from here for `{ n: 5 }` on a `number` arg never
+   * verifies. Typed args go through `kernel.grantFor`, or sign
+   * `signingArgs(node, args)` yourself.
    */
   grantForPath(path: PathSegment[]): Grant;
   /** New session salt — invalidate every outstanding grant. */
@@ -45,29 +52,30 @@ function randomId(seq: { n: number }): string {
   return `${seq.n++}-${Math.floor(Math.random() * 1e9).toString(16)}`;
 }
 
-/** A text value, with a leading `~` doubled so it can never read as a typed value. */
-const escapeText = (s: string) => (s.startsWith("~") ? `~${s}` : s);
+/** Marks a non-text value in a key (ASCII record separator); text starting with it is escaped. */
+const TYPED = "";
+const text = (s: string) => (s.startsWith(TYPED) ? TYPED + s : s);
 
 /**
- * Stable, order-independent serialization of an arg bag. The kernel only ever
- * signs `signingArgs(node, args)` (signing.ts), which is all text, so the text
- * format is THE format and is unchanged from before typed args existed (a list is
- * sorted and comma-joined: `multiple` is a set). A non-text value only arrives
- * here when a driver signs raw typed args itself; it is written as `~` + canonical
- * JSON, and text starting with `~` is escaped, so the two can never collide.
+ * Stable, order-independent serialization of an arg bag (a list of text is sorted:
+ * a `multiple` arg is a set). The kernel signs `signingArgs(node, args)`
+ * (signing.ts), in which every DECLARED arg is text, so text-only args key exactly
+ * as they always have. A non-text value (an undeclared typed arg, or raw typed args
+ * a driver signed itself) is written as the TYPED mark plus canonical JSON, so the
+ * number 5 and the text "5" never share a key.
  */
 function argStr(args: ArgValues): string {
   return Object.keys(args)
     .sort()
     .map((k) => {
       const v = args[k];
-      if (v === undefined || typeof v === "string") return `${k}=${escapeText(v ?? "")}`;
+      if (v === undefined || typeof v === "string") return `${k}=${text(v ?? "")}`;
       if (Array.isArray(v) && v.every((x) => typeof x === "string"))
         return `${k}=${v
-          .map((x) => escapeText(String(x)))
+          .map((x) => text(String(x)))
           .sort()
           .join(",")}`;
-      return `${k}=~${canonicalJson(v)}`;
+      return `${k}=${TYPED}${canonicalJson(v)}`;
     })
     .join("&");
 }

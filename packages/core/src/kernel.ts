@@ -1,3 +1,4 @@
+import type { ArgValues } from "./args.js";
 import { coerceArgs } from "./coerce.js";
 import type { EvidenceStore } from "./evidence.js";
 import type { GatePolicy } from "./gate.js";
@@ -5,16 +6,8 @@ import type { PolicyStore } from "./policy.js";
 import { type Ranker, rank } from "./rank.js";
 import { type ArgError, validateArgs } from "./schema.js";
 import { signingArgs } from "./signing.js";
-import type {
-  ArgValues,
-  CommandNode,
-  CommandResult,
-  Ctx,
-  GateVerdict,
-  Grant,
-  Ranked,
-} from "./types.js";
-import { isFilled } from "./values.js";
+import type { CommandNode, CommandResult, Ctx, GateVerdict, Grant, Ranked } from "./types.js";
+import { hasValue } from "./values.js";
 
 /**
  * The kernel verbs. Renderers (palette, agent, chords) call these — usually via
@@ -73,6 +66,18 @@ export interface Confirmation {
   priorKey?: string;
 }
 
+/** An outcome where run() did not fire; `extra` names why. */
+function stopped(verdict: GateVerdict, extra: Partial<ExecuteOutcome> = {}): ExecuteOutcome {
+  const base = {
+    result: null,
+    awaitingConfirm: false,
+    autoAllowed: false,
+    argErrors: [],
+    missing: [],
+  };
+  return { verdict, ...base, ...extra };
+}
+
 /**
  * Execute a node. Order is non-negotiable: args COMPLETE and VALID first, then
  * gate, then run. A confirm-gated command runs only when (a) a standing
@@ -100,50 +105,23 @@ export async function executeNode(
   const missing = missingArgs(node, args);
   if (missing.length > 0) {
     const labels = new Map((node.args ?? []).map((a) => [a.id, a.label]));
-    return {
-      verdict: {
-        allowed: false,
-        needsConfirm: false,
-        checks: missing.map((id) => ({ label: `${labels.get(id) ?? id} is required`, ok: false })),
-      },
-      result: null,
-      awaitingConfirm: false,
-      autoAllowed: false,
-      argErrors: [],
-      missing,
-    };
+    const checks = missing.map((id) => ({
+      label: `${labels.get(id) ?? id} is required`,
+      ok: false,
+    }));
+    return stopped({ allowed: false, needsConfirm: false, checks }, { missing });
   }
 
   // VALIDATE next — the kernel checks what ANY driver sends, before the gate.
   // A node never runs with a present-but-invalid arg (a hallucinated email/enum).
   const argErrors = validateArgs(node, args);
   if (argErrors.length > 0) {
-    return {
-      verdict: {
-        allowed: false,
-        needsConfirm: false,
-        checks: argErrors.map((e) => ({ label: e.message, ok: false })),
-      },
-      result: null,
-      awaitingConfirm: false,
-      autoAllowed: false,
-      argErrors,
-      missing: [],
-    };
+    const checks = argErrors.map((e) => ({ label: e.message, ok: false }));
+    return stopped({ allowed: false, needsConfirm: false, checks }, { argErrors });
   }
 
   const verdict = await deps.gate(node, ctx, args);
-
-  if (!verdict.allowed) {
-    return {
-      verdict,
-      result: null,
-      awaitingConfirm: false,
-      autoAllowed: false,
-      argErrors: [],
-      missing: [],
-    };
-  }
+  if (!verdict.allowed) return stopped(verdict);
 
   let autoAllowed = false;
   if (verdict.needsConfirm) {
@@ -158,27 +136,9 @@ export async function executeNode(
         signingArgs(node, args),
         confirmation.priorKey ?? "",
       );
-    if (!proven) {
-      return {
-        verdict,
-        result: null,
-        awaitingConfirm: true,
-        autoAllowed: false,
-        argErrors: [],
-        missing: [],
-      };
-    }
+    if (!proven) return stopped(verdict, { awaitingConfirm: true });
   }
-  if (!node.run) {
-    return {
-      verdict,
-      result: null,
-      awaitingConfirm: false,
-      autoAllowed,
-      argErrors: [],
-      missing: [],
-    };
-  }
+  if (!node.run) return stopped(verdict, { autoAllowed });
 
   const result = await node.run(args, ctx);
   return { verdict, result, awaitingConfirm: false, autoAllowed, argErrors: [], missing: [] };
@@ -213,7 +173,7 @@ export function shortcutNodes(nodes: CommandNode[], ctx: Ctx): CommandNode[] {
 
 /** Required args still missing a value. Drives the "2 of 3" arg counter. */
 export function missingArgs(node: CommandNode, values: ArgValues): string[] {
-  return (node.args ?? []).filter((a) => a.required && !isFilled(values[a.id])).map((a) => a.id);
+  return (node.args ?? []).filter((a) => a.required && !hasValue(a, values[a.id])).map((a) => a.id);
 }
 
 export function bumpFrecency(frecency: Record<string, number>, id: string): Record<string, number> {

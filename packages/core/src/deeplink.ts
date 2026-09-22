@@ -1,4 +1,5 @@
-import type { ArgValues, PathSegment } from "./types.js";
+import type { ArgSpec, ArgValues } from "./args.js";
+import type { PathSegment } from "./types.js";
 
 /**
  * Deeplinks — DRIVER #4, the keystone in URL form.
@@ -22,6 +23,14 @@ import type { ArgValues, PathSegment } from "./types.js";
 export interface DeeplinkOptions {
   /** path prefix, default "cmd" (so `cmd/<id>...`) */
   prefix?: string;
+  /**
+   * The tip command's arg specs, when you have them. With them, a `json` arg is
+   * always written as ONE JSON value, so a JSON list keeps empty strings, order and
+   * text that looks like JSON. Without them, a list is written as a repeated key
+   * (right for `multiple` args), which a `json` list only survives when its items
+   * are plain, non-empty scalars.
+   */
+  args?: readonly ArgSpec[];
 }
 
 /** A URL carries text: strings as-is, numbers and booleans as their text, JSON as JSON. */
@@ -29,18 +38,25 @@ function asQueryText(v: unknown): string {
   return typeof v === "string" ? v : JSON.stringify(v);
 }
 
-function encodeQuery(args: ArgValues): string {
+function encodeQuery(args: ArgValues, specs: readonly ArgSpec[] = []): string {
+  const json = new Set(specs.filter((a) => a.kind === "json").map((a) => a.id));
   const parts: string[] = [];
+  const put = (k: string, text: string) =>
+    parts.push(`${encodeURIComponent(k)}=${encodeURIComponent(text)}`);
   for (const k of Object.keys(args).sort()) {
     const v = args[k];
+    if (v === undefined) continue;
+    // a declared json arg is one JSON value, whatever it holds
+    if (json.has(k)) {
+      put(k, typeof v === "string" ? v : JSON.stringify(v));
+      continue;
+    }
     // a list of scalars repeats the key: ?to=a&to=b. Anything holding an object is one
     // JSON value. A one-item list reads back as one value; coercion re-lists it for an
     // array schema or a `multiple` arg, so [7] survives the round trip.
     const items = Array.isArray(v) && v.every((x) => x === null || typeof x !== "object") ? v : [v];
     for (const item of items) {
-      if (item !== undefined && item !== null && item !== "") {
-        parts.push(`${encodeURIComponent(k)}=${encodeURIComponent(asQueryText(item))}`);
-      }
+      if (item !== null && item !== "") put(k, asQueryText(item));
     }
   }
   return parts.join("&");
@@ -67,7 +83,7 @@ export function serializePath(path: PathSegment[], opts: DeeplinkOptions = {}): 
   const prefix = opts.prefix ?? "cmd";
   const ids = path.map((s) => encodeURIComponent(s.id)).join("/");
   const tip = path[path.length - 1];
-  const qs = tip?.args ? encodeQuery(tip.args) : "";
+  const qs = tip?.args ? encodeQuery(tip.args, opts.args) : "";
   const base = ids ? `${prefix}/${ids}` : prefix;
   return qs ? `${base}?${qs}` : base;
 }

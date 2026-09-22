@@ -1,4 +1,5 @@
-import type { ArgValues, CommandNode, Ctx, GateVerdict } from "./types.js";
+import type { ArgValues } from "./args.js";
+import type { CommandNode, Ctx, GateVerdict } from "./types.js";
 
 /**
  * The gate — SEAM #2, and the TRUST CORE's first line.
