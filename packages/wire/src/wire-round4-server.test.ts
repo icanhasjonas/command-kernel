@@ -147,7 +147,7 @@ describe("W4: a throwing confirm policy, gate or prefill is a serverFail", () =>
         ctx,
       );
       expect(ws).not.toContain("hunter2");
-      const { type: _t, title: _ti, ...problem } = JSON.parse(body ?? "{}");
+      const { type: _t, title: _ti, detail: _d, ...problem } = JSON.parse(body ?? "{}"); // HTTP-only
       expect(JSON.parse(ws).error).toEqual(problem);
       expect(problem.code).toBe("serverFail");
     });

@@ -118,8 +118,15 @@ fine), body or not; anything else is `415 unsupportedMediaType`. That keeps a cr
 command. The client always sends a JSON body (`{}` when there are no args). A body over
 `maxBytes` is `413 tooLarge`; one whose stream fails mid-read is `400 badRequest`.
 
-`OPTIONS` answers `204` with `Allow`, as does every `405` (CORS stays the host's job). `HEAD`
-is `GET` on a declared route, with no body on any answer.
+A problem body's `title` is a fixed phrase per code ("Invalid arguments"; a `run()`'s own
+code is its own title) and `detail` says what happened this time; `message` carries the
+same text as `detail`. A problem is always `cache-control: no-store`, so a failed GET on an
+`immutable` route is never kept.
+
+`OPTIONS` answers `204` with `Allow` on a command's path or a declared route, and `404
+unknownCommand` anywhere else; it never reads `command-evidence`. Every `405` carries
+`Allow` too (CORS stays the host's job). `HEAD` is `GET` on a declared route, with no body
+on any answer.
 
 ## Limits
 

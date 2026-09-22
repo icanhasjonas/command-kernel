@@ -63,18 +63,31 @@ async function postCall(
   return reply(await d.call(name, args, ctx, evidence));
 }
 
+/** True when `rest` is a declared GET route or a command's POST path. */
+function exists(d: HttpDeps, rest: string): boolean {
+  if (d.routes.match(rest)) return true;
+  try {
+    return d.commandIds.has(decodeURIComponent(rest.slice(1)));
+  } catch {
+    return false; // a malformed escape names nothing
+  }
+}
+
 async function answer(d: HttpDeps, request: Request, ctx: Ctx): Promise<Response | null> {
   const url = new URL(request.url);
   if (url.pathname !== d.base && !url.pathname.startsWith(`${d.base}/`)) return null;
   const rest = url.pathname.slice(d.base.length) || "/";
+  if (request.method === "OPTIONS") {
+    // the host owns CORS; this only answers what a path that EXISTS accepts. A
+    // preflight carries no grant, so the evidence header is never read here.
+    return exists(d, rest)
+      ? new Response(null, { status: 204, headers: { allow: ALLOW } })
+      : refuse("unknownCommand", `No command or route at ${rest}`);
+  }
   const evidence = readGrant(request.headers.get(EVIDENCE_HEADER));
   if (evidence === "invalid")
     return refuse("badRequest", `${EVIDENCE_HEADER} must be nonce.expiresAt.sig or nonce.sig`);
 
-  if (request.method === "OPTIONS") {
-    // the host owns CORS; this only answers what the path accepts
-    return new Response(null, { status: 204, headers: { allow: ALLOW } });
-  }
   if (request.method === "GET" || request.method === "HEAD") {
     const hit = d.routes.match(rest);
     if (hit)
