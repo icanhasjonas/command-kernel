@@ -156,7 +156,8 @@ await client.call(deleteBox, { boxId }, { evidence: grant }); // now it runs
 ```
 
 Without a `confirm` policy the wire carries grants but cannot mint them: a client that could
-approve itself is not a gate.
+approve itself is not a gate. The policy sees the args the grant is signed over, after
+`prefill` and coercion, never the raw ones the client sent.
 
 Confirming never runs anything: args and the gate are checked in a dry run, bad args answer
 `400 invalidArguments` as the call would, and a command that owes no confirm answers `409

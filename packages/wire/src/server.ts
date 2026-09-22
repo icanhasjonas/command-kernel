@@ -24,6 +24,7 @@ export interface WireServerOptions extends CallOptions {
    * a host checks that a person is at the other end (a step-up, a fresh sign-in, an
    * operator's approval), because a client that could approve itself is not a gate.
    * A grant it mints is bound to the confirming caller (the kernel's `principalOf`).
+   * `args` are the ones the grant is signed over: prefilled and coerced, not as sent.
    */
   confirm?: (call: { name: string; args: ArgValues; ctx: Ctx }) => boolean | Promise<boolean>;
   /**
@@ -105,7 +106,8 @@ export function createWireServer(opts: WireServerOptions): WireServer {
     if (!res.verdict.allowed) return refusal("forbidden", `Not allowed: ${res.node.title}`);
     if (!res.verdict.needsConfirm)
       return refusal("conflict", `${name} is not waiting for a confirmation`);
-    if (!(await confirm({ name, args, ctx })))
+    // the policy decides on exactly what the grant signs: after prefill and coercion
+    if (!(await confirm({ name, args: res.args, ctx })))
       return refusal("forbidden", `${res.node.title} was not confirmed`);
     const grant = opts.kernel.grantFor(res);
     return { ok: true, result: { kind: "data", message: "confirmed", payload: { grant } } };
