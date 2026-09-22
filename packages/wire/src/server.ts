@@ -1,43 +1,43 @@
-import type { ArgValues, Ctx, Kernel } from "@command-kernel/core";
+import type { ArgValues, CommandResult, Ctx, Grant, Kernel } from "@command-kernel/core";
+import { overLimit, readGrant, readLimited } from "./body.js";
 import type { HttpRoute } from "./define.js";
 import { type CallOptions, type Outcome, runCall } from "./outcome.js";
 import {
-  type CallFrame,
-  type ErrFrame,
-  type EventFrame,
+  EVIDENCE_HEADER,
   encodeFrame,
-  statusOf,
+  RESULT_KIND_HEADER,
+  serverStatus,
   type WireError,
 } from "./protocol.js";
-import { matchRoute, queryArgs } from "./route.js";
+import { compileRoutes, queryArgs } from "./route.js";
 
 /**
  * The server half. It owns no sockets and no auth: the host (a Worker, a Durable
  * Object, Bun.serve) establishes who is calling, builds the `Ctx`, and hands over
- * either an HTTP `Request` or one socket message. Everything else -- routing,
- * args, the gate, errors, status codes -- is here, once, for both transports.
+ * either an HTTP `Request` or one socket message. Everything else -- routing, args,
+ * the gate, errors, status codes, size limits -- is here, once, for both transports.
  */
 
 export interface WireServerOptions extends CallOptions {
   kernel: Kernel;
-  /** the declarations; only those with an `http` GET route are read here */
+  /** the declarations; those with an `http` GET route are served at their path */
   specs?: ReadonlyArray<{ readonly node: { id: string }; readonly http?: HttpRoute }>;
   /** URL prefix for command calls, default "/api" */
   base?: string;
-  /** largest accepted HTTP body or socket message, in characters (default 1,048,576) */
-  maxSize?: number;
+  /** largest accepted HTTP body or socket message, in UTF-8 bytes (default 1 MiB) */
+  maxBytes?: number;
+  /** the client heartbeat; answered with `pong` (a Durable Object can do it without waking) */
+  heartbeat?: { ping: string; pong: string } | false;
 }
 
 export interface WireServer {
   /** Answer an HTTP request under `base`, or null when the path is not ours. */
   handleHttp(request: Request, ctx: Ctx): Promise<Response | null>;
-  /** Answer one socket message. Returns the frame to send back. */
+  /** Answer one socket message with the text to send back. */
   handleFrame(message: string, ctx: Ctx): Promise<string>;
   /** Encode a server push for every socket that should see it. */
   event(name: string, data?: unknown): string;
 }
-
-const JSON_TYPE = "application/json; charset=utf-8";
 
 function problem(error: WireError): Response {
   const body = { type: `urn:command-kernel:error:${error.code}`, title: error.message, ...error };
@@ -47,50 +47,57 @@ function problem(error: WireError): Response {
   });
 }
 
-function refuse(code: string, message: string): Response {
-  return problem({ code, message, status: statusOf(code) });
-}
+const refuse = (code: string, message: string) =>
+  problem({ code, message, status: serverStatus(code) });
 
-function cacheHeader(route: HttpRoute | undefined): string {
-  return route?.cache === "immutable" ? "private, max-age=31536000, immutable" : "no-store";
-}
+/** A data result's payload, identical on both transports (absent -> null). */
+const dataOf = (r: CommandResult) => (r.kind === "data" ? (r.payload ?? null) : r.payload);
 
-/** A data result answers with its payload; anything else with the whole result. */
 function reply(outcome: Outcome, route?: HttpRoute): Response {
   if (!outcome.ok) return problem(outcome.error);
-  const { result } = outcome;
-  const body = result.kind === "data" ? (result.payload ?? null) : result;
+  const r = outcome.result;
+  // a data result's body IS the payload; any other kind is the whole result, and the
+  // header says which, so a client never confuses a payload with a result envelope
+  const body =
+    r.kind === "data" ? dataOf(r) : { kind: r.kind, message: r.message, payload: r.payload };
+  const cache = route?.cache === "immutable" ? "private, max-age=31536000, immutable" : "no-store";
   return new Response(JSON.stringify(body), {
     status: 200,
-    headers: { "content-type": JSON_TYPE, "cache-control": cacheHeader(route) },
+    headers: {
+      "content-type": "application/json; charset=utf-8",
+      "cache-control": cache,
+      [RESULT_KIND_HEADER]: r.kind,
+    },
   });
 }
 
-function isArgBag(v: unknown): v is ArgValues {
-  return typeof v === "object" && v !== null && !Array.isArray(v);
-}
+const isBag = (v: unknown): v is ArgValues =>
+  typeof v === "object" && v !== null && !Array.isArray(v);
 
 export function createWireServer(opts: WireServerOptions): WireServer {
   const base = (opts.base ?? "/api").replace(/\/+$/, "");
-  const maxSize = opts.maxSize ?? 1 << 20;
-  const routes = (opts.specs ?? []).flatMap((s) =>
-    s.http ? [{ id: s.node.id, route: s.http }] : [],
+  const maxBytes = opts.maxBytes ?? 1 << 20;
+  const beat = opts.heartbeat === undefined ? { ping: "ping", pong: "pong" } : opts.heartbeat;
+  const routes = compileRoutes(
+    (opts.specs ?? []).flatMap((s) => (s.http ? [{ id: s.node.id, route: s.http }] : [])),
   );
-  const call = (name: string, args: ArgValues, ctx: Ctx, frame?: Partial<CallFrame>) =>
-    runCall(opts.kernel, name, args, ctx, frame?.evidence, opts);
+  const call = (name: string, args: ArgValues, ctx: Ctx, evidence?: Grant) =>
+    runCall(opts.kernel, name, args, ctx, evidence, opts);
 
   async function handleHttp(request: Request, ctx: Ctx): Promise<Response | null> {
     const url = new URL(request.url);
     if (url.pathname !== base && !url.pathname.startsWith(`${base}/`)) return null;
     const rest = url.pathname.slice(base.length) || "/";
+    const evidence = readGrant(request.headers.get(EVIDENCE_HEADER));
+    if (evidence === "invalid") return refuse("badRequest", `${EVIDENCE_HEADER} must be nonce.sig`);
 
     if (request.method === "GET") {
-      for (const { id, route } of routes) {
-        const params = matchRoute(route.path, rest);
-        if (params)
-          return reply(await call(id, { ...queryArgs(url.searchParams), ...params }, ctx), route);
-      }
-      return refuse("unknownCommand", `No GET route ${rest}`);
+      const hit = routes.match(rest);
+      if (!hit) return refuse("unknownCommand", `No GET route ${rest}`);
+      return reply(
+        await call(hit.id, { ...queryArgs(url.searchParams), ...hit.params }, ctx, evidence),
+        hit.route,
+      );
     }
     if (request.method !== "POST")
       return refuse("methodNotAllowed", "Use POST, or GET on a declared route");
@@ -102,10 +109,8 @@ export function createWireServer(opts: WireServerOptions): WireServer {
       return refuse("badRequest", "Malformed command name");
     }
     if (!name || name.includes("/")) return refuse("unknownCommand", `No command at ${rest}`);
-    const length = Number(request.headers.get("content-length") ?? 0);
-    if (length > maxSize) return refuse("tooLarge", `Body over ${maxSize} characters`);
-    const text = await request.text();
-    if (text.length > maxSize) return refuse("tooLarge", `Body over ${maxSize} characters`);
+    const text = await readLimited(request, maxBytes);
+    if (text === null) return refuse("tooLarge", `Body over ${maxBytes} bytes`);
     let args: unknown = {};
     if (text.trim()) {
       try {
@@ -114,47 +119,45 @@ export function createWireServer(opts: WireServerOptions): WireServer {
         return refuse("badRequest", "Body is not JSON");
       }
     }
-    if (!isArgBag(args)) return refuse("badRequest", "Body must be a JSON object of args");
-    return reply(await call(name, args, ctx));
+    if (!isBag(args)) return refuse("badRequest", "Body must be a JSON object of args");
+    return reply(await call(name, args, ctx, evidence));
   }
 
   async function handleFrame(message: string, ctx: Ctx): Promise<string> {
-    const bad = (id: string | null, text: string): string =>
-      encodeFrame({
-        t: "err",
-        id,
-        error: { code: "badRequest", message: text, status: 400 },
-      } satisfies ErrFrame);
-    if (message.length > maxSize) return bad(null, `Message over ${maxSize} characters`);
+    if (beat && message === beat.ping) return beat.pong;
+    const bad = (id: string | null, text: string) =>
+      encodeFrame({ t: "err", id, error: { code: "badRequest", message: text, status: 400 } });
+    if (overLimit(message, maxBytes)) return bad(null, `Message over ${maxBytes} bytes`);
     let parsed: unknown;
     try {
       parsed = JSON.parse(message);
     } catch {
       return bad(null, "Message is not JSON");
     }
-    if (!isArgBag(parsed)) return bad(null, "Message must be a JSON object");
-    const frame = parsed as Partial<CallFrame>; // an object; every field is checked below
-    const id = typeof frame.id === "string" ? frame.id : null;
-    if (frame.t !== "cmd" || !id || typeof frame.name !== "string")
+    if (!isBag(parsed)) return bad(null, "Message must be a JSON object");
+    const id = typeof parsed.id === "string" ? parsed.id : null;
+    if (parsed.t !== "cmd" || !id || typeof parsed.name !== "string")
       return bad(id, 'Expected {"t":"cmd","id":string,"name":string,"args"?:object}');
-    if (frame.args !== undefined && !isArgBag(frame.args)) return bad(id, "args must be an object");
+    if (parsed.args !== undefined && !isBag(parsed.args)) return bad(id, "args must be an object");
+    const evidence = readGrant(parsed.evidence);
+    if (evidence === "invalid") return bad(id, "evidence must be {nonce, sig}");
 
-    const outcome = await call(frame.name, frame.args ?? {}, ctx, frame);
+    const outcome = await call(parsed.name, parsed.args ?? {}, ctx, evidence);
     if (!outcome.ok) return encodeFrame({ t: "err", id, error: outcome.error });
-    const { result } = outcome;
+    const r = outcome.result;
+    const data = dataOf(r);
     return encodeFrame({
       t: "ok",
       id,
-      kind: result.kind,
-      message: result.message,
-      ...(result.payload !== undefined && { data: result.payload }),
+      kind: r.kind,
+      message: r.message,
+      ...(data !== undefined && { data }),
     });
   }
 
   return {
     handleHttp,
     handleFrame,
-    event: (name, data) =>
-      encodeFrame({ t: "evt", name, ...(data !== undefined && { data }) } satisfies EventFrame),
+    event: (name, data) => encodeFrame({ t: "evt", name, ...(data !== undefined && { data }) }),
   };
 }

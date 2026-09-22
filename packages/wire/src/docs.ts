@@ -43,7 +43,9 @@ export interface Manifest {
   events: Array<{ name: string; summary: string }>;
 }
 
-const byId = <T extends { id: string }>(a: T, b: T) => a.id.localeCompare(b.id);
+/** Plain code-unit order: the same on every machine, unlike localeCompare. */
+const order = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
+const byId = <T extends { id: string }>(a: T, b: T) => order(a.id, b.id);
 
 export function commandManifest(
   specs: ReadonlyArray<DocSpec>,
@@ -63,7 +65,7 @@ export function commandManifest(
         }),
         http: http ?? null,
         returns: returns ?? null,
-        errors: [...(errors ?? [])].sort(),
+        errors: [...(errors ?? [])].sort(order),
         gate: node.gate
           ? { roles: node.gate.roles ?? [], confirm: Boolean(node.gate.confirm) }
           : null,
@@ -71,7 +73,7 @@ export function commandManifest(
       .sort(byId),
     events: events
       .map((e) => ({ name: e.name, summary: e.summary }))
-      .sort((a, b) => a.name.localeCompare(b.name)),
+      .sort((a, b) => order(a.name, b.name)),
   };
 }
 

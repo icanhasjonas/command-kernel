@@ -6,7 +6,7 @@ import {
   isCommandError,
   type Kernel,
 } from "@command-kernel/core";
-import { statusOf, type WireError } from "./protocol.js";
+import { serverStatus, type WireError } from "./protocol.js";
 
 /**
  * One call through the kernel, reduced to "it ran, here is the result" or "it
@@ -24,7 +24,7 @@ export interface CallOptions {
 }
 
 function fail(code: string, message: string, extra: Partial<WireError> = {}): Outcome {
-  return { ok: false, error: { code, message, status: statusOf(code), ...extra } };
+  return { ok: false, error: { code, message, status: serverStatus(code), ...extra } };
 }
 
 export async function runCall(
@@ -56,9 +56,11 @@ export async function runCall(
           details: { arg: res.arg.id, candidates: res.candidates.map((c) => c.id) },
         });
       case "gate":
+        // `details` is what a host needs to mint a grant (kernel.grantFor) once a person confirms
         return res.verdict.allowed
           ? fail("confirmRequired", `${res.node.title} needs a confirmation`, {
               checks: res.verdict.checks,
+              details: { args: res.args, priorKey: res.priorKey },
             })
           : fail("forbidden", `Not allowed: ${res.node.title}`, { checks: res.verdict.checks });
       case "completions":
@@ -69,7 +71,7 @@ export async function runCall(
     }
   } catch (err) {
     if (isCommandError(err)) {
-      const status = statusOf(err.code, opts.statusFor?.(err.code) ?? 400);
+      const status = serverStatus(err.code, opts.statusFor);
       return {
         ok: false,
         error: {

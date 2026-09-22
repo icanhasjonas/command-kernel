@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from "bun:test";
-import { createWireClient, WireCallError } from "./client.js";
+import { createWireClient } from "./client.js";
+import { WireCallError } from "./client-error.js";
 import {
   boxChanged,
   ctx,
@@ -12,13 +13,21 @@ import {
 
 const server = makeServer();
 const calls: Array<{ url: string; method: string }> = [];
-const fetchToServer = (async (input: RequestInfo | URL, init?: RequestInit) => {
-  const req = new Request(`https://x${String(input)}`, init);
-  calls.push({ url: String(input), method: req.method });
+const fetchToServer = async (input: string, init?: RequestInit) => {
+  const req = new Request(`https://x${input}`, init);
+  calls.push({ url: input, method: req.method });
   return (await server.handleHttp(req, ctx)) ?? new Response("not found", { status: 404 });
-}) as typeof fetch;
+};
 
 const tick = () => new Promise((r) => setTimeout(r, 0));
+/** Poll instead of sleeping a fixed time: robust under a loaded test run. */
+async function waitFor(cond: () => boolean, ms = 2000) {
+  const end = Date.now() + ms;
+  while (!cond()) {
+    if (Date.now() > end) throw new Error("condition not met in time");
+    await new Promise((r) => setTimeout(r, 2));
+  }
+}
 
 function client(extra: Partial<Parameters<typeof createWireClient>[0]> = {}) {
   return createWireClient({
@@ -110,25 +119,22 @@ describe("a connection that fails", () => {
     expect(c.status).toBe("closed");
   });
 
-  it("a heartbeat with no answer replaces the dead socket", async () => {
+  it("a heartbeat with no answer replaces the socket at once, even if close never finishes", async () => {
     const c = client({
       heartbeat: { intervalMs: 5, ping: "ping", pong: "pong" },
-      socket: (url) => new FakeSocket(url, makeServer(), false),
+      // a half-open socket: close() is ignored and onclose never fires
+      socket: (url) => Object.assign(new FakeSocket(url, makeServer(), false), { close() {} }),
     });
     c.connect();
     FakeSocket.all[0]?.open();
-    await new Promise((r) => setTimeout(r, 40));
-    expect(FakeSocket.all[0]?.readyState).toBe(3);
-    expect(FakeSocket.all.length).toBeGreaterThan(1);
+    await waitFor(() => FakeSocket.all.length > 1);
+    expect(c.status).toBe("reconnecting");
     c.close();
   });
 
   it("an HTML answer (an auth proxy's login page) is badResponse, not a crash", async () => {
     const c = client({
-      fetch: (async () =>
-        new Response("<html>", {
-          headers: { "content-type": "text/html" },
-        })) as unknown as typeof fetch,
+      fetch: async () => new Response("<html>", { headers: { "content-type": "text/html" } }),
     });
     const e = await c.call(listThreads, { boxId: "b1" }).catch((x) => x);
     expect(e.code).toBe("badResponse");

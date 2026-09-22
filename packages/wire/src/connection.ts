@@ -106,8 +106,12 @@ export function createConnection(
       set("open");
       if (beat) {
         pulse = setInterval(() => {
-          if (Date.now() - lastSeen > beat.intervalMs * 2) sock.close(4000, "heartbeat lost");
-          else if (sock.readyState === OPEN) sock.send(beat.ping);
+          // a half-open mobile socket can sit in CLOSING for tens of seconds before
+          // onclose fires: give up on it NOW and reconnect, then let close() finish
+          if (Date.now() - lastSeen > beat.intervalMs * 2) {
+            lost(sock);
+            sock.close(4000, "heartbeat lost");
+          } else if (sock.readyState === OPEN) sock.send(beat.ping);
         }, beat.intervalMs);
       }
     };
@@ -121,17 +125,20 @@ export function createConnection(
     sock.onerror = () => {
       // every error is followed by a close; that is where recovery happens
     };
-    sock.onclose = () => {
-      if (ws !== sock) return;
-      ws = null;
-      clearTimers();
-      if (!wanted) return set("closed");
-      // full jitter: a fleet of clients must not reconnect in lockstep
-      const delay = Math.floor(random() * Math.min(maxMs, minMs * 2 ** attempt));
-      attempt++;
-      set("reconnecting");
-      retry = setTimeout(open, delay);
-    };
+    sock.onclose = () => lost(sock);
+  }
+
+  /** `sock` is gone (closed, or declared dead): forget it and, if still wanted, come back. */
+  function lost(sock: WebSocketLike) {
+    if (ws !== sock) return; // already replaced; a late close of an old socket means nothing
+    ws = null;
+    clearTimers();
+    if (!wanted) return set("closed");
+    // full jitter: a fleet of clients must not reconnect in lockstep
+    const delay = Math.floor(random() * Math.min(maxMs, minMs * 2 ** attempt));
+    attempt++;
+    set("reconnecting");
+    retry = setTimeout(open, delay);
   }
 
   return {
@@ -150,6 +157,7 @@ export function createConnection(
     },
     stop() {
       wanted = false;
+      attempt = 0; // a later start() is a fresh connection, not a retry
       clearTimers();
       const sock = ws;
       ws = null;

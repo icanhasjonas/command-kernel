@@ -62,6 +62,44 @@ export function fillRoute(template: string, args: ArgValues): string {
   return `/${path}${qs ? `?${qs}` : ""}`;
 }
 
+export interface RouteEntry<R> {
+  id: string;
+  route: R & { path: string };
+}
+
+/**
+ * The GET routes, ordered so a literal segment beats a param (`/boxes/new` before
+ * `/boxes/:id`) regardless of declaration order. Two routes that match exactly the
+ * same paths (the same shape, params in the same places) are a declaration bug and
+ * throw at startup instead of silently shadowing each other.
+ */
+export function compileRoutes<R>(entries: Array<RouteEntry<R>>) {
+  const shape = (p: string) =>
+    segments(p)
+      .map((s) => (s.startsWith(":") ? ":" : s))
+      .join("/");
+  const seen = new Map<string, string>();
+  for (const e of entries) {
+    const key = shape(e.route.path);
+    const other = seen.get(key);
+    if (other)
+      throw new Error(`GET routes of ${other} and ${e.id} match the same paths: ${e.route.path}`);
+    seen.set(key, e.id);
+  }
+  const literals = (p: string) => segments(p).filter((s) => !s.startsWith(":")).length;
+  // most literal segments first; ties keep declaration order (Array.prototype.sort is stable)
+  const ordered = [...entries].sort((a, b) => literals(b.route.path) - literals(a.route.path));
+  return {
+    match(pathname: string) {
+      for (const e of ordered) {
+        const params = matchRoute(e.route.path, pathname);
+        if (params) return { id: e.id, route: e.route, params };
+      }
+      return null;
+    },
+  };
+}
+
 /** Query params as args; a repeated key becomes a list. */
 export function queryArgs(params: URLSearchParams): ArgValues {
   const out: ArgValues = {};

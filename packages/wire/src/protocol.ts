@@ -94,15 +94,35 @@ export const ERROR_STATUS: Readonly<Record<string, number>> = {
   rateLimited: 429,
   serverFail: 500, // anything unexpected; the message is never the raw exception
   unavailable: 503,
-  // client-side only, never sent by a server
+  // client-side only, never sent by a server (status 0: no HTTP answer was involved)
   timeout: 0,
   disconnected: 0,
+  aborted: 0, // the caller cancelled
   badResponse: 0, // the answer was not ours (e.g. an auth proxy's HTML login page)
 };
 
+/** The built-in status for a code, else `fallback`. May be 0 for a client-only code. */
 export function statusOf(code: string, fallback = 400): number {
   return ERROR_STATUS[code] ?? fallback;
 }
+
+/**
+ * The HTTP status a SERVER answers with for a code: the built-in table, then the
+ * host's `statusFor`, then 400; anything outside 400-599 (a client-only code thrown
+ * by a run(), a host mapping of 600) becomes 500, because a Response cannot carry it.
+ */
+export function serverStatus(
+  code: string,
+  statusFor?: (code: string) => number | undefined,
+): number {
+  const s = ERROR_STATUS[code] ?? statusFor?.(code) ?? 400;
+  return Number.isInteger(s) && s >= 400 && s <= 599 ? s : 500;
+}
+
+/** HTTP carries a grant (for a confirm-gated command) in this header as `nonce.sig`. */
+export const EVIDENCE_HEADER = "command-evidence";
+/** HTTP says what kind of result the body is: `data` (the body IS the payload) or another kind. */
+export const RESULT_KIND_HEADER = "command-result-kind";
 
 /** Encode any server frame for a socket. */
 export function encodeFrame(frame: ServerFrame): string {

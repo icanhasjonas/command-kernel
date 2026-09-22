@@ -11,10 +11,10 @@
 export {
   type CallOpts,
   createWireClient,
-  WireCallError,
   type WireClient,
   type WireClientOptions,
 } from "./client.js";
+export { WireCallError } from "./client-error.js";
 export type { ConnectionStatus, WebSocketLike } from "./connection.js";
 export {
   type DeclaredNode,
@@ -37,10 +37,13 @@ export {
   type CallFrame,
   ERROR_STATUS,
   type ErrFrame,
+  EVIDENCE_HEADER,
   type EventFrame,
   encodeFrame,
   type OkFrame,
+  RESULT_KIND_HEADER,
   type ServerFrame,
+  serverStatus,
   statusOf,
   type WireError,
 } from "./protocol.js";
