@@ -7,7 +7,7 @@ import {
   isCommandError,
   type Kernel,
 } from "@command-kernel/core";
-import { serverStatus, type WireError } from "./protocol.js";
+import { serverStatus, statusOf, type WireError } from "./protocol.js";
 
 /**
  * One call through the kernel, reduced to "it ran, here is the result" or "it
@@ -53,12 +53,15 @@ function sendable(v: unknown): boolean {
  * What a call that threw answers: a CommandError keeps its code, anything else is a
  * `serverFail` that never echoes the exception (it can carry internals). So is a
  * CommandError whose `details` JSON cannot carry (a BigInt, a cycle): an answer that
- * cannot be written would make the transport itself throw.
+ * cannot be written would make the transport itself throw. So is a CommandError with
+ * a client-only code (status 0 in ERROR_STATUS): only a client may say `timeout`.
  */
 export function thrown(err: unknown, name: string, opts: CallOptions): Outcome {
   if (isCommandError(err) && !sendable(err.details))
     return fail("serverFail", "Something went wrong sending this command's error");
-  if (isCommandError(err)) {
+  // a client-only code (timeout, disconnected...) from a run() would read as the CLIENT's
+  // own and be retried: it is a server bug, reported and answered like one
+  if (isCommandError(err) && statusOf(err.code, 400) !== 0) {
     const status = serverStatus(err.code, opts.statusFor);
     return {
       ok: false,

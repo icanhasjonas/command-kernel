@@ -83,7 +83,10 @@ Errors carry the same `WireError` on both transports: `code`, `message`, `status
 relevant `missing` / `errors` (args) or `checks` (the gate). Built-in codes and statuses are
 in `ERROR_STATUS`; a `run()` throws `CommandError(code, message, details)` for its own. An
 unexpected exception, a result JSON cannot hold, or a `CommandError` whose `details` JSON
-cannot hold (a `BigInt`, a cycle) is a `serverFail` that never includes the exception. An arg
+cannot hold (a `BigInt`, a cycle) is a `serverFail` that never includes the exception. So
+is a `CommandError` with a client-only code (`timeout`, `disconnected`, `aborted`,
+`badResponse`: status 0 in `ERROR_STATUS`), reported to `onError`: only the client itself
+may say a call timed out, and `retryable` on those two codes needs status 0. An arg
 the command does not declare is `400 invalidArguments` naming it; a `multiple` arg sent as
 `[]` is no value, so `run()` sees the same absent arg over a socket and a GET route.
 
