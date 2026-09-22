@@ -1,12 +1,12 @@
 import type { ArgValues, Ctx, Grant, Kernel } from "@command-kernel/core";
 import { overLimit, readGrant } from "./body.js";
-import type { HttpRoute } from "./define.js";
 import { frameId } from "./frame-id.js";
 import { httpHandler } from "./http-handler.js";
-import { type CallOptions, type Outcome, runCall } from "./outcome.js";
-import { encodeFrame, serverStatus } from "./protocol.js";
-import { dataOf, refusal } from "./reply.js";
+import { type CallOptions, type Outcome, runCall, thrown } from "./outcome.js";
+import { encodeFrame, type OkFrame, serverStatus } from "./protocol.js";
+import { dataOf, jsonText, refusal, UNSENDABLE } from "./reply.js";
 import { compileRoutes } from "./route.js";
+import { checkSpecs, type ServedSpec } from "./spec-checks.js";
 
 /**
  * The server half. It owns no sockets and no auth: the host (a Worker, a Durable
@@ -25,13 +25,20 @@ export interface WireServerOptions extends CallOptions {
    * A grant it mints is bound to the confirming caller (the kernel's `principalOf`).
    */
   confirm?: (call: { name: string; args: ArgValues; ctx: Ctx }) => boolean | Promise<boolean>;
+  /**
+   * Its grants are checked by the kernel's evidence store. A server with more than one
+   * isolate, or a Durable Object that hibernates, MUST give every kernel the same
+   * `createHmacEvidenceStore(sharedKey)`: the default key is per store, one process only.
+   */
   kernel: Kernel;
   /**
    * The declarations, and the ALLOWLIST: only these commands are callable, on both
    * transports. Any other node in the kernel answers exactly as a command that does
-   * not exist. Those with an `http` GET route are also served at their path.
+   * not exist. Those with an `http` GET route are also served at their path. Refused
+   * at construction: an id outside [A-Za-z0-9._-], and a GET route on a command that
+   * writes (its `effect`, or inferred from its gate).
    */
-  specs: ReadonlyArray<{ readonly node: { id: string }; readonly http?: HttpRoute }>;
+  specs: ReadonlyArray<ServedSpec>;
   /** URL prefix for command calls, default "/api" */
   base?: string;
   /** largest accepted HTTP body or socket message, in UTF-8 bytes (default 1 MiB) */
@@ -60,6 +67,7 @@ const isBag = (v: unknown): v is ArgValues =>
   typeof v === "object" && v !== null && !Array.isArray(v);
 
 export function createWireServer(opts: WireServerOptions): WireServer {
+  checkSpecs(opts.specs);
   const base = (opts.base ?? "/api").replace(/\/+$/, "");
   const maxBytes = opts.maxBytes ?? 1 << 20;
   const beat = opts.heartbeat === undefined ? { ping: "ping", pong: "pong" } : opts.heartbeat;
@@ -76,9 +84,12 @@ export function createWireServer(opts: WireServerOptions): WireServer {
       : Promise.resolve(unknown(name));
 
   /** The gate's verdict for a call (a dry run: never executed), turned into a grant when the host allows it. */
-  async function confirmCall(name: string, args: ArgValues, ctx: Ctx): Promise<Outcome> {
-    if (!commandIds.has(name)) return unknown(name);
-    if (!opts.confirm) return refusal("forbidden", "Confirmations are not enabled here");
+  async function approve(
+    confirm: NonNullable<WireServerOptions["confirm"]>,
+    name: string,
+    args: ArgValues,
+    ctx: Ctx,
+  ): Promise<Outcome> {
     const res = await opts.kernel.command(
       { path: [{ id: name, args }], execute: true, dryRun: true },
       ctx,
@@ -88,10 +99,21 @@ export function createWireServer(opts: WireServerOptions): WireServer {
     if (!res.verdict.allowed) return refusal("forbidden", `Not allowed: ${res.node.title}`);
     if (!res.verdict.needsConfirm)
       return refusal("conflict", `${name} is not waiting for a confirmation`);
-    if (!(await opts.confirm({ name, args, ctx })))
+    if (!(await confirm({ name, args, ctx })))
       return refusal("forbidden", `${res.node.title} was not confirmed`);
     const grant = opts.kernel.grantFor(res);
     return { ok: true, result: { kind: "data", message: "confirmed", payload: { grant } } };
+  }
+
+  async function confirmCall(name: string, args: ArgValues, ctx: Ctx): Promise<Outcome> {
+    if (!commandIds.has(name)) return unknown(name);
+    if (!opts.confirm) return refusal("forbidden", "Confirmations are not enabled here");
+    try {
+      return await approve(opts.confirm, name, args, ctx);
+    } catch (err) {
+      // a throwing policy, gate or prefill answers as a throwing run() does
+      return thrown(err, name, opts);
+    }
   }
 
   async function handleFrame(message: string, ctx: Ctx): Promise<string> {
@@ -113,7 +135,7 @@ export function createWireServer(opts: WireServerOptions): WireServer {
       return bad(id, 'Expected {"t":"cmd","id":string,"name":string,"args"?:object}');
     if (parsed.args !== undefined && !isBag(parsed.args)) return bad(id, "args must be an object");
     const evidence = readGrant(parsed.evidence);
-    if (evidence === "invalid") return bad(id, "evidence must be {nonce, sig}");
+    if (evidence === "invalid") return bad(id, "evidence must be {nonce, sig, expiresAt?}");
 
     const args = parsed.args ?? {};
     const outcome =
@@ -123,13 +145,10 @@ export function createWireServer(opts: WireServerOptions): WireServer {
     if (!outcome.ok) return encodeFrame({ t: "err", id, error: outcome.error });
     const r = outcome.result;
     const data = dataOf(r);
-    return encodeFrame({
-      t: "ok",
-      id,
-      kind: r.kind,
-      message: r.message,
-      ...(data !== undefined && { data }),
-    });
+    const ok: OkFrame = { t: "ok", id, kind: r.kind, message: r.message };
+    // a result JSON cannot hold (a BigInt, a cycle) is the same serverFail HTTP answers
+    const text = jsonText(data === undefined ? ok : { ...ok, data });
+    return text ?? encodeFrame({ t: "err", id, error: UNSENDABLE });
   }
 
   return {

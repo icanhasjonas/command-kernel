@@ -89,7 +89,13 @@ make mutations idempotent). The client reconnects with full-jitter exponential b
 sends a heartbeat: a `ping` every 25 s, and the socket is replaced only when that ping
 goes unanswered for 10 s, so a background tab whose timers the browser throttles is not
 mistaken for a dead connection. A call that times out also probes the socket, so a
-half-open connection is found in seconds rather than at the next interval.
+half-open connection is found in seconds rather than at the next interval. A socket still
+connecting after `connectTimeoutMs` (10 s) is closed and retried, and the backoff starts
+over only once a socket has stayed open for `stableMs` (10 s), so a server that accepts and
+drops at once is backed off from, not hammered. A status listener or event handler that
+throws is reported to `onError` and stops nothing.
+
+A result JSON cannot hold (a `BigInt`, a cycle) answers `serverFail` on both transports.
 
 `handleFrame` answers `ping` with `pong`, so any host works out of the box. A Durable
 Object can answer it without waking at all:
@@ -113,6 +119,15 @@ command. The client always sends a JSON body (`{}` when there are no args).
 transports. Any other node in the kernel answers exactly as a command that does not exist
 (`404 unknownCommand`). Only ROOT commands are reachable; a child a node resolves is not.
 To expose a child, declare a root command for it.
+
+`createWireServer` refuses two declarations at construction, naming the command: an id
+using anything but letters, digits, `.`, `_` and `-` (an id is one URL path segment), and a
+GET route on a command that writes (`effect: "writes"`, or inferred from a gate). A GET is
+cacheable, prefetched, and sent cross-site by a plain link; a write is always a POST.
+
+The host MUST check `Origin` on the WebSocket upgrade. A browser opens a cross-origin
+socket without any preflight and sends the user's cookies with it, so a socket that trusts
+its cookie alone can be driven by any page the user visits.
 
 ## Confirm-gated commands
 
@@ -140,7 +155,33 @@ Confirming never runs anything: the server checks the gate in a dry run, and a c
 that owes no confirm answers `409 conflict`. A grant is bound to the caller who confirmed
 (the kernel's `principalOf`, by default `ctx.user.id`); another caller presenting it gets
 `confirmRequired`. The `confirmRequired` answer names the command (`details: { command,
-title }`) and never echoes the args, which after `prefill` can hold server-side values.
+title }`) and never echoes the args, which after `prefill` can hold server-side values. A
+confirm policy, gate or prefill that throws answers `serverFail`, never the exception.
+
+A grant is an HMAC-SHA256 signature over the caller, the command, its args, a nonce and an
+expiry, so it cannot be forged or reworked into another call. It **expires** 5 minutes
+after it was minted (measured on `ctx.now`, so build the ctx with `now: Date.now()`; the
+TTL is `createHmacEvidenceStore(key, { ttlMs })`). Over HTTP it travels in the
+`command-evidence` header as `nonce.expiresAt.sig`.
+
+**Without a `spend` hook, a grant can be used again and again until it expires.** To make
+each approval run exactly once, record spent nonces:
+
+```ts
+createWireServer({
+  kernel,
+  confirm,
+  // your own atomic store: true the first time a nonce is claimed, false after;
+  // keep each nonce until expiresAt, after which the grant is refused anyway
+  spend: (nonce, expiresAt) => spentGrants.claimOnce(nonce, expiresAt),
+});
+```
+
+A server with more than one isolate, or a Durable Object that hibernates, **must** give
+every kernel the same key: `createKernel({ evidence: createHmacEvidenceStore(key) })` with
+one 32-byte secret (an environment secret). The default store draws a random key per
+store, which is right for a single process only: a grant minted in one isolate would fail
+in the next, and every grant dies when a Durable Object wakes.
 
 ## The server owns no sockets and no auth
 

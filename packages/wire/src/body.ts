@@ -44,18 +44,34 @@ export function overLimit(message: string, maxBytes: number): boolean {
   return message.length * 3 > maxBytes && new TextEncoder().encode(message).byteLength > maxBytes;
 }
 
-/** A grant from a frame field or the `nonce.sig` header; anything else is not a grant. */
+const EXPIRY = /^\d{1,16}$/;
+
+/**
+ * A grant from a frame field, or from the header: `nonce.expiresAt.sig` (what the
+ * built-in stores mint), or `nonce.sig` from a custom store that sets no expiry.
+ * Anything else is not a grant.
+ */
 export function readGrant(v: unknown): Grant | undefined | "invalid" {
   if (v === undefined || v === null) return undefined;
   if (typeof v === "string") {
-    const dot = v.indexOf(".");
-    if (dot <= 0 || dot === v.length - 1) return "invalid";
-    return { nonce: v.slice(0, dot), sig: v.slice(dot + 1) };
+    const parts = v.split(".");
+    const [nonce, mid, last] = parts;
+    if (parts.some((p) => !p) || !nonce || !mid) return "invalid";
+    if (parts.length === 2) return { nonce, sig: mid };
+    if (parts.length !== 3 || !last || !EXPIRY.test(mid)) return "invalid";
+    return { nonce, sig: last, expiresAt: Number(mid) };
   }
   if (typeof v === "object" && !Array.isArray(v)) {
     const g = v as Record<string, unknown>; // checked field by field
-    if (typeof g.nonce === "string" && typeof g.sig === "string")
-      return { nonce: g.nonce, sig: g.sig };
+    const exp = g.expiresAt;
+    if (typeof g.nonce !== "string" || typeof g.sig !== "string") return "invalid";
+    if (exp === undefined) return { nonce: g.nonce, sig: g.sig };
+    if (typeof exp === "number" && Number.isFinite(exp))
+      return { nonce: g.nonce, sig: g.sig, expiresAt: exp };
   }
   return "invalid";
 }
+
+/** A grant as the evidence header carries it (the inverse of `readGrant`). */
+export const grantHeader = (g: Grant) =>
+  g.expiresAt === undefined ? `${g.nonce}.${g.sig}` : `${g.nonce}.${g.expiresAt}.${g.sig}`;

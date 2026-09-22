@@ -124,7 +124,7 @@ export function serverStatus(
   return Number.isInteger(s) && s >= 400 && s <= 599 ? s : 500;
 }
 
-/** HTTP carries a grant (for a confirm-gated command) in this header as `nonce.sig`. */
+/** HTTP carries a grant (for a confirm-gated command) in this header as `nonce.expiresAt.sig`. */
 export const EVIDENCE_HEADER = "command-evidence";
 /** HTTP says what kind of result the body is: `data` (the body IS the payload) or another kind. */
 export const RESULT_KIND_HEADER = "command-result-kind";

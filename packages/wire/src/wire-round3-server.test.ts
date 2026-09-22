@@ -1,5 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { type Ctx, createKernel, type Grant } from "@command-kernel/core";
+import { grantHeader } from "./body.js";
 import { defineCommand, implement } from "./define.js";
 import { ctx } from "./fixtures.test-util.js";
 import { as, JSON_TYPE, post, server } from "./review.fixtures.test-util.js";
@@ -52,7 +53,7 @@ describe("K2-D2: a grant is not a bearer token", () => {
         "danger",
         {
           body: '{"n":2}',
-          headers: { ...JSON_TYPE, "command-evidence": `${grant.nonce}.${grant.sig}` },
+          headers: { ...JSON_TYPE, "command-evidence": grantHeader(grant) },
         },
         as(who),
       );

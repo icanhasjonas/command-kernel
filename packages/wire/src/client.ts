@@ -27,7 +27,11 @@ export interface WireClientOptions extends Omit<ConnectionOptions, "url"> {
   timeoutMs?: number;
   /** a call whose frame is larger than this goes over HTTP instead (default 1 MiB, as the server) */
   maxFrameBytes?: number;
-  /** told about an event handler that threw; the other handlers still run */
+  /**
+   * Told about an event handler that threw (`event` is its name) or an `onStatus`
+   * listener that threw (`event` is "status"); the others still run, and the
+   * connection carries on.
+   */
   onError?: (err: unknown, event: string) => void;
 }
 
@@ -96,9 +100,18 @@ export function createWireClient(opts: WireClientOptions): WireClient {
     calls.answer(frame);
   }
 
+  /** A status listener that throws is reported, never allowed to stop the connection. */
+  function tell(fn: (s: ConnectionStatus) => void, s: ConnectionStatus) {
+    try {
+      fn(s);
+    } catch (err) {
+      opts.onError?.(err, "status");
+    }
+  }
+
   function onConnStatus(s: ConnectionStatus) {
     if (s !== "open") calls.dropAll();
-    for (const fn of statusListeners) fn(s);
+    for (const fn of [...statusListeners]) tell(fn, s);
   }
 
   const conn = opts.ws
@@ -160,7 +173,7 @@ export function createWireClient(opts: WireClientOptions): WireClient {
     },
     onStatus: (fn) => {
       statusListeners.add(fn);
-      fn(conn?.status ?? "idle"); // a late listener learns where things stand now
+      tell(fn, conn?.status ?? "idle"); // a late listener learns where things stand now
       return () => statusListeners.delete(fn);
     },
     get status() {

@@ -77,6 +77,12 @@ export interface Confirmation {
   grant?: Grant;
   /** canonical key of the path BEFORE this node, the grant's binding context */
   priorKey?: string;
+  /**
+   * Single use: asked once `grant` has verified, just before run(). Answer false
+   * when this grant was already spent, and the confirm stays owed. Without it a
+   * grant may be used again until it expires.
+   */
+  spend?: (grant: Grant) => boolean | Promise<boolean>;
 }
 
 /** An outcome where run() did not fire; `extra` names why. */
@@ -143,16 +149,21 @@ export async function executeNode(
   if (verdict.needsConfirm) {
     autoAllowed = deps.policy.match(node.id, args) !== null;
     // verify over the canonical signing form, so a grant minted from the palette's
-    // text ("yes") verifies the same act arriving typed (true) and vice versa; and
-    // for THIS principal, so a grant minted for someone else never verifies
+    // text ("yes") verifies the same act arriving typed (true) and vice versa; for
+    // THIS principal, so a grant minted for someone else never verifies; at ctx.now,
+    // so an expired grant does not; and, when the host keeps track, only once
+    const { grant, spend } = confirmation;
     const proven =
       autoAllowed ||
-      deps.evidence.verify(
-        confirmation.grant,
-        node.id,
-        signingArgs(node, args),
-        bindingKey(deps.principalOf?.(ctx), confirmation.priorKey ?? ""),
-      );
+      (grant !== undefined &&
+        deps.evidence.verify(
+          grant,
+          node.id,
+          signingArgs(node, args),
+          bindingKey(deps.principalOf?.(ctx), confirmation.priorKey ?? ""),
+          ctx.now,
+        ) &&
+        (spend ? await spend(grant) : true));
     if (!proven) return stopped(verdict, { awaitingConfirm: true });
   }
   if (!node.run) return stopped(verdict, { autoAllowed });
@@ -161,40 +172,9 @@ export async function executeNode(
   return { verdict, result, awaitingConfirm: false, autoAllowed, argErrors: [], missing: [] };
 }
 
-/** Flatten a node tree's chord bindings into a lookup for the chord leader. */
-export function collectChords(nodes: CommandNode[]): Map<string, CommandNode> {
-  const map = new Map<string, CommandNode>();
-  for (const n of nodes) {
-    if (n.chord) map.set(n.chord.toLowerCase(), n);
-  }
-  return map;
-}
-
-/**
- * Nodes that carry a `shortcut`, filtered by `when(ctx)`, keyed by the shortcut
- * string. NOTE: this is a lookup, so two nodes on the SAME shortcut collapse to
- * the last one — use `shortcutNodes` + `validateShortcuts` (or
- * `kernel.shortcutConflicts(ctx)`) to see the collision before it silently eats
- * a binding.
- */
-export function collectShortcuts(nodes: CommandNode[], ctx: Ctx): Map<string, CommandNode> {
-  const map = new Map<string, CommandNode>();
-  for (const n of shortcutNodes(nodes, ctx)) map.set(n.shortcut as string, n);
-  return map;
-}
-
-/** Every visible node that declares a `shortcut` — duplicates INCLUDED. */
-export function shortcutNodes(nodes: CommandNode[], ctx: Ctx): CommandNode[] {
-  return nodes.filter((n) => n.shortcut && (!n.when || n.when(ctx)));
-}
-
 /** Required args still missing a value. Drives the "2 of 3" arg counter. */
 export function missingArgs(node: CommandNode, values: ArgValues): string[] {
   return (node.args ?? [])
     .filter((a) => a.required && !hasValue(a, getOwn(values, a.id)))
     .map((a) => a.id);
-}
-
-export function bumpFrecency(frecency: Record<string, number>, id: string): Record<string, number> {
-  return { ...frecency, [id]: (frecency[id] ?? 0) + 1 };
 }

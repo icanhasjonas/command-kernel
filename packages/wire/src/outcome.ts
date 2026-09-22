@@ -19,12 +19,41 @@ export type Outcome = { ok: true; result: CommandResult } | { ok: false; error: 
 export interface CallOptions {
   /** status for a CommandError code the built-in table does not know */
   statusFor?: (code: string) => number | undefined;
-  /** called with anything a run() threw that was not a CommandError */
+  /** called with anything a run(), gate, prefill or confirm policy threw that was not a CommandError */
   onError?: (err: unknown, name: string) => void;
+  /**
+   * Make grants single-use. Called once a grant has verified, just before the command
+   * runs: record `nonce` until `expiresAt` (wall-clock ms; after that the grant is
+   * refused anyway) and answer true, or answer false when it was already spent, and
+   * the call is `confirmRequired`. Without it a grant may be used again until it
+   * expires (5 minutes by default).
+   */
+  spend?: (nonce: string, expiresAt: number) => boolean | Promise<boolean>;
 }
 
 function fail(code: string, message: string, extra: Partial<WireError> = {}): Outcome {
   return { ok: false, error: { code, message, status: serverStatus(code), ...extra } };
+}
+
+/**
+ * What a call that threw answers: a CommandError keeps its code, anything else is a
+ * `serverFail` that never echoes the exception (it can carry internals).
+ */
+export function thrown(err: unknown, name: string, opts: CallOptions): Outcome {
+  if (isCommandError(err)) {
+    const status = serverStatus(err.code, opts.statusFor);
+    return {
+      ok: false,
+      error: {
+        code: err.code,
+        message: err.message,
+        status,
+        ...(err.details !== undefined && { details: err.details }),
+      },
+    };
+  }
+  opts.onError?.(err, name);
+  return fail("serverFail", "Something went wrong running this command");
 }
 
 export async function runCall(
@@ -35,9 +64,17 @@ export async function runCall(
   evidence: Grant | undefined,
   opts: CallOptions = {},
 ): Promise<Outcome> {
+  const { spend } = opts;
   try {
     const res = await kernel.command(
-      { path: [{ id: name, args, ...(evidence !== undefined && { evidence }) }], execute: true },
+      {
+        path: [{ id: name, args, ...(evidence !== undefined && { evidence }) }],
+        execute: true,
+        // a grant a custom store minted without an expiry is remembered for good
+        ...(spend && {
+          spend: (g: Grant) => spend(g.nonce, g.expiresAt ?? Number.POSITIVE_INFINITY),
+        }),
+      },
       ctx,
     );
     switch (res.kind) {
@@ -71,20 +108,6 @@ export async function runCall(
           : fail("unknownCommand", `No command ${name}`);
     }
   } catch (err) {
-    if (isCommandError(err)) {
-      const status = serverStatus(err.code, opts.statusFor);
-      return {
-        ok: false,
-        error: {
-          code: err.code,
-          message: err.message,
-          status,
-          ...(err.details !== undefined && { details: err.details }),
-        },
-      };
-    }
-    opts.onError?.(err, name);
-    // never echo an unexpected exception: it can carry internals
-    return fail("serverFail", "Something went wrong running this command");
+    return thrown(err, name, opts);
   }
 }

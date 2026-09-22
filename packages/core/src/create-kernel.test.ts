@@ -78,7 +78,7 @@ describe("SEAM 2 — GatePolicy", () => {
 describe("SEAM 3 — EvidenceStore", () => {
   it("the store owns verification — a trusting store satisfies the confirm", async () => {
     const trusting: EvidenceStore = {
-      sign: (_c, _a, _p, nonce = "n") => ({ nonce, sig: "stub" }),
+      sign: (_c, _a, _p, o) => ({ nonce: o?.nonce ?? "n", sig: "stub" }),
       verify: () => true, // the whole point: executeNode delegates trust here
       grantForPath: () => ({ nonce: "n", sig: "stub" }),
       rotate: () => {},

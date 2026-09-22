@@ -124,10 +124,13 @@ agent go through the identical path.
   key never leaves the store, so the only way to hold a valid signature is to have
   gone through the gate. Args are bound (approve `email→A` can't run `email→B`); the
   prior path is bound (a grant is valid only inside the chain it was minted in); the
-  principal is bound (another user replaying it gets the gate). `rotate()` (or a
-  browser reload) draws a new key and invalidates every outstanding grant. The
-  default store's key is random per store; a host with several isolates passes one
-  shared key to `createHmacEvidenceStore(key)` in each.
+  principal is bound (another user replaying it gets the gate). A grant expires 5
+  minutes after it was minted, measured on `ctx.now` (`createHmacEvidenceStore(key, {
+  ttlMs })`); until then it may be reused, unless the caller passes `command({ spend })`
+  to allow each nonce once. `rotate()` (or a browser reload) draws a new key and
+  invalidates every outstanding grant. The default store's key is random per store; a
+  host with several isolates passes one shared key to `createHmacEvidenceStore(key)` in
+  each.
 - **Policy** (`PolicyStore`) — the standing "always allow" exception, checked
   BEFORE evidence is requested. Scope is `command` (any args), `arg` (this value),
   or `prefix` (this folder), session-scoped.

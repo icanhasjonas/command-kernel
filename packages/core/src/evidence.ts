@@ -10,28 +10,42 @@ export { bindingKey, pathKey } from "./evidence-key.js";
  *
  * When a human approves an action the gate mints a `Grant`: an HMAC-SHA256
  * signature, under a secret key the caller never sees, over the full binding (who
- * approved and where, the command, its canonical args, and the grant's nonce). A
- * caller, the agent above all, cannot forge `approved: true` or turn one grant into
- * another: without the key no valid signature can be computed for any other
- * command, args, path, principal or nonce.
+ * approved and where, the command, its canonical args, the grant's nonce and its
+ * expiry). A caller, the agent above all, cannot forge `approved: true`, turn one
+ * grant into another, or extend one: without the key no valid signature can be
+ * computed for any other command, args, path, principal, nonce or expiry.
+ *
+ * A grant EXPIRES: it is issued at `now` (the kernel passes `ctx.now`) and verifies
+ * until `now + ttlMs` (default 5 minutes). Within that window it may be used again;
+ * a host that needs single use records spent nonces (`command({ spend })`).
  *
  * An `EvidenceStore` owns the key and the sign/verify pair. The default
  * `createMemoryEvidenceStore()` draws a random 32-byte key per INSTANCE (no module
  * global: two kernels never share one). `rotate()` draws a new key and so
- * invalidates every outstanding grant; a browser reload does it for free, which is
- * why the session lifetime IS the grant TTL. A host running several isolates (or a
- * Durable Object that hibernates) passes ONE secret to `createHmacEvidenceStore(key)`
- * in each, so a grant minted in one verifies in another. Back it with Redis, or
- * anything else, by implementing this interface and passing `createKernel({ evidence })`.
+ * invalidates every outstanding grant; a browser reload does it for free. A host
+ * running several isolates (or a Durable Object that hibernates) MUST pass ONE
+ * secret to `createHmacEvidenceStore(key)` in each, so a grant minted in one
+ * verifies in another. Back it with Redis, or anything else, by implementing this
+ * interface and passing `createKernel({ evidence })`.
  */
 export interface EvidenceStore {
   /**
    * Mint a grant bound to this exact (command, args, binding context). The kernel's
    * context is `bindingKey(principal, pathKey(prior path))`: WHO approved, and where.
    */
-  sign(commandId: string, args: ArgValues, priorKey: string, nonce?: string): Grant;
-  /** True only if the grant was minted for THIS command+args+binding context here. */
-  verify(grant: Grant | undefined, commandId: string, args: ArgValues, priorKey: string): boolean;
+  sign(commandId: string, args: ArgValues, priorKey: string, opts?: SignOptions): Grant;
+  /**
+   * True only if the grant was minted for THIS command+args+binding context here,
+   * and `now` (the kernel passes `ctx.now`; default the store's clock) is not past
+   * its expiry.
+   */
+  verify(
+    grant: Grant | undefined,
+    commandId: string,
+    args: ArgValues,
+    priorKey: string,
+    now?: number,
+  ): boolean;
   /**
    * Mint the grant for the TIP of a path, bound to everything before it, using
    * the args AS WRITTEN on the segment.
@@ -55,6 +69,18 @@ export interface EvidenceStore {
   rotate(): void;
 }
 
+export interface SignOptions {
+  /** the grant's nonce (default: 16 random bytes, hex) */
+  nonce?: string;
+  /** when it is issued, wall-clock ms (the kernel passes `ctx.now`; default the store's clock) */
+  now?: number;
+}
+
+export interface HmacStoreOptions {
+  /** how long a grant verifies after it is issued, ms (default 5 minutes) */
+  ttlMs?: number;
+}
+
 /** The one piece of `crypto` the store needs, read without assuming any lib's types. */
 function randomBytes(n: number): Uint8Array {
   type RandomSource = { getRandomValues(array: Uint8Array): Uint8Array };
@@ -68,8 +94,8 @@ function randomBytes(n: number): Uint8Array {
  * What is signed: one JSON array, so no part can bleed into another (and lone
  * surrogates are escaped before the text becomes bytes).
  */
-const payload = (commandId: string, args: ArgValues, priorKey: string, nonce: string) =>
-  JSON.stringify(["ck.grant.v1", priorKey, commandId, argStr(args), nonce]);
+const payload = (id: string, args: ArgValues, priorKey: string, nonce: string, exp: number) =>
+  JSON.stringify(["ck.grant.v2", priorKey, id, argStr(args), nonce, exp]);
 
 /** Equal-length strings compared without an early exit on the first difference. */
 function sameText(a: string, b: string): boolean {
@@ -80,6 +106,7 @@ function sameText(a: string, b: string): boolean {
 }
 
 const KEY_BYTES = 32;
+const DEFAULT_TTL_MS = 5 * 60_000;
 
 /**
  * An evidence store that signs with HMAC-SHA256 under `key` (at least 32 random
@@ -88,29 +115,31 @@ const KEY_BYTES = 32;
  * `rotate()` swaps this store to a fresh random key, which detaches it from the
  * shared one; a host that shares a key rotates by building its stores from a new one.
  */
-export function createHmacEvidenceStore(key: Uint8Array): EvidenceStore {
+export function createHmacEvidenceStore(
+  key: Uint8Array,
+  opts: HmacStoreOptions = {},
+): EvidenceStore {
   if (!(key instanceof Uint8Array) || key.length < KEY_BYTES)
     throw new Error(`createHmacEvidenceStore: the key must be at least ${KEY_BYTES} random bytes`);
+  const ttl = opts.ttlMs ?? DEFAULT_TTL_MS;
   let secret: Uint8Array = key.slice();
-  const mac = (commandId: string, args: ArgValues, priorKey: string, nonce: string) =>
-    hex(hmacSha256(secret, utf8(payload(commandId, args, priorKey, nonce))));
+  const mac = (id: string, args: ArgValues, priorKey: string, nonce: string, exp: number) =>
+    hex(hmacSha256(secret, utf8(payload(id, args, priorKey, nonce, exp))));
 
-  const sign: EvidenceStore["sign"] = (
-    commandId,
-    args,
-    priorKey,
-    nonce = hex(randomBytes(16)),
-  ) => ({
-    nonce,
-    sig: mac(commandId, args, priorKey, nonce),
-  });
+  const sign: EvidenceStore["sign"] = (commandId, args, priorKey, o = {}) => {
+    const nonce = o.nonce ?? hex(randomBytes(16));
+    const expiresAt = (o.now ?? Date.now()) + ttl;
+    return { nonce, expiresAt, sig: mac(commandId, args, priorKey, nonce, expiresAt) };
+  };
 
   return {
     sign,
-    verify(grant, commandId, args, priorKey) {
+    verify(grant, commandId, args, priorKey, now = Date.now()) {
       if (typeof grant?.nonce !== "string" || typeof grant.sig !== "string" || !grant.nonce)
         return false;
-      return sameText(mac(commandId, args, priorKey, grant.nonce), grant.sig);
+      const exp = grant.expiresAt;
+      if (typeof exp !== "number" || !Number.isFinite(exp) || now > exp) return false;
+      return sameText(mac(commandId, args, priorKey, grant.nonce, exp), grant.sig);
     },
     grantForPath(path, principal) {
       const tip = path[path.length - 1];
@@ -125,9 +154,9 @@ export function createHmacEvidenceStore(key: Uint8Array): EvidenceStore {
 
 /**
  * The default evidence store: HMAC-SHA256 under a random key drawn for this store
- * alone. Each call is an independent session; for several isolates that must accept
- * each other's grants, use `createHmacEvidenceStore(sharedKey)`.
+ * alone, for a single process. Isolates that must accept each other's grants use
+ * `createHmacEvidenceStore(sharedKey)`.
  */
-export function createMemoryEvidenceStore(): EvidenceStore {
-  return createHmacEvidenceStore(randomBytes(KEY_BYTES));
+export function createMemoryEvidenceStore(opts: HmacStoreOptions = {}): EvidenceStore {
+  return createHmacEvidenceStore(randomBytes(KEY_BYTES), opts);
 }

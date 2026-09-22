@@ -1,4 +1,5 @@
 import type { ArgValues, Grant } from "@command-kernel/core";
+import { grantHeader } from "./body.js";
 import { failure, fromProblem, WireCallError } from "./client-error.js";
 import type { HttpRoute } from "./define.js";
 import { EVIDENCE_HEADER, RESULT_KIND_HEADER } from "./protocol.js";
@@ -66,7 +67,7 @@ export async function httpCall(
   try {
     const headers: Record<string, string> = {
       accept: "application/json",
-      ...(evidence && { [EVIDENCE_HEADER]: `${evidence.nonce}.${evidence.sig}` }),
+      ...(evidence && { [EVIDENCE_HEADER]: grantHeader(evidence) }),
       ...(await o.headers?.()),
     };
     const res = route

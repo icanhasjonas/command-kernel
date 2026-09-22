@@ -58,6 +58,6 @@ export function createRoleGate(ladder: string[]): (node: CommandNode, ctx: Ctx) 
 /** The default gate policy: the demo's viewer < advisor < admin ladder + confirm. */
 export const evaluateGate = createRoleGate(["viewer", "advisor", "admin"]);
 
-export function isGated(node: CommandNode): boolean {
+export function isGated(node: Pick<CommandNode, "gate">): boolean {
   return Boolean(node.gate && (node.gate.roles?.length || node.gate.confirm));
 }

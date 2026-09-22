@@ -62,7 +62,8 @@ async function answer(d: HttpDeps, request: Request, ctx: Ctx): Promise<Response
   if (url.pathname !== d.base && !url.pathname.startsWith(`${d.base}/`)) return null;
   const rest = url.pathname.slice(d.base.length) || "/";
   const evidence = readGrant(request.headers.get(EVIDENCE_HEADER));
-  if (evidence === "invalid") return refuse("badRequest", `${EVIDENCE_HEADER} must be nonce.sig`);
+  if (evidence === "invalid")
+    return refuse("badRequest", `${EVIDENCE_HEADER} must be nonce.expiresAt.sig or nonce.sig`);
 
   if (request.method === "OPTIONS") {
     // the host owns CORS; this only answers what the path accepts

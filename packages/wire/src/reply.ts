@@ -29,16 +29,34 @@ export const refusal = (code: string, message: string): Outcome => ({
 /** A data result's payload, identical on both transports (absent -> null). */
 export const dataOf = (r: CommandResult) => (r.kind === "data" ? (r.payload ?? null) : r.payload);
 
+/** What either transport answers when a result cannot be written as JSON (a BigInt, a cycle). */
+export const UNSENDABLE = {
+  code: "serverFail",
+  message: "Something went wrong sending this command's result",
+  status: serverStatus("serverFail"),
+};
+
+/** `v` as JSON text, or null when JSON cannot hold it. */
+export function jsonText(v: unknown): string | null {
+  try {
+    return JSON.stringify(v) ?? "null";
+  } catch {
+    return null;
+  }
+}
+
 /** An outcome as an HTTP response. */
 export function reply(outcome: Outcome, route?: HttpRoute): Response {
   if (!outcome.ok) return problem(outcome.error);
   const r = outcome.result;
   // a data result's body IS the payload; any other kind is the whole result, and the
   // header says which, so a client never confuses a payload with a result envelope
-  const body =
-    r.kind === "data" ? dataOf(r) : { kind: r.kind, message: r.message, payload: r.payload };
+  const body = jsonText(
+    r.kind === "data" ? dataOf(r) : { kind: r.kind, message: r.message, payload: r.payload },
+  );
+  if (body === null) return problem(UNSENDABLE);
   const cache = route?.cache === "immutable" ? "private, max-age=31536000, immutable" : "no-store";
-  return new Response(JSON.stringify(body), {
+  return new Response(body, {
     status: 200,
     headers: {
       "content-type": "application/json; charset=utf-8",

@@ -6,15 +6,13 @@ import { bindingKey, createMemoryEvidenceStore, type EvidenceStore } from "./evi
 import { evaluateGate, type GatePolicy } from "./gate.js";
 import {
   type Confirmation,
-  collectChords,
-  collectShortcuts,
   type ExecuteOutcome,
   executeNode,
   resolveChildren,
   searchNodes,
-  shortcutNodes,
 } from "./kernel.js";
 import { type ShortcutConflict, validateShortcuts } from "./keyboard.js";
+import { collectChords, collectShortcuts, shortcutNodes } from "./node-lookups.js";
 import { createMemoryPolicyStore, type PolicyStore } from "./policy.js";
 import { type Ranker, rank } from "./rank.js";
 import type { Registry } from "./registry.js";
@@ -71,11 +69,14 @@ export interface KernelConfig {
   principalOf?: (ctx: Ctx) => string | undefined;
 }
 
-/** What `grantFor` signs: a `gate` response, or the same fields a driver holds itself. */
+/**
+ * What `grantFor` signs: a `gate` response, or the same fields a driver holds itself.
+ * `now` is when the human approved (`ctx.now`); the grant expires a TTL after it.
+ */
 export type GrantRequest = Pick<
   Extract<CommandResponse, { kind: "gate" }>,
   "node" | "args" | "priorKey" | "principal"
->;
+> & { now?: number };
 
 export interface Kernel {
   /** the one verb — roots default to the configured registry/static roots */
@@ -165,6 +166,7 @@ export function createKernel(config: KernelConfig = {}): Kernel {
         res.node.id,
         signingArgs(res.node, res.args),
         bindingKey(res.principal, res.priorKey),
+        res.now !== undefined ? { now: res.now } : {},
       ),
     principalOf,
     roots,

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import type { Grant } from "@command-kernel/core";
+import { grantHeader } from "./body.js";
 import { createWireClient } from "./client.js";
 import { defineCommand } from "./define.js";
 import { ctx, FakeSocket, makeServer, setSeen as setSeenSpec } from "./fixtures.test-util.js";
@@ -25,7 +26,7 @@ describe("server", () => {
     const { grant } = minted.result.payload as { grant: Grant };
     const viaHttp = await post(wire, "danger", {
       body: '{"n":2}',
-      headers: { ...JSON_TYPE, "command-evidence": `${grant.nonce}.${grant.sig}` },
+      headers: { ...JSON_TYPE, "command-evidence": grantHeader(grant) },
     });
     expect(await viaHttp?.json()).toEqual({ ok: true });
     const viaWs = JSON.parse(

@@ -1,17 +1,13 @@
 import { describe, expect, it } from "bun:test";
 import type { ArgValues } from "./args.js";
 import { createKernel } from "./create-kernel.js";
+import { forgeDanger } from "./fnv-forge.test-util.js";
 import type { CommandNode, Ctx, Grant } from "./types.js";
 
 /**
- * Review round 6, B1: grant forgery.
- *
- * The old tag was FNV-1a over `prior|cmd(args)|nonce|salt`. FNV's 32-bit state runs
- * backwards, the secret salt came LAST, and verify took any caller nonce: so from one
- * real grant an attacker computes the state just before the salt, then searches a
- * nonce (3 + 3 characters, meet in the middle) that drives a forged prefix to that
- * same state. The salt then finishes both to the same tag. This test runs that
- * attack for real; it must never produce a grant the kernel accepts.
+ * Review round 6, B1: grant forgery. The old FNV-1a tag could be turned from a
+ * grant for one act into a grant for another (fnv-forge.test-util.ts). This test
+ * runs that attack for real; it must never produce a grant the kernel accepts.
  */
 
 const ran: string[] = [];
@@ -33,44 +29,7 @@ const ctxFor = (id: string): Ctx => ({
   frecency: {},
 });
 
-// FNV-1a forwards, and backwards with the inverse of its prime (mod 2^32)
-const PRIME = 0x01000193;
-let INV = PRIME;
-for (let i = 0; i < 5; i++) INV = Math.imul(INV, 2 - Math.imul(PRIME, INV)) >>> 0;
-const forward = (h: number, s: string) => {
-  let x = h;
-  for (let i = 0; i < s.length; i++) x = Math.imul(x ^ s.charCodeAt(i), PRIME) >>> 0;
-  return x;
-};
-const backward = (h: number, s: string) => {
-  let x = h;
-  for (let i = s.length - 1; i >= 0; i--) x = (Math.imul(x, INV) ^ s.charCodeAt(i)) >>> 0;
-  return x;
-};
-
-const ABC = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-const triples = function* () {
-  for (const a of ABC) for (const b of ABC) for (const c of ABC) yield a + b + c;
-};
-
-/** A nonce that takes `head` to the same pre-salt state `known` reached. */
-function collide(head: string, known: string): string {
-  const target = backward(forward(0x811c9dc5, known), "|");
-  const start = forward(0x811c9dc5, head);
-  const seen = new Map<number, string>();
-  for (const x of triples()) seen.set(forward(start, x), x);
-  for (const y of triples()) {
-    const x = seen.get(backward(target, y));
-    if (x !== undefined) return x + y;
-  }
-  throw new Error("no collision found");
-}
-
-/** Forge a grant for (principal, args) from a real one for u1 and {n: 1}. */
-function forge(real: Grant, principal: string, n: string): Grant {
-  const known = `u1||danger(n=1)|${real.nonce}|`;
-  return { nonce: collide(`${principal}||danger(n=${n})|`, known), sig: real.sig };
-}
+const forge = forgeDanger;
 
 async function approveOne() {
   const k = createKernel({ roots: [danger] });

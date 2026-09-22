@@ -30,12 +30,17 @@ export interface Gate {
  * and allowed. A caller, the agent especially, cannot fabricate approval or turn
  * one grant into another, because it cannot compute a valid signature without the
  * key. A new key (a reload, `rotate()`) makes every prior grant fail to verify. It
- * is not a bearer token: it verifies only for the principal it names. See
- * `evidence.ts`.
+ * is not a bearer token: it verifies only for the principal it names, and only
+ * until `expiresAt`. See `evidence.ts`.
  */
 export interface Grant {
   nonce: string;
   sig: string;
+  /**
+   * Wall-clock ms after which it no longer verifies; covered by `sig`. Every grant
+   * the built-in stores mint has one; a custom store may omit it.
+   */
+  expiresAt?: number;
 }
 
 /**
@@ -137,6 +142,7 @@ export interface CommandNode {
 export interface Ctx {
   location: { module: string; recordId?: string; label?: string };
   user: { id: string; name: string; role: Role; brand: string };
+  /** wall-clock ms (`Date.now()`); grants are issued and expire against it */
   now: number;
   /** commandId -> learned recency*frequency score */
   frecency: Record<string, number>;

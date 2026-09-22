@@ -66,8 +66,15 @@ export function enumerateMode(node: CommandNode): EnumerateMode | null {
 /** Execution effect of run(): explicit, else inferred from the gate. */
 export function effectMode(node: CommandNode): EffectMode | null {
   if (!node.run) return null;
-  if (node.effect) return node.effect;
-  return isGated(node) ? "writes" : "pure";
+  return declaredEffect(node);
+}
+
+/**
+ * The effect a node declares, `run` or not (a shared wire declaration has none):
+ * its `effect`, else "writes" when it is gated and "pure" when it is not.
+ */
+export function declaredEffect(node: Pick<CommandNode, "effect" | "gate">): EffectMode {
+  return node.effect ?? (isGated(node) ? "writes" : "pure");
 }
 
 function describeArg(a: ArgSpec): ArgDescriptor {

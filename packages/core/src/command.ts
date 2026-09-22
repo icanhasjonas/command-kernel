@@ -1,12 +1,17 @@
-import type { ArgOption, ArgSpec, ArgValues } from "./args.js";
+import type { ArgValues } from "./args.js";
 import { argCompletions, resolveEntities } from "./command-args.js";
-import { describeNode, type NodeDescriptor } from "./describe.js";
-import type { Entity, EntityRegistry } from "./entity.js";
+import type { CommandDeps, CommandRequest, CommandResponse, Completion } from "./command-types.js";
+import { describeNode } from "./describe.js";
 import { type Hop, hopArgs, hopsKey } from "./hops-key.js";
-import { type ExecuteDeps, executeNode, missingArgs, resolveChildren } from "./kernel.js";
-import type { Ranker } from "./rank.js";
-import type { ArgError } from "./schema.js";
-import type { CommandNode, CommandResult, Ctx, GateVerdict, PathSegment, Role } from "./types.js";
+import { executeNode, missingArgs, resolveChildren } from "./kernel.js";
+import type { CommandNode, Ctx } from "./types.js";
+
+export type {
+  CommandDeps,
+  CommandRequest,
+  CommandResponse,
+  Completion,
+} from "./command-types.js";
 
 /**
  * The ONE verb.
@@ -34,64 +39,9 @@ import type { CommandNode, CommandResult, Ctx, GateVerdict, PathSegment, Role } 
  *
  * `deps` injects the ranker + the trust core (gate / policy / evidence). Callers
  * usually reach `command` through a `Kernel` instance, which binds `deps` for
- * them — see create-kernel.ts.
+ * them (create-kernel.ts). The request and response shapes are in
+ * command-types.ts.
  */
-
-export interface CommandRequest {
-  /** addressed chain from the root; empty/omitted = the root menu */
-  path?: PathSegment[];
-  /** partial text to rank completions at the tip */
-  query?: string;
-  /** attempt to run the tip instead of browsing into it */
-  execute?: boolean;
-  /**
-   * With `execute`: check args and the gate exactly as a run would, but never run.
-   * The answer is `args` / `disambiguate`, or `gate`, whose verdict says whether a
-   * confirm is owed (`needsConfirm: false` = this would simply run).
-   */
-  dryRun?: boolean;
-  /** principal override for the whole walk (e.g. an elevated token) */
-  role?: Role;
-}
-
-/** What `command` needs wired in: the ranker, the trust core, and entities. */
-export interface CommandDeps extends ExecuteDeps {
-  ranker: Ranker;
-  /** the entity catalog backing entity-typed args (optional) */
-  entities?: EntityRegistry;
-}
-
-export type Completion =
-  | {
-      kind: "command";
-      node: CommandNode;
-      score: number;
-      positions: number[];
-      descriptor: NodeDescriptor;
-    }
-  | { kind: "arg"; arg: ArgSpec; options: ArgOption[]; filled: boolean };
-
-export type CommandResponse =
-  | { kind: "completions"; at: CommandNode | null; items: Completion[] }
-  | { kind: "args"; node: CommandNode; missing: string[]; errors: ArgError[]; items: Completion[] }
-  | { kind: "disambiguate"; node: CommandNode; arg: ArgSpec; query: string; candidates: Entity[] }
-  | {
-      kind: "gate";
-      node: CommandNode;
-      verdict: GateVerdict;
-      /**
-       * The EFFECTIVE args this node will run with — the segment's args after
-       * `prefill` merging and entity auto-resolution. A grant must be minted over
-       * THESE (with `priorKey`), not over what the caller typed, or verification
-       * fails against values the kernel derived. `kernel.grantFor(res)` does it.
-       */
-      args: ArgValues;
-      /** canonical key of the path BEFORE this node — the grant's binding context */
-      priorKey: string;
-      /** who asked (`principalOf(ctx)`): the grant is bound to them; absent = nobody */
-      principal?: string;
-    }
-  | { kind: "result"; node: CommandNode; result: CommandResult };
 
 export async function command(
   roots: CommandNode[],
@@ -149,7 +99,11 @@ export async function command(
       values,
       ectx,
       deps,
-      { ...(tipSeg?.evidence !== undefined && { grant: tipSeg.evidence }), priorKey },
+      {
+        ...(tipSeg?.evidence !== undefined && { grant: tipSeg.evidence }),
+        ...(req.spend !== undefined && { spend: req.spend }),
+        priorKey,
+      },
       { dryRun: Boolean(req.dryRun) },
     );
     // the kernel validated inside executeNode — surface bad values as `args`
@@ -173,6 +127,7 @@ export async function command(
         args: values,
         priorKey,
         ...(principal !== undefined && { principal }),
+        now: ectx.now,
       };
     }
     if (outcome.result) return { kind: "result", node: tip, result: outcome.result };

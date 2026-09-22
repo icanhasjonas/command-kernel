@@ -154,7 +154,8 @@ export function createFileEvidenceStore(
   const flush = () => writeJson(file, { salt: persistSalt ? salt : null, grants: log });
   flush();
 
-  const sign: EvidenceStore["sign"] = (commandId, args, priorKey, nonce = crypto.randomUUID()) => {
+  const sign: EvidenceStore["sign"] = (commandId, args, priorKey, opts) => {
+    const nonce = opts?.nonce ?? crypto.randomUUID();
     const grant: Grant = { nonce, sig: hash(payload(salt, commandId, args, priorKey, nonce)) };
     log.push({ commandId, args, priorKey, grant });
     flush();

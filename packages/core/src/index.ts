@@ -50,6 +50,7 @@ export { type DeeplinkOptions, parseDeeplink, serializePath } from "./deeplink.j
 // self-description — what an agent reads to navigate the tree without guessing
 export {
   type ArgDescriptor,
+  declaredEffect,
   describeNode,
   describeTree,
   effectMode,
@@ -73,7 +74,9 @@ export {
   createHmacEvidenceStore,
   createMemoryEvidenceStore,
   type EvidenceStore,
+  type HmacStoreOptions,
   pathKey,
+  type SignOptions,
 } from "./evidence.js";
 export { type FuzzyResult, fuzzyMatch } from "./fuzzy.js";
 // SEAM 2 — the gate (the single permission-enforcement point)
@@ -82,10 +85,7 @@ export { createRoleGate, evaluateGate, type GatePolicy, isGated } from "./gate.j
 export { type Hop, hopArgs, hopsKey } from "./hops-key.js";
 // the lower verbs the drivers compose (usually reached via the Kernel instance)
 export {
-  bumpFrecency,
   type Confirmation,
-  collectChords,
-  collectShortcuts,
   type ExecuteDeps,
   type ExecuteMode,
   type ExecuteOutcome,
@@ -93,7 +93,6 @@ export {
   missingArgs,
   resolveChildren,
   searchNodes,
-  shortcutNodes,
 } from "./kernel.js";
 // keyboard driver — instance-scoped layer stack + chord state machine.
 // The HOST attaches `keyboard.handleKeydown` to its key source; core stays DOM-free.
@@ -115,6 +114,8 @@ export {
   type ShortcutDriverOptions,
   validateShortcuts,
 } from "./keyboard.js";
+// chord / shortcut / frecency lookups a driver builds over a node list
+export { bumpFrecency, collectChords, collectShortcuts, shortcutNodes } from "./node-lookups.js";
 // SEAM 4 — policy (session-scoped always-allow); ruleForNode/allowLabel are pure helpers
 export {
   type AllowRule,

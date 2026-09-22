@@ -1,4 +1,4 @@
-import { failure, WireCallError } from "./client-error.js";
+import { failure, fromProblem, type WireCallError } from "./client-error.js";
 import type { Connection } from "./connection.js";
 import type { ErrFrame, OkFrame } from "./protocol.js";
 
@@ -65,7 +65,14 @@ export function createSocketCalls(timeoutMs: number) {
     answer(frame: OkFrame | ErrFrame) {
       const p = frame.id ? settle(frame.id) : undefined;
       if (!p) return;
-      if (frame.t === "err") return p.reject(new WireCallError(frame.error));
+      if (frame.t === "err") {
+        // an err frame that is not ours in shape still settles its call, never hangs it
+        const e: unknown = frame.error;
+        if (typeof e !== "object" || e === null)
+          return p.reject(failure("badResponse", "An error frame came back with no error in it"));
+        const { status } = e as { status?: unknown }; // read field by field by fromProblem
+        return p.reject(fromProblem(e, typeof status === "number" ? status : 0));
+      }
       p.resolve(
         frame.kind === "data"
           ? (frame.data ?? null)
