@@ -36,7 +36,7 @@ class ThrowingSocket extends FakeSocket {
 describe("K2-D8: a send() that throws settles the call", () => {
   it("rejects with a WireCallError and leaves no timer behind", async () => {
     const c = createWireClient({
-      http: "/api",
+      http: "https://x/api",
       ws: "wss://x",
       timeoutMs: 10,
       heartbeat: { intervalMs: 60_000, ping: "ping", pong: "pong", pongWaitMs: 60_000 },
@@ -59,7 +59,7 @@ describe("K2-D8: a send() that throws settles the call", () => {
 describe("K2-D9: onStatus tells a late listener where things stand", () => {
   it("emits the current status on subscribe", () => {
     const c = createWireClient({
-      http: "/api",
+      http: "https://x/api",
       ws: "wss://x",
       socket: (u) => new FakeSocket(u),
       heartbeat: false,
@@ -78,7 +78,7 @@ describe("K2-D9: onStatus tells a late listener where things stand", () => {
 
   it("an HTTP-only client is idle", () => {
     const got: string[] = [];
-    createWireClient({ http: "/api" }).onStatus((s) => got.push(s));
+    createWireClient({ http: "https://x/api" }).onStatus((s) => got.push(s));
     expect(got).toEqual(["idle"]);
   });
 });

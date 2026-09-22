@@ -101,6 +101,7 @@ export const ERROR_STATUS: Readonly<Record<string, number>> = {
   disconnected: 0,
   aborted: 0, // the caller cancelled
   badResponse: 0, // the answer was not ours (e.g. an auth proxy's HTML login page)
+  misconfigured: 0, // the client is set up wrong (its headers() threw): a retry cannot help
 };
 
 /** The built-in status for a code, else `fallback`. May be 0 for a client-only code. */

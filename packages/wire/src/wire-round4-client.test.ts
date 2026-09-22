@@ -25,7 +25,7 @@ describe("W5: a throwing status listener breaks nothing", () => {
     const errors: unknown[] = [];
     const t = track((u) => new FakeSocket(u));
     const c = createWireClient({
-      http: "/api",
+      http: "https://x/api",
       ws: "wss://x",
       socket: t.socket,
       heartbeat: { intervalMs: 5, ping: "ping", pong: "pong", pongWaitMs: 60_000 },
@@ -61,7 +61,7 @@ describe("W6: backoff resets only after the socket stayed open", () => {
   it("accept-then-close backs off instead of hammering", async () => {
     const t = track((u) => new Flapping(u));
     const c = createWireClient({
-      http: "/api",
+      http: "https://x/api",
       ws: "wss://x",
       socket: t.socket,
       heartbeat: false,
@@ -78,7 +78,7 @@ describe("W6: backoff resets only after the socket stayed open", () => {
   it("a socket that stayed open past stableMs comes back at the shortest wait", async () => {
     const t = track((u) => new FakeSocket(u));
     const c = createWireClient({
-      http: "/api",
+      http: "https://x/api",
       ws: "wss://x",
       socket: t.socket,
       heartbeat: false,
@@ -107,7 +107,7 @@ describe("W7: a socket stuck connecting is given up on", () => {
   it("closes after connectTimeoutMs and retries", async () => {
     const t = track((u) => new FakeSocket(u)); // never opens
     const c = createWireClient({
-      http: "/api",
+      http: "https://x/api",
       ws: "wss://x",
       socket: t.socket,
       heartbeat: false,
@@ -135,7 +135,7 @@ describe("W11: an err frame with no error settles its call", () => {
   it("rejects with badResponse instead of hanging", async () => {
     const t = track((u) => new Headless(u));
     const c = createWireClient({
-      http: "/api",
+      http: "https://x/api",
       ws: "wss://x",
       socket: t.socket,
       heartbeat: false,

@@ -47,7 +47,7 @@ describe("retryable timeout and disconnected need status 0", () => {
 
   it("an err frame carrying timeout with status 500 is not retryable", async () => {
     const c = createWireClient({
-      http: "/api",
+      http: "https://x/api",
       ws: "wss://x",
       socket: (u) => new FakeSocket(u, undefined, false),
       heartbeat: false,

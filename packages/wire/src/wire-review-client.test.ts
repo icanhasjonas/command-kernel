@@ -51,7 +51,7 @@ describe("client", () => {
   it("W11: one throwing event handler does not stop the others, and is reported", () => {
     const errors: unknown[] = [];
     const c = createWireClient({
-      http: "/api",
+      http: "https://x/api",
       ws: "wss://x",
       socket: (u) => new FakeSocket(u),
       heartbeat: false,
@@ -72,7 +72,7 @@ describe("client", () => {
   it("W12: after close(), connect() starts fresh (connecting, not reconnecting)", () => {
     const seen: string[] = [];
     const c = createWireClient({
-      http: "/api",
+      http: "https://x/api",
       ws: "wss://x",
       socket: (u) => new FakeSocket(u),
       heartbeat: false,
@@ -105,7 +105,7 @@ describe("review round 2, client", () => {
   it("D1: a quiet socket is only dropped when a ping goes unanswered", async () => {
     const live = new Set<FakeSocket>();
     const c = createWireClient({
-      http: "/api",
+      http: "https://x/api",
       ws: "wss://x",
       heartbeat: { intervalMs: 5, ping: "ping", pong: "pong", pongWaitMs: 30 },
       socket: (u) => {
@@ -130,7 +130,7 @@ describe("review round 2, client", () => {
 
   it("D2: a call that times out makes the socket prove it is alive", async () => {
     const c = createWireClient({
-      http: "/api",
+      http: "https://x/api",
       ws: "wss://x",
       timeoutMs: 10,
       heartbeat: { intervalMs: 10_000, ping: "ping", pong: "pong", pongWaitMs: 20 },
@@ -148,7 +148,7 @@ describe("review round 2, client", () => {
   it("D3: a socket factory that throws does not end reconnecting", async () => {
     let made = 0;
     const c = createWireClient({
-      http: "/api",
+      http: "https://x/api",
       ws: "wss://x",
       heartbeat: false,
       random: () => 0,
@@ -168,7 +168,7 @@ describe("review round 2, client", () => {
 
   it("D7: a frame that is not ours never breaks the socket handler", () => {
     const c = createWireClient({
-      http: "/api",
+      http: "https://x/api",
       ws: "wss://x",
       socket: (u) => new FakeSocket(u),
       heartbeat: false,

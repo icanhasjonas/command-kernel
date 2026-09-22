@@ -32,7 +32,7 @@ declare class URLSearchParams {
   toString(): string;
 }
 declare class URL {
-  constructor(url: string);
+  constructor(url: string, base?: string);
   readonly pathname: string;
   readonly searchParams: URLSearchParams;
 }

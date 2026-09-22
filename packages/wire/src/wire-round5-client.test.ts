@@ -10,7 +10,7 @@ describe("W5: a status listener that re-enters the client", () => {
   it("every other listener sees the statuses in order, and ends on the current one", () => {
     const made: FakeSocket[] = [];
     const c = createWireClient({
-      http: "/api",
+      http: "https://x/api",
       ws: "wss://x",
       socket: (u) => {
         const s = new FakeSocket(u);
@@ -38,7 +38,7 @@ describe("W9: an onError that throws skips no handler", () => {
   it("the next event handler still runs and nothing escapes onmessage", () => {
     let sock: FakeSocket | undefined;
     const c = createWireClient({
-      http: "/api",
+      http: "https://x/api",
       ws: "wss://x",
       socket: (u) => {
         sock = new FakeSocket(u);

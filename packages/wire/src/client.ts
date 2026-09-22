@@ -3,7 +3,7 @@ import { failure } from "./client-error.js";
 import { createListeners } from "./client-listeners.js";
 import { type ConnectionOptions, type ConnectionStatus, createConnection } from "./connection.js";
 import type { EventSpec, HttpRoute, WireSpec } from "./define.js";
-import { type FetchLike, httpCall } from "./http.js";
+import { assertUsableBase, type FetchLike, httpCall } from "./http.js";
 import type { CallFrame, ServerFrame } from "./protocol.js";
 import { createSocketCalls } from "./socket-calls.js";
 
@@ -17,7 +17,11 @@ import { createSocketCalls } from "./socket-calls.js";
  */
 
 export interface WireClientOptions extends Omit<ConnectionOptions, "url"> {
-  /** HTTP base, e.g. "https://app.example/api" or "/api" */
+  /**
+   * HTTP base, e.g. "https://app.example/api", or "/api" in a browser page. Outside a
+   * page (a Worker, Bun, a native app) a relative base throws at creation unless you
+   * pass your own `fetch`.
+   */
   http: string;
   /** socket URL, e.g. "wss://app.example/ws"; omit for HTTP only */
   ws?: string;
@@ -65,6 +69,7 @@ export interface WireClient {
 }
 
 export function createWireClient(opts: WireClientOptions): WireClient {
+  if (!opts.fetch) assertUsableBase(opts.http);
   const http = {
     base: opts.http.replace(/\/+$/, ""),
     fetch: opts.fetch ?? ((url: string, init?: RequestInit) => fetch(url, init)),

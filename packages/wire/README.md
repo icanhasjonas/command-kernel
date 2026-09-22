@@ -62,6 +62,7 @@ socket.send(wire.event(boxChanged.name, { boxId, seq }));
 
 ```ts
 // client (browser, native via a custom socket factory, or a script)
+// "/api" resolves against the page; outside one, pass a full URL or your own `fetch`
 const client = createWireClient({ http: "/api", ws: "wss://app.example/ws" });
 client.connect();
 const { seq } = await client.call(setSeen, { threadId: "t1", seen: true }); // socket if open, else HTTP
@@ -86,7 +87,9 @@ unexpected exception, a result JSON cannot hold, or a `CommandError` whose `deta
 cannot hold (a `BigInt`, a cycle) is a `serverFail` that never includes the exception. So
 is a `CommandError` with a client-only code (`timeout`, `disconnected`, `aborted`,
 `badResponse`: status 0 in `ERROR_STATUS`), reported to `onError`: only the client itself
-may say a call timed out, and `retryable` on those two codes needs status 0. An arg
+may say a call timed out, and `retryable` on those two codes needs status 0. A client set
+up wrong is never `retryable`: a `headers()` that throws is `misconfigured`, and a relative
+`http` base with no page to resolve it (and no `fetch` of your own) throws at creation. An arg
 the command does not declare is `400 invalidArguments` naming it; a `multiple` arg sent as
 `[]` is no value, so `run()` sees the same absent arg over a socket and a GET route.
 
