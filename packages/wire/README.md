@@ -252,6 +252,7 @@ echo it. Offered only others: a `400` problem to return instead of upgrading. A 
 
 ```ts
 renderCommandDocs("My API", specs, events); // deterministic Markdown: every command, arg, route, error, event
+renderCommandDocs("My API", specs, events, { base: "/api/v1" }); // paths as served: POST /api/v1/thread.list
 commandManifest(specs, events);             // the same as JSON, for codegen (e.g. a Swift client)
 ```
 

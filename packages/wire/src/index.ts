@@ -29,6 +29,7 @@ export {
 } from "./define.js";
 export {
   commandManifest,
+  type DocOptions,
   type DocSpec,
   type Manifest,
   type ManifestCommand,
