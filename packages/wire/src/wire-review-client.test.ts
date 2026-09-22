@@ -41,7 +41,7 @@ describe("client", () => {
 
   it("W8: a route that cannot be filled is invalidArguments, never retryable", async () => {
     const get = defineCommand<{ id: string }, unknown>()(
-      { id: "g", title: "g" },
+      { id: "g", title: "g", effect: "pure", args: [{ id: "id", label: "id", kind: "string" }] },
       { http: { method: "GET", path: "/g/:id" } },
     );
     const e = await failed(httpOnly(async () => new Response("{}")).call(get, { id: "" }));

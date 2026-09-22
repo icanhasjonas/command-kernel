@@ -1,5 +1,6 @@
 import {
   type ArgValues,
+  type CommandResponse,
   type CommandResult,
   type Ctx,
   type Grant,
@@ -35,11 +36,25 @@ function fail(code: string, message: string, extra: Partial<WireError> = {}): Ou
   return { ok: false, error: { code, message, status: serverStatus(code), ...extra } };
 }
 
+/** True when JSON can carry `v` (JSON.stringify throws on a BigInt or a cycle). */
+function sendable(v: unknown): boolean {
+  try {
+    JSON.stringify(v);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /**
  * What a call that threw answers: a CommandError keeps its code, anything else is a
- * `serverFail` that never echoes the exception (it can carry internals).
+ * `serverFail` that never echoes the exception (it can carry internals). So is a
+ * CommandError whose `details` JSON cannot carry (a BigInt, a cycle): an answer that
+ * cannot be written would make the transport itself throw.
  */
 export function thrown(err: unknown, name: string, opts: CallOptions): Outcome {
+  if (isCommandError(err) && !sendable(err.details))
+    return fail("serverFail", "Something went wrong sending this command's error");
   if (isCommandError(err)) {
     const status = serverStatus(err.code, opts.statusFor);
     return {
@@ -77,37 +92,40 @@ export async function runCall(
       },
       ctx,
     );
-    switch (res.kind) {
-      case "result":
-        return { ok: true, result: res.result };
-      case "args":
-        return fail(
-          "invalidArguments",
-          res.missing.length > 0
-            ? `Missing: ${res.missing.join(", ")}`
-            : res.errors.map((e) => e.message).join("; "),
-          { missing: res.missing, errors: res.errors },
-        );
-      case "disambiguate":
-        return fail("ambiguous", `${res.arg.label} matches several records`, {
-          details: { arg: res.arg.id, candidates: res.candidates.map((c) => c.id) },
-        });
-      case "gate":
-        // `details` is what a client needs to SHOW the confirm; never the args, which
-        // after prefill can hold server-side values the caller never sent
-        return res.verdict.allowed
-          ? fail("confirmRequired", `${res.node.title} needs a confirmation`, {
-              checks: res.verdict.checks,
-              details: { command: res.node.id, title: res.node.title },
-            })
-          : fail("forbidden", `Not allowed: ${res.node.title}`, { checks: res.verdict.checks });
-      case "completions":
-        // execute:true answers with completions only when the tip is missing or cannot run
-        return res.at
-          ? fail("unknownCommand", `${name} cannot be run`)
-          : fail("unknownCommand", `No command ${name}`);
-    }
+    return res.kind === "result" ? { ok: true, result: res.result } : refused(res, name);
   } catch (err) {
     return thrown(err, name, opts);
+  }
+}
+
+/** A response that did not run, as the failure both transports answer (call and confirm alike). */
+export function refused(res: Exclude<CommandResponse, { kind: "result" }>, name: string): Outcome {
+  switch (res.kind) {
+    case "args":
+      return fail(
+        "invalidArguments",
+        res.missing.length > 0
+          ? `Missing: ${res.missing.join(", ")}`
+          : res.errors.map((e) => e.message).join("; "),
+        { missing: res.missing, errors: res.errors },
+      );
+    case "disambiguate":
+      return fail("ambiguous", `${res.arg.label} matches several records`, {
+        details: { arg: res.arg.id, candidates: res.candidates.map((c) => c.id) },
+      });
+    case "gate":
+      // `details` is what a client needs to SHOW the confirm; never the args, which
+      // after prefill can hold server-side values the caller never sent
+      return res.verdict.allowed
+        ? fail("confirmRequired", `${res.node.title} needs a confirmation`, {
+            checks: res.verdict.checks,
+            details: { command: res.node.id, title: res.node.title },
+          })
+        : fail("forbidden", `Not allowed: ${res.node.title}`, { checks: res.verdict.checks });
+    case "completions":
+      // execute:true answers with completions only when the tip is missing or cannot run
+      return res.at
+        ? fail("unknownCommand", `${name} cannot be run`)
+        : fail("unknownCommand", `No command ${name}`);
   }
 }

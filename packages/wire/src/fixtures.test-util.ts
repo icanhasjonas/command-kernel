@@ -28,6 +28,7 @@ export const getMessage = defineCommand<
   {
     id: "message.get",
     title: "Get a message",
+    effect: "pure", // a GET route needs it said: it never writes
     args: [
       { id: "boxId", label: "box", kind: "string", required: true },
       { id: "messageId", label: "message", kind: "string", required: true },

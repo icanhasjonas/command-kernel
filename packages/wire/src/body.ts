@@ -6,11 +6,14 @@ import type { Grant } from "@command-kernel/core";
  * all), and a grant accepted only in its exact shape.
  */
 
-/** The body as text, or null when it is over `maxBytes` or could not be read. Reading stops at the limit. */
-export async function readLimited(request: Request, maxBytes: number): Promise<string | null> {
+/** A body read: its text, or why there is none (over the limit, or the stream failed). */
+export type BodyRead = { text: string } | { fail: "tooLarge" | "badRequest" };
+
+/** The body as text, or why it could not be had. Reading stops at the limit. */
+export async function readLimited(request: Request, maxBytes: number): Promise<BodyRead> {
   const declared = Number(request.headers.get("content-length") ?? Number.NaN);
-  if (declared > maxBytes) return null;
-  if (!request.body) return "";
+  if (declared > maxBytes) return { fail: "tooLarge" };
+  if (!request.body) return { text: "" };
   const reader = request.body.getReader();
   const chunks: Uint8Array[] = [];
   let size = 0;
@@ -20,13 +23,14 @@ export async function readLimited(request: Request, maxBytes: number): Promise<s
     try {
       ({ done, value } = await reader.read());
     } catch {
-      return null; // the caller went away mid-upload, or the stream failed: refuse it
+      // the caller went away mid-upload, or the stream failed: a bad request, not a big one
+      return { fail: "badRequest" };
     }
     if (done || !value) break;
     size += value.byteLength;
     if (size > maxBytes) {
       await reader.cancel();
-      return null;
+      return { fail: "tooLarge" };
     }
     chunks.push(value);
   }
@@ -36,7 +40,7 @@ export async function readLimited(request: Request, maxBytes: number): Promise<s
     all.set(c, at);
     at += c.byteLength;
   }
-  return new TextDecoder().decode(all);
+  return { text: new TextDecoder().decode(all) };
 }
 
 /** UTF-8 size of a socket message, measured only when it could exceed the limit. */

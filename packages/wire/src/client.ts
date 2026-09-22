@@ -1,5 +1,6 @@
 import type { ArgValues, Grant } from "@command-kernel/core";
 import { failure } from "./client-error.js";
+import { createListeners } from "./client-listeners.js";
 import { type ConnectionOptions, type ConnectionStatus, createConnection } from "./connection.js";
 import type { EventSpec, HttpRoute, WireSpec } from "./define.js";
 import { type FetchLike, httpCall } from "./http.js";
@@ -30,7 +31,7 @@ export interface WireClientOptions extends Omit<ConnectionOptions, "url"> {
   /**
    * Told about an event handler that threw (`event` is its name) or an `onStatus`
    * listener that threw (`event` is "status"); the others still run, and the
-   * connection carries on.
+   * connection carries on. If this throws too, that is swallowed.
    */
   onError?: (err: unknown, event: string) => void;
 }
@@ -72,8 +73,7 @@ export function createWireClient(opts: WireClientOptions): WireClient {
   };
   const maxFrame = opts.maxFrameBytes ?? 1 << 20;
   const calls = createSocketCalls(http.timeoutMs);
-  const listeners = new Map<string, Set<(data: unknown) => void>>();
-  const statusListeners = new Set<(s: ConnectionStatus) => void>();
+  const listeners = createListeners(opts.onError);
   let seq = 0;
 
   function onMessage(text: string) {
@@ -87,31 +87,13 @@ export function createWireClient(opts: WireClientOptions): WireClient {
     if (typeof parsed !== "object" || parsed === null) return;
     const frame = parsed as ServerFrame;
     if (frame.t !== "evt" && frame.t !== "ok" && frame.t !== "err") return;
-    if (frame.t === "evt") {
-      for (const fn of [...(listeners.get(frame.name) ?? [])]) {
-        try {
-          fn(frame.data);
-        } catch (err) {
-          opts.onError?.(err, frame.name);
-        }
-      }
-      return;
-    }
+    if (frame.t === "evt") return listeners.emit(frame.name, frame.data);
     calls.answer(frame);
-  }
-
-  /** A status listener that throws is reported, never allowed to stop the connection. */
-  function tell(fn: (s: ConnectionStatus) => void, s: ConnectionStatus) {
-    try {
-      fn(s);
-    } catch (err) {
-      opts.onError?.(err, "status");
-    }
   }
 
   function onConnStatus(s: ConnectionStatus) {
     if (s !== "open") calls.dropAll();
-    for (const fn of [...statusListeners]) tell(fn, s);
+    listeners.status(s);
   }
 
   const conn = opts.ws
@@ -161,21 +143,10 @@ export function createWireClient(opts: WireClientOptions): WireClient {
       return out.grant;
     },
     callName: (name, args = {}, o) => dispatch(name, args, undefined, o),
-    on: <D>(event: EventSpec<D>, handler: (data: D) => void) => {
-      const set = listeners.get(event.name) ?? new Set();
-      const fn = handler as (data: unknown) => void; // the event's declared payload type
-      set.add(fn);
-      listeners.set(event.name, set);
-      return () => {
-        set.delete(fn);
-        if (set.size === 0 && listeners.get(event.name) === set) listeners.delete(event.name);
-      };
-    },
-    onStatus: (fn) => {
-      statusListeners.add(fn);
-      tell(fn, conn?.status ?? "idle"); // a late listener learns where things stand now
-      return () => statusListeners.delete(fn);
-    },
+    // the handler takes the event's declared payload type
+    on: <D>(event: EventSpec<D>, handler: (data: D) => void) =>
+      listeners.on(event.name, handler as (data: unknown) => void),
+    onStatus: (fn) => listeners.onStatus(fn, conn?.status ?? "idle"),
     get status() {
       return conn?.status ?? "idle";
     },

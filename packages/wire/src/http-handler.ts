@@ -23,6 +23,9 @@ export interface HttpDeps {
 const isBag = (v: unknown): v is ArgValues =>
   typeof v === "object" && v !== null && !Array.isArray(v);
 
+/** Every method this transport answers: the Allow header of OPTIONS and of a 405. */
+const ALLOW = "GET, HEAD, POST, OPTIONS";
+
 /** POST {base}/{command}: a JSON object of args, or `?confirm` to ask for a grant. */
 async function postCall(
   d: HttpDeps,
@@ -42,12 +45,15 @@ async function postCall(
   // only JSON is a call: a CORS-simple text/plain or form POST from another origin is not
   if (!isJsonType(request.headers.get("content-type")))
     return refuse("unsupportedMediaType", "A call is a POST with content-type application/json");
-  const text = await readLimited(request, d.maxBytes);
-  if (text === null) return refuse("tooLarge", `Body over ${d.maxBytes} bytes`);
+  const body = await readLimited(request, d.maxBytes);
+  if ("fail" in body)
+    return body.fail === "tooLarge"
+      ? refuse("tooLarge", `Body over ${d.maxBytes} bytes`)
+      : refuse("badRequest", "The body could not be read");
   let args: unknown = {};
-  if (text.trim()) {
+  if (body.text.trim()) {
     try {
-      args = JSON.parse(text);
+      args = JSON.parse(body.text);
     } catch {
       return refuse("badRequest", "Body is not JSON");
     }
@@ -67,7 +73,7 @@ async function answer(d: HttpDeps, request: Request, ctx: Ctx): Promise<Response
 
   if (request.method === "OPTIONS") {
     // the host owns CORS; this only answers what the path accepts
-    return new Response(null, { status: 204, headers: { allow: "GET, HEAD, POST, OPTIONS" } });
+    return new Response(null, { status: 204, headers: { allow: ALLOW } });
   }
   if (request.method === "GET" || request.method === "HEAD") {
     const hit = d.routes.match(rest);
@@ -82,7 +88,7 @@ async function answer(d: HttpDeps, request: Request, ctx: Ctx): Promise<Response
     return refuse("unknownCommand", `No GET route ${rest}`);
   }
   if (request.method !== "POST")
-    return refuse("methodNotAllowed", "Use POST, or GET on a declared route");
+    return refuse("methodNotAllowed", "Use POST, or GET on a declared route", { allow: ALLOW });
   return postCall(d, request, url, ctx, evidence);
 }
 

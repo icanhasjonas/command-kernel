@@ -2,7 +2,7 @@ import type { ArgValues, Ctx, Grant, Kernel } from "@command-kernel/core";
 import { overLimit, readGrant } from "./body.js";
 import { frameId } from "./frame-id.js";
 import { httpHandler } from "./http-handler.js";
-import { type CallOptions, type Outcome, runCall, thrown } from "./outcome.js";
+import { type CallOptions, type Outcome, refused, runCall, thrown } from "./outcome.js";
 import { encodeFrame, type OkFrame, serverStatus } from "./protocol.js";
 import { dataOf, jsonText, refusal, UNSENDABLE } from "./reply.js";
 import { compileRoutes } from "./route.js";
@@ -35,8 +35,8 @@ export interface WireServerOptions extends CallOptions {
    * The declarations, and the ALLOWLIST: only these commands are callable, on both
    * transports. Any other node in the kernel answers exactly as a command that does
    * not exist. Those with an `http` GET route are also served at their path. Refused
-   * at construction: an id outside [A-Za-z0-9._-], and a GET route on a command that
-   * writes (its `effect`, or inferred from its gate).
+   * at construction: an id outside [A-Za-z0-9._-] or of only dots, a GET route on a
+   * node that does not declare `effect: "pure"`, and a route param that is not an arg.
    */
   specs: ReadonlyArray<ServedSpec>;
   /** URL prefix for command calls, default "/api" */
@@ -52,7 +52,8 @@ export interface WireServer {
    * Mint a grant for a confirm-gated call, if the host's `confirm` policy allows it.
    * Reached over HTTP at `POST {base}/{command}?confirm` and on a socket with
    * `{"t":"confirm", ...}`; the grant then rides the next call as evidence. It never
-   * runs the command: a call that owes no confirm is a `conflict`.
+   * runs the command: missing or bad args answer `invalidArguments` exactly as the
+   * call would, and a call that owes no confirm is a `conflict`.
    */
   confirmCall(name: string, args: ArgValues, ctx: Ctx): Promise<Outcome>;
   /** Answer an HTTP request under `base`, or null when the path is not ours. */
@@ -94,8 +95,10 @@ export function createWireServer(opts: WireServerOptions): WireServer {
       { path: [{ id: name, args }], execute: true, dryRun: true },
       ctx,
     );
-    if (res.kind !== "gate")
+    // missing or bad args answer exactly as the call itself would (invalidArguments)
+    if (res.kind === "result")
       return refusal("conflict", `${name} is not waiting for a confirmation`);
+    if (res.kind !== "gate") return refused(res, name);
     if (!res.verdict.allowed) return refusal("forbidden", `Not allowed: ${res.node.title}`);
     if (!res.verdict.needsConfirm)
       return refusal("conflict", `${name} is not waiting for a confirmation`);

@@ -1,4 +1,10 @@
-import { type ArgSpec, type JsonSchemaObject, toJsonSchema } from "@command-kernel/core";
+import {
+  type ArgSpec,
+  declaredEffect,
+  type EffectMode,
+  type JsonSchemaObject,
+  toJsonSchema,
+} from "@command-kernel/core";
 import type { EventSpec, HttpRoute } from "./define.js";
 
 /**
@@ -30,7 +36,8 @@ export interface ManifestCommand {
   id: string;
   title: string;
   summary: string | null;
-  effect: "pure" | "writes" | null;
+  /** what the server treats it as: its declared `effect`, else "writes" when gated */
+  effect: EffectMode;
   args: JsonSchemaObject;
   http: HttpRoute | null;
   returns: string | null;
@@ -57,7 +64,7 @@ export function commandManifest(
         id: node.id,
         title: node.title,
         summary: node.summary ?? node.subtitle ?? null,
-        effect: node.effect ?? null,
+        effect: declaredEffect(node),
         args: toJsonSchema({
           id: node.id,
           title: node.title,
@@ -95,7 +102,7 @@ function commandSection(c: ManifestCommand, spec: DocSpec): string[] {
     ? `\`GET ${c.http.path}\`${c.http.cache === "immutable" ? " (cacheable forever)" : ""}, or any transport`
     : `WebSocket or \`POST /<base>/${c.id}\``;
   lines.push(`- Call: ${how}`);
-  lines.push(`- Effect: ${c.effect ?? "unspecified"}`);
+  lines.push(`- Effect: ${c.effect}`);
   if (c.gate)
     lines.push(
       `- Gate: ${[...c.gate.roles, c.gate.confirm ? "confirm" : ""].filter(Boolean).join(", ") || "custom policy"}`,

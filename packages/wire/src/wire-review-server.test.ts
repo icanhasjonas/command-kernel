@@ -59,17 +59,17 @@ describe("server", () => {
 
   it("W10: a literal route beats a param route; two identical shapes throw", () => {
     const byId = defineCommand<{ id: string }, unknown>()(
-      { id: "a", title: "a" },
+      { id: "a", title: "a", effect: "pure", args: [{ id: "id", label: "id", kind: "string" }] },
       { http: { method: "GET", path: "/boxes/:id" } },
     );
     const fresh = defineCommand<object, unknown>()(
-      { id: "b", title: "b" },
+      { id: "b", title: "b", effect: "pure" },
       { http: { method: "GET", path: "/boxes/new" } },
     );
     const { kernel } = server();
     expect(() => createWireServer({ kernel, specs: [byId, fresh] })).not.toThrow();
     const clash = defineCommand<{ x: string }, unknown>()(
-      { id: "c", title: "c" },
+      { id: "c", title: "c", effect: "pure", args: [{ id: "x", label: "x", kind: "string" }] },
       { http: { method: "GET", path: "/boxes/:x" } },
     );
     expect(() => createWireServer({ kernel, specs: [byId, clash] })).toThrow(
@@ -147,11 +147,11 @@ describe("review round 2, server", () => {
 
   it("D9: a literal segment wins at the first position that differs", async () => {
     const a = defineCommand<{ x: string }, unknown>()(
-      { id: "a", title: "a" },
+      { id: "a", title: "a", effect: "pure", args: [{ id: "x", label: "x", kind: "string" }] },
       { http: { method: "GET", path: "/:x/b" } },
     );
     const b = defineCommand<{ y: string }, unknown>()(
-      { id: "b", title: "b" },
+      { id: "b", title: "b", effect: "pure", args: [{ id: "y", label: "y", kind: "string" }] },
       { http: { method: "GET", path: "/a/:y" } },
     );
     const { wire } = server({ specs: [a, b] });
