@@ -105,6 +105,19 @@ is reported to `onError` (which may throw too) and stops nothing; a listener tha
 the client (calls `close()`) cannot reorder what the others see, and each listener's last
 call is the current status. `client.onStatus(fn)` calls `fn` with the current status at once.
 
+**Events pushed while the socket is down are lost.** There is no resume or replay: a push
+goes to the sockets open at that moment. So a client MUST resync when it comes back, and
+the status listener says when: its second argument's `reconnected` is `true` on an `open`
+that follows an earlier open (after a drop, or a `close()` and `connect()`), and `false`
+on the first open, even one that took several attempts.
+
+```ts
+client.onStatus((status, { reconnected }) => {
+  showConnection(status);
+  if (reconnected) refetchEverythingShown(); // what changed while we were away is unknown
+});
+```
+
 `handleFrame` answers `ping` with `pong`, so any host works out of the box. A Durable
 Object can answer it without waking at all:
 
