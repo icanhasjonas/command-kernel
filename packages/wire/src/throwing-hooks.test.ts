@@ -2,7 +2,7 @@ import { describe, expect, it } from "bun:test";
 import { createKernel } from "@command-kernel/core";
 import { implement } from "./define.js";
 import { ctx, makeServer } from "./fixtures.test-util.js";
-import { post, quiet, server } from "./review.fixtures.test-util.js";
+import { post, quiet, server } from "./harness.test-util.js";
 import { createWireServer } from "./server.js";
 
 /**

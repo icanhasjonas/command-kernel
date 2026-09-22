@@ -134,6 +134,21 @@ export class FakeSocket implements WebSocketLike {
   }
 }
 
+/** The sockets one client made, in order: pass `socket` to createWireClient. */
+export function track<S extends FakeSocket>(make: (u: string) => S) {
+  const made: S[] = [];
+  return {
+    made,
+    socket: (u: string) => {
+      const s = make(u);
+      made.push(s);
+      return s;
+    },
+  };
+}
+
+export const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
 /** Wait until `cond` holds, instead of sleeping a fixed time (robust under load). */
 export async function waitFor(cond: () => boolean, ms = 2000) {
   const end = Date.now() + ms;

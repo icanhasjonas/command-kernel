@@ -2,7 +2,7 @@ import { describe, expect, it } from "bun:test";
 import { createWireClient } from "./client.js";
 import { fromProblem, WireCallError } from "./client-error.js";
 import { ctx, FakeSocket } from "./fixtures.test-util.js";
-import { failed, post, server } from "./review.fixtures.test-util.js";
+import { failed, post, server } from "./harness.test-util.js";
 
 /**
  * `timeout` and `disconnected` are things the CLIENT saw (status 0): the same call may

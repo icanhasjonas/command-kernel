@@ -3,7 +3,7 @@ import { createKernel } from "@command-kernel/core";
 import { createWireClient } from "./client.js";
 import { defineCommand, implement } from "./define.js";
 import { ctx, getMessage } from "./fixtures.test-util.js";
-import { failed } from "./review.fixtures.test-util.js";
+import { failed } from "./harness.test-util.js";
 import { fillRoute, matchRoute } from "./route.js";
 import { createWireServer } from "./server.js";
 

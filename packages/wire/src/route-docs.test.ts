@@ -1,6 +1,7 @@
 import { describe, expect, it } from "bun:test";
+import { defineCommand } from "./define.js";
 import { commandManifest, renderCommandDocs } from "./docs.js";
-import { boxChanged, specs } from "./fixtures.test-util.js";
+import { boxChanged, setSeen, specs } from "./fixtures.test-util.js";
 import { fillRoute, matchRoute, queryArgs } from "./route.js";
 
 describe("routes", () => {
@@ -51,5 +52,27 @@ describe("reference docs", () => {
     expect(md).toContain("| `limit` | number | no | page size |");
     expect(md).toContain("| `box.changed` | a box changed |");
     expect(md.endsWith("\n")).toBe(true);
+  });
+
+  it("sorts by code unit, the same on every machine", () => {
+    const ids = ["b", "B", "a", "_"].map((id) =>
+      defineCommand<object, unknown>()({ id, title: id }),
+    );
+    expect(commandManifest(ids).commands.map((c) => c.id)).toEqual(["B", "_", "a", "b"]);
+  });
+
+  it("doc anchors are GitHub slugs", () => {
+    expect(renderCommandDocs("x", [setSeen])).toContain("(#threadsetseen)");
+  });
+
+  it("a gated command without an effect is reported as writes", () => {
+    const m = commandManifest([
+      { node: { id: "g", title: "G", gate: { confirm: true } } },
+      { node: { id: "p", title: "P" } },
+    ]);
+    expect(m.commands.map((c) => [c.id, c.effect])).toEqual([
+      ["g", "writes"],
+      ["p", "pure"],
+    ]);
   });
 });

@@ -4,7 +4,10 @@ import { defineCommand, implement } from "./define.js";
 import { ctx } from "./fixtures.test-util.js";
 import { createWireServer, type WireServerOptions } from "./server.js";
 
-/** Shared fixtures for the review regression tests (wire review rounds 1-3). */
+/**
+ * A small server for behaviour tests: a toast, a quiet command, a confirm-gated one
+ * and two that throw a CommandError, plus helpers to call it and to await a failure.
+ */
 
 export const toast = defineCommand<object, never>()({ id: "say.hi", title: "Say hi" });
 export const quiet = defineCommand<object, undefined>()({ id: "say.nothing", title: "Nothing" });
@@ -18,10 +21,10 @@ const thrower = (code: string) =>
   defineCommand<object, never>()({ id: `throw.${code}`, title: code });
 const throwers = ["timeout", "weird"].map(thrower);
 
-export const reviewSpecs = [toast, quiet, gated, ...throwers];
+export const harnessSpecs = [toast, quiet, gated, ...throwers];
 
 /**
- * A server over the review commands; `extra` overrides any option, `specs` included.
+ * A server over the harness commands; `extra` overrides any option, `specs` included.
  * `now` is the kernel's clock (grant expiry), default the real one.
  */
 export function server(extra: Partial<WireServerOptions> = {}, now?: () => number) {
@@ -38,7 +41,7 @@ export function server(extra: Partial<WireServerOptions> = {}, now?: () => numbe
       ),
     ],
   });
-  return { kernel, wire: createWireServer({ kernel, specs: reviewSpecs, ...extra }) };
+  return { kernel, wire: createWireServer({ kernel, specs: harnessSpecs, ...extra }) };
 }
 
 /** The error a call ended in (a test that expects failure). */

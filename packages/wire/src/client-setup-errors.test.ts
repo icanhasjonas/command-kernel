@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { createWireClient } from "./client.js";
-import { failed } from "./review.fixtures.test-util.js";
+import { failed } from "./harness.test-util.js";
 
 /**
  * A setup mistake is not an outage: retrying cannot fix it, so it is never reported

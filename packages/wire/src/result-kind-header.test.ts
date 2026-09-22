@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import { createWireClient } from "./client.js";
+import { failed } from "./harness.test-util.js";
 import { RESULT_KIND_HEADER } from "./protocol.js";
-import { failed } from "./review.fixtures.test-util.js";
 
 /**
  * The result-kind header says what the body IS: for `data` the payload itself, for

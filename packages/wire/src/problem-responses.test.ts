@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { ctx, makeServer } from "./fixtures.test-util.js";
-import { post, server } from "./review.fixtures.test-util.js";
+import { post, server } from "./harness.test-util.js";
 
 /**
  * HTTP answers as RFC 7807 means them: `title` names the problem TYPE and never
