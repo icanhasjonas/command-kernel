@@ -1,6 +1,9 @@
 import { describe, expect, it } from "bun:test";
+import { createKernel } from "@command-kernel/core";
+import { implement } from "./define.js";
 import { ctx, makeServer } from "./fixtures.test-util.js";
-import { post, server } from "./review.fixtures.test-util.js";
+import { post, quiet, server } from "./review.fixtures.test-util.js";
+import { createWireServer } from "./server.js";
 
 /**
  * A host hook that throws (the error reporter, the status mapper) never turns an
@@ -24,6 +27,20 @@ describe("a throwing onError is swallowed", () => {
   it("the socket still answers an err frame", async () => {
     const out = await frame(wire, "boom");
     expect([out.t, out.error.code, out.error.status]).toEqual(["err", "serverFail", 500]);
+  });
+});
+
+describe("a throwing kernel onExecute does not hide a command that ran", () => {
+  it("the call answers the result, not serverFail", async () => {
+    const kernel = createKernel({
+      roots: [implement(quiet, async () => undefined)],
+      onExecute: () => {
+        throw new Error("audit log is down");
+      },
+    });
+    const wire = createWireServer({ kernel, specs: [quiet] });
+    const res = await post(wire, "say.nothing");
+    expect(res?.status).toBe(200);
   });
 });
 
