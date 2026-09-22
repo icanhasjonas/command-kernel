@@ -68,7 +68,11 @@ export interface ArgSpec {
    * the same catalog. Resolution order for options: enumValues -> entity -> complete.
    */
   entity?: EntityRef;
-  /** accept many values (listOf<X>): the value becomes a `string[]` of ids/values */
+  /**
+   * accept many values (listOf<X>): the value becomes a `string[]` of ids/values.
+   * A grant binds the ORDER of a `json` list (order is part of what was approved);
+   * every other kind's list is a set, and its order does not change the grant.
+   */
   multiple?: boolean;
   /** async, arg-scoped value completion (one-off; entity is the registered path) */
   complete?: (query: string, ctx: Ctx) => Promise<ArgOption[]>;

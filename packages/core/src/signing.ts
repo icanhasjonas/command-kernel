@@ -1,5 +1,6 @@
 import type { ArgValues } from "./args.js";
 import { coerceArgs } from "./coerce.js";
+import { setOwn } from "./own.js";
 import type { CommandNode } from "./types.js";
 
 /**
@@ -14,7 +15,8 @@ import type { CommandNode } from "./types.js";
  *   text kinds         unchanged (a `multiple` list stays a list: order-free)
  *   number / boolean   their text: 5 -> "5", true -> "true"
  *   json               canonical JSON (sorted keys): one string, so order inside
- *                      a JSON array is kept; `multiple` json is a set of them
+ *                      a JSON array is kept; a `multiple` json list is ORDERED too,
+ *                      its whole list being one canonical string
  *
  * For text-only args this is the identity, so their grants key exactly as before.
  * An arg the node does not declare has no kind to coerce to, so it keeps its own
@@ -38,20 +40,17 @@ const isText = (v: unknown) =>
 
 export function signingArgs(node: CommandNode, values: ArgValues): ArgValues {
   const typed = coerceArgs(node, values);
-  const specs = new Map((node.args ?? []).map((a) => [a.id, a]));
-  const spec = (id: string) => specs.get(id);
   const kinds = new Map((node.args ?? []).map((a) => [a.id, a.kind]));
   const out: ArgValues = {};
   for (const [id, v] of Object.entries(typed)) {
     const kind = kinds.get(id);
-    // a json value is one canonical string (order inside it counts); a `multiple`
-    // json arg is a SET of such strings, like every other `multiple` arg
-    if (kind === "json")
-      out[id] = spec(id)?.multiple && Array.isArray(v) ? v.map(canonicalJson) : canonicalJson(v);
-    else if (isText(v)) out[id] = v;
+    // a caller-supplied id may be "__proto__": it must stay a signed key (own.ts)
+    // a json value, `multiple` or not, is one canonical string: order inside it counts
+    if (kind === "json") setOwn(out, id, canonicalJson(v));
+    else if (isText(v)) setOwn(out, id, v);
     else if (kind === "number" || kind === "boolean")
-      out[id] = Array.isArray(v) ? v.map((x) => String(x)) : String(v);
-    else out[id] = v; // undeclared: bound as-is, type included (see evidence argStr)
+      setOwn(out, id, Array.isArray(v) ? v.map((x) => String(x)) : String(v));
+    else setOwn(out, id, v); // undeclared: bound as-is, type included (see evidence argStr)
   }
   return out;
 }

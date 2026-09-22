@@ -113,7 +113,8 @@ describe("a connection that fails", () => {
     FakeSocket.all[0]?.close();
     await tick(); // backoff is 0 with random() = 0
     FakeSocket.all[1]?.open();
-    expect(seen).toEqual(["connecting", "open", "reconnecting", "open"]);
+    // the listener hears the current status ("idle") at once, then every change
+    expect(seen).toEqual(["idle", "connecting", "open", "reconnecting", "open"]);
     expect(FakeSocket.all).toHaveLength(2);
     c.close();
     expect(c.status).toBe("closed");

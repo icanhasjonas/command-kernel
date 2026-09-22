@@ -110,12 +110,15 @@ export function compileRoutes<R>(entries: Array<RouteEntry<R>>) {
   };
 }
 
-/** Query params as args; a repeated key becomes a list. */
+/**
+ * Query params as args; a repeated key becomes a list. Built with fromEntries so a
+ * `?__proto__=x` stays an own key instead of reaching the prototype setter.
+ */
 export function queryArgs(params: URLSearchParams): ArgValues {
-  const out: ArgValues = {};
-  for (const key of new Set(params.keys())) {
-    const all = params.getAll(key);
-    out[key] = all.length > 1 ? all : (all[0] ?? "");
-  }
-  return out;
+  return Object.fromEntries(
+    [...new Set(params.keys())].map((key) => {
+      const all = params.getAll(key);
+      return [key, all.length > 1 ? all : (all[0] ?? "")];
+    }),
+  );
 }

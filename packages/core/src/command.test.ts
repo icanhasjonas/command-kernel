@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { createKernel } from "./create-kernel.js";
-import { pathKey } from "./evidence.js";
+import { bindingKey, pathKey } from "./evidence.js";
 import type { CommandNode, Ctx } from "./types.js";
 
 const ctx = (role: Ctx["user"]["role"] = "admin"): Ctx => ({
@@ -26,6 +26,8 @@ const roots: CommandNode[] = [
 
 // one kernel instance: the same gate + evidence store every driver would share
 const k = createKernel({ roots });
+// a grant's binding context: the principal (ctx.user.id by default), then the prior path
+const underUsers = bindingKey("u1", pathKey([{ id: "users" }]));
 
 describe("command() — the one verb", () => {
   it("returns ranked completions at the root", async () => {
@@ -91,7 +93,7 @@ describe("command() — the one verb", () => {
   });
 
   it("executes once a valid per-segment grant is supplied", async () => {
-    const grant = k.evidence.sign("reset", { user: "a@b.io" }, pathKey([{ id: "users" }]));
+    const grant = k.evidence.sign("reset", { user: "a@b.io" }, underUsers);
     const r = await k.command(
       {
         path: [{ id: "users" }, { id: "reset", args: { user: "a@b.io" }, evidence: grant }],
@@ -105,7 +107,7 @@ describe("command() — the one verb", () => {
 
   it("rejects a grant bound to a different prior path", async () => {
     // grant minted as if reached directly (empty prior), used under users▸
-    const grant = k.evidence.sign("reset", { user: "a@b.io" }, "");
+    const grant = k.evidence.sign("reset", { user: "a@b.io" }, bindingKey("u1", ""));
     const r = await k.command(
       {
         path: [{ id: "users" }, { id: "reset", args: { user: "a@b.io" }, evidence: grant }],
@@ -117,7 +119,7 @@ describe("command() — the one verb", () => {
   });
 
   it("blocks on role even with a valid grant, and honours top-level role", async () => {
-    const grant = k.evidence.sign("reset", { user: "a@b.io" }, pathKey([{ id: "users" }]));
+    const grant = k.evidence.sign("reset", { user: "a@b.io" }, underUsers);
     const blocked = await k.command(
       {
         path: [{ id: "users" }, { id: "reset", args: { user: "a@b.io" }, evidence: grant }],
@@ -145,7 +147,7 @@ describe("command() — the one verb", () => {
     const gated = await k.command({ path: [{ id: "users" }, tip], execute: true }, ctx("admin"));
     expect(gated.kind).toBe("gate");
     // 2. the human approves -> the bridge mints a grant bound to THIS exact chain
-    const grant = k.evidence.grantForPath([{ id: "users" }, tip]);
+    const grant = k.evidence.grantForPath([{ id: "users" }, tip], k.principalOf(ctx("admin")));
     // 3. re-issue the identical call with the grant as the tip's evidence -> runs
     const done = await k.command(
       { path: [{ id: "users" }, { ...tip, evidence: grant }], execute: true },

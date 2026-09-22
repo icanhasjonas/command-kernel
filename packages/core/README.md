@@ -292,6 +292,10 @@ will actually run. Signing the args you *typed* (`evidence.grantForPath`) is
 correct only when the kernel derives nothing; otherwise verification is checked
 against values that never reach your hands and the gate re-asks forever.
 
+A grant is bound to the principal it was minted for (`principal` on the `gate`
+response; `createKernel({ principalOf })`, default `ctx.user.id`). Another caller
+replaying it gets the gate again: a grant is not a bearer token.
+
 The agent driver does exactly this with `pickTool` from `@command-kernel/agent`;
 the palette does it with frames + arg chips in `@command-kernel/ui`. A driver
 that tried to skip the gate physically can't — `run` only fires inside
@@ -321,7 +325,7 @@ Types: `Ranker`, `RankWeights`, `FuzzyResult`.
 `isGated(node)`. Type: `GatePolicy` (sync or async).
 
 **Keystone** — `toJsonSchema(node)`, `validateArgs(node, values)`. Types:
-`JsonSchema`, `JsonSchemaProperty`, `ArgError`.
+`JsonSchemaObject`, `JsonSchemaNode`, `ArgError`.
 
 **Driver #4 — deeplinks** — `serializePath(path, opts?)`,
 `parseDeeplink(url, opts?)`. Type: `DeeplinkOptions`.

@@ -68,8 +68,8 @@ describe("a different act never verifies", () => {
 });
 
 describe("keys", () => {
-  it("text-only args key exactly as before", () => {
-    expect(pathKey([{ id: "a", args: { x: "1", y: ["b", "a"] } }])).toBe("a(x=1&y=a,b)");
+  it("text keys as itself; a list of text keys its length, then its items as a set", () => {
+    expect(pathKey([{ id: "a", args: { x: "1", y: ["b", "a"] } }])).toBe("a(x=1&y=[2]a,b)");
   });
 
   it("raw typed values carry a mark text cannot forge", () => {
@@ -96,12 +96,13 @@ describe("review round 4", () => {
     expect(pathKey([{ id: "a", args: { x: "plain text" } }])).toBe("a(x=plain text)");
   });
 
-  it("a multiple json arg is a set, like every other multiple arg", async () => {
+  it("a multiple json arg is ordered: its order is part of what was approved", async () => {
     const rows: CommandNode = {
       ...trim,
       args: [{ id: "r", label: "r", kind: "json", multiple: true, schema: { type: "number" } }],
     };
-    expect(await verifies(rows, { r: [1, 2] }, { r: [2, 1] })).toBe(true);
+    expect(await verifies(rows, { r: [1, 2] }, { r: [1, 2] })).toBe(true);
+    expect(await verifies(rows, { r: [1, 2] }, { r: [2, 1] })).toBe(false);
     expect(await verifies(rows, { r: [1, 2] }, { r: [1, 3] })).toBe(false);
   });
 });

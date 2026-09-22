@@ -63,7 +63,7 @@ try {
       roots: [RESET],
     });
     console.log(`  session A, no grant     -> ${await reset(A)}   (confirm owed)`);
-    const grant = A.evidence.grantForPath([SEG]);
+    const grant = A.evidence.grantForPath([SEG], A.principalOf(ctx));
     console.log(
       `  session A, fresh grant  -> ${await reset(A, { ...SEG, evidence: grant })}   (approved)`,
     );
@@ -112,7 +112,7 @@ try {
       evidence: createFileEvidenceStore(saltedFile, { persistSalt: true }),
       roots: [RESET],
     });
-    A.evidence.grantForPath([SEG]);
+    A.evidence.grantForPath([SEG], A.principalOf(ctx));
   }
   {
     const B = createKernel({

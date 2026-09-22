@@ -23,6 +23,7 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import {
   type AllowRule,
   type ArgValues,
+  bindingKey,
   createMemoryPolicyStore,
   type EvidenceStore,
   type Grant,
@@ -162,10 +163,10 @@ export function createFileEvidenceStore(
       if (!grant?.nonce || !grant.sig) return false;
       return hash(payload(salt, commandId, args, priorKey, grant.nonce)) === grant.sig;
     },
-    grantForPath(path) {
+    grantForPath(path, principal) {
       const tip = path[path.length - 1];
       if (!tip) throw new Error("grantForPath: empty path");
-      return sign(tip.id, tip.args ?? {}, pathKey(path.slice(0, -1)));
+      return sign(tip.id, tip.args ?? {}, bindingKey(principal, pathKey(path.slice(0, -1))));
     },
     rotate() {
       salt = crypto.randomUUID();

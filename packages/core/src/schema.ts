@@ -23,25 +23,10 @@ function isText(v: ArgValue): boolean {
  * raises an LLM's token cost and parse-error rate.
  */
 
-export interface JsonSchemaProperty {
-  type: "string";
-  description?: string;
-  enum?: string[];
-  format?: "email";
-}
-
-export interface JsonSchema {
-  type: "object";
-  properties: Record<string, JsonSchemaProperty>;
-  required: string[];
-  additionalProperties: false;
-}
-
 /**
- * A permissive JSON Schema node — for HAND-AUTHORED tool params (the agent
- * projection's generic navigator tools, which legitimately need an object/array
- * param). The strict `JsonSchema` above (all-string, for derived command args)
- * is a subtype of `JsonSchemaObject`.
+ * A JSON Schema node: what `toJsonSchema` derives for command args, and what
+ * HAND-AUTHORED tool params use (the agent projection's generic navigator tools,
+ * which legitimately need an object/array param).
  */
 export type JsonSchemaNode =
   | { type: "string"; description?: string; enum?: string[]; format?: string }
@@ -86,7 +71,7 @@ function typedElement(a: ArgSpec): JsonSchemaNode | null {
 function elementProperty(a: ArgSpec): JsonSchemaNode {
   const typed = typedElement(a);
   if (typed) return typed;
-  const prop: JsonSchemaProperty = { type: "string" };
+  const prop: Extract<JsonSchemaNode, { type: "string" }> = { type: "string" };
   if (a.label && a.label !== a.id) prop.description = a.label;
   if (a.kind === "email") prop.format = "email";
   if (a.kind === "enum" && a.enumValues) prop.enum = a.enumValues.map((o) => o.value);

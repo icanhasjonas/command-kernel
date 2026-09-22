@@ -1,5 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { createKernel } from "./create-kernel.js";
+import { bindingKey } from "./evidence.js";
 import { fuzzyMatch } from "./fuzzy.js";
 import { evaluateGate } from "./gate.js";
 import { missingArgs } from "./kernel.js";
@@ -97,7 +98,8 @@ describe("gate enforcement (via the kernel's trust core)", () => {
 
   it("runs once a valid grant for these exact args is supplied", async () => {
     const k = createKernel();
-    const grant = k.evidence.sign("users.reset", { user: "a@b.io" }, "");
+    // bound to the principal (ctx.user.id by default) and the empty prior path
+    const grant = k.evidence.sign("users.reset", { user: "a@b.io" }, bindingKey("u1", ""));
     const done = await k.executeNode(reset, { user: "a@b.io" }, ctx("admin"), {
       grant,
       priorKey: "",

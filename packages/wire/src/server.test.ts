@@ -6,6 +6,7 @@ const post = (name: string, body: unknown) =>
   server.handleHttp(
     new Request(`https://x/api/${name}`, {
       method: "POST",
+      headers: { "content-type": "application/json" },
       body: typeof body === "string" ? body : JSON.stringify(body),
     }),
     ctx,
@@ -55,7 +56,10 @@ describe("HTTP: POST {base}/{command}", () => {
     const seen: unknown[] = [];
     const r = await json(
       await makeServer((e) => seen.push(e)).handleHttp(
-        new Request("https://x/api/boom", { method: "POST" }),
+        new Request("https://x/api/boom", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+        }),
         ctx,
       ),
     );

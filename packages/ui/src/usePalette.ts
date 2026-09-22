@@ -13,21 +13,13 @@ import {
   argList,
   entityOption,
   missingArgs,
-  pathKey,
   resolveChildren,
   ruleForNode,
-  signingArgs,
 } from "@command-kernel/core";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type Frame, framesKey } from "./palette-key.js";
 
 export type Mode = "browse" | "args" | "confirm";
-
-interface Frame {
-  node: CommandNode | null;
-  items: CommandNode[];
-  dynamic: boolean; // node has a positional arg => the query IS the search term
-  positionalArgId?: string;
-}
 
 interface ArgSession {
   node: CommandNode;
@@ -63,7 +55,9 @@ export function usePalette({
   onExecuted,
   onClose,
 }: Hooks) {
-  const [frames, setFrames] = useState<Frame[]>([{ node: null, items: roots, dynamic: false }]);
+  const [frames, setFrames] = useState<Frame[]>([
+    { node: null, items: roots, dynamic: false, args: {} },
+  ]);
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState(0);
   const [mode, setMode] = useState<Mode>("browse");
@@ -91,11 +85,12 @@ export function usePalette({
     const mine = ++token.current;
     const t = setTimeout(() => {
       setResolving(true);
-      resolveChildren(node, { [argId]: query }, ctx).then((items) => {
+      const args = { [argId]: query };
+      resolveChildren(node, args, ctx).then((items) => {
         if (mine !== token.current) return;
         setFrames((f) => {
           const copy = f.slice();
-          copy[copy.length - 1] = { ...(copy[copy.length - 1] as Frame), items };
+          copy[copy.length - 1] = { ...(copy[copy.length - 1] as Frame), items, args };
           return copy;
         });
         setResolving(false);
@@ -150,12 +145,14 @@ export function usePalette({
       if (!node.resolve) return;
       const pos = node.args?.find((a) => a.positional);
       setResolving(true);
-      const items = await resolveChildren(node, pos ? { [pos.id]: "" } : {}, ctx);
+      const args = pos ? { [pos.id]: "" } : {};
+      const items = await resolveChildren(node, args, ctx);
       setFrames((f) => [
         ...f,
         {
           node,
           items,
+          args,
           dynamic: Boolean(pos),
           ...(pos?.id !== undefined && { positionalArgId: pos.id }),
         },
@@ -177,10 +174,7 @@ export function usePalette({
   );
 
   // the chain of ancestor frames = the prior path a tip grant binds against
-  const ancestorKey = useCallback(
-    () => pathKey(frames.filter((f) => f.node).map((f) => ({ id: (f.node as CommandNode).id }))),
-    [frames],
-  );
+  const ancestorKey = useCallback(() => framesKey(frames), [frames]);
 
   const proceedGate = useCallback(
     async (node: CommandNode, values: ArgValues, grant?: Grant) => {
@@ -215,14 +209,16 @@ export function usePalette({
   // human clicked Confirm — mint a grant bound to this exact command+args+path
   const confirmProceed = useCallback(() => {
     if (!confirm) return;
-    // sign the canonical form the kernel verifies against, not the typed-in text
-    const grant = kernel.evidence.sign(
-      confirm.node.id,
-      signingArgs(confirm.node, confirm.values),
-      ancestorKey(),
-    );
+    // the kernel's one mint: canonical args, this path, and this principal
+    const principal = kernel.principalOf(ctx);
+    const grant = kernel.grantFor({
+      node: confirm.node,
+      args: confirm.values,
+      priorKey: ancestorKey(),
+      ...(principal !== undefined && { principal }),
+    });
     void proceedGate(confirm.node, confirm.values, grant);
-  }, [confirm, ancestorKey, proceedGate, kernel]);
+  }, [confirm, ancestorKey, proceedGate, kernel, ctx]);
 
   // human clicked Always allow — record the standing rule, then run (no grant;
   // the policy now auto-satisfies the gate and won't ask again this session)
@@ -328,7 +324,7 @@ export function usePalette({
   // biome-ignore lint/correctness/useExhaustiveDependencies: open-edge reset only
   useEffect(() => {
     if (!open) return;
-    setFrames([{ node: null, items: roots, dynamic: false }]);
+    setFrames([{ node: null, items: roots, dynamic: false, args: {} }]);
     setQuery("");
     setSelected(0);
     setMode("browse");

@@ -1,6 +1,6 @@
 import type { ArgValues } from "./args.js";
 import { coerceArgs } from "./coerce.js";
-import type { EvidenceStore } from "./evidence.js";
+import { bindingKey, type EvidenceStore } from "./evidence.js";
 import type { GatePolicy } from "./gate.js";
 import type { PolicyStore } from "./policy.js";
 import { type Ranker, rank } from "./rank.js";
@@ -39,6 +39,18 @@ export interface ExecuteDeps {
   gate: GatePolicy;
   policy: PolicyStore;
   evidence: EvidenceStore;
+  /**
+   * Who a grant is bound to, read from the ctx that mints it and the ctx that
+   * spends it. `createKernel` defaults it to `ctx.user.id`; absent (raw deps), or
+   * returning undefined, a grant binds no principal.
+   */
+  principalOf?: (ctx: Ctx) => string | undefined;
+}
+
+/** How far `executeNode` goes. */
+export interface ExecuteMode {
+  /** evaluate args and the gate, then stop: run() never fires and no grant is checked */
+  dryRun?: boolean;
 }
 
 export interface ExecuteOutcome {
@@ -97,6 +109,7 @@ export async function executeNode(
   ctx: Ctx,
   deps: ExecuteDeps,
   confirmation: Confirmation = {},
+  mode: ExecuteMode = {},
 ): Promise<ExecuteOutcome> {
   // typed args sent as text (palette, URL) become their declared type; a no-op otherwise
   const args = coerceArgs(node, input);
@@ -122,19 +135,22 @@ export async function executeNode(
 
   const verdict = await deps.gate(node, ctx, args);
   if (!verdict.allowed) return stopped(verdict);
+  // a dry run reports what the gate owes and stops here, whatever proof came along
+  if (mode.dryRun) return stopped(verdict, { awaitingConfirm: verdict.needsConfirm });
 
   let autoAllowed = false;
   if (verdict.needsConfirm) {
     autoAllowed = deps.policy.match(node.id, args) !== null;
     // verify over the canonical signing form, so a grant minted from the palette's
-    // text ("yes") verifies the same act arriving typed (true) and vice versa
+    // text ("yes") verifies the same act arriving typed (true) and vice versa; and
+    // for THIS principal, so a grant minted for someone else never verifies
     const proven =
       autoAllowed ||
       deps.evidence.verify(
         confirmation.grant,
         node.id,
         signingArgs(node, args),
-        confirmation.priorKey ?? "",
+        bindingKey(deps.principalOf?.(ctx), confirmation.priorKey ?? ""),
       );
     if (!proven) return stopped(verdict, { awaitingConfirm: true });
   }

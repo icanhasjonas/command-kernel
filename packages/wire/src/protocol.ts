@@ -7,7 +7,8 @@ import type { ArgError, ArgValues, GateCheck, Grant } from "@command-kernel/core
  * both reach the SAME `kernel.command(...)` with the SAME gate. The transports
  * differ only in framing:
  *
- *   HTTP       POST {base}/{command}         body = args JSON  -> 200 data | problem+json
+ *   HTTP       POST {base}/{command}         body = args JSON (content-type
+ *                                            application/json) -> 200 data | problem+json
  *              GET  {declared route}         path + query = args -> 200 data (cacheable)
  *   WebSocket  -> {"t":"cmd","id":"c1","name":"x.y","args":{...}}
  *              <- {"t":"ok","id":"c1","kind":"data","message":"...","data":...}
@@ -90,6 +91,7 @@ export const ERROR_STATUS: Readonly<Record<string, number>> = {
   conflict: 409,
   stateMismatch: 409,
   tooLarge: 413,
+  unsupportedMediaType: 415, // a POST that is not content-type application/json
   ambiguous: 422, // an entity arg matched several records
   rateLimited: 429,
   serverFail: 500, // anything unexpected; the message is never the raw exception

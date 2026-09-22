@@ -98,8 +98,21 @@ Object can answer it without waking at all:
 ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair("ping", "pong"));
 ```
 
+Every `POST` must carry `content-type: application/json` (parameters such as `charset` are
+fine), body or not; anything else is `415 unsupportedMediaType`. That keeps a cross-origin
+`text/plain` or form POST, which a browser sends without a preflight, from ever running a
+command. The client always sends a JSON body (`{}` when there are no args).
+
 `OPTIONS` on a command path answers `204` with `Allow`; CORS headers stay the host's job.
-`HEAD` behaves as `GET` on a declared route.
+`HEAD` behaves as `GET` on a declared route, and never carries a body on any answer.
+`client.onStatus(fn)` calls `fn` with the current status at once, then on every change.
+
+## Limits
+
+`specs` is the allowlist: the wire exposes the declared commands and nothing else, on both
+transports. Any other node in the kernel answers exactly as a command that does not exist
+(`404 unknownCommand`). Only ROOT commands are reachable; a child a node resolves is not.
+To expose a child, declare a root command for it.
 
 ## Confirm-gated commands
 
@@ -122,6 +135,12 @@ await client.call(deleteBox, { boxId }, { evidence: grant }); // now it runs
 Without a `confirm` policy the wire carries grants but cannot mint them, and a
 confirm-gated command is unreachable from a remote client. That is the safe default: a
 client that could approve itself is not a gate.
+
+Confirming never runs anything: the server checks the gate in a dry run, and a command
+that owes no confirm answers `409 conflict`. A grant is bound to the caller who confirmed
+(the kernel's `principalOf`, by default `ctx.user.id`); another caller presenting it gets
+`confirmRequired`. The `confirmRequired` answer names the command (`details: { command,
+title }`) and never echoes the args, which after `prefill` can hold server-side values.
 
 ## The server owns no sockets and no auth
 

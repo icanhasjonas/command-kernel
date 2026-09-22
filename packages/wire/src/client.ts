@@ -1,9 +1,10 @@
 import type { ArgValues, Grant } from "@command-kernel/core";
-import { failure, WireCallError } from "./client-error.js";
+import { failure } from "./client-error.js";
 import { type ConnectionOptions, type ConnectionStatus, createConnection } from "./connection.js";
 import type { EventSpec, HttpRoute, WireSpec } from "./define.js";
 import { type FetchLike, httpCall } from "./http.js";
 import type { CallFrame, ServerFrame } from "./protocol.js";
+import { createSocketCalls } from "./socket-calls.js";
 
 /**
  * The client half: `call(spec, args)` reaches a command over the socket when it is
@@ -49,18 +50,13 @@ export interface WireClient {
   /** Call by name, untyped (tools, scripts). */
   callName(name: string, args?: ArgValues, opts?: CallOpts): Promise<unknown>;
   on<D>(event: EventSpec<D>, handler: (data: D) => void): () => void;
+  /** Called with the current status at once, then on every change. */
   onStatus(listener: (status: ConnectionStatus) => void): () => void;
   readonly status: ConnectionStatus;
   connect(): void;
   /** reconnect now instead of waiting out the backoff (e.g. the network came back) */
   retryNow(): void;
   close(): void;
-}
-
-interface Pending {
-  resolve: (v: unknown) => void;
-  reject: (e: WireCallError) => void;
-  cleanup: () => void;
 }
 
 export function createWireClient(opts: WireClientOptions): WireClient {
@@ -71,19 +67,10 @@ export function createWireClient(opts: WireClientOptions): WireClient {
     timeoutMs: opts.timeoutMs ?? 15_000,
   };
   const maxFrame = opts.maxFrameBytes ?? 1 << 20;
-  const pending = new Map<string, Pending>();
+  const calls = createSocketCalls(http.timeoutMs);
   const listeners = new Map<string, Set<(data: unknown) => void>>();
   const statusListeners = new Set<(s: ConnectionStatus) => void>();
   let seq = 0;
-
-  const settle = (id: string) => {
-    const p = pending.get(id);
-    if (p) {
-      pending.delete(id);
-      p.cleanup();
-    }
-    return p;
-  };
 
   function onMessage(text: string) {
     let parsed: unknown;
@@ -106,51 +93,17 @@ export function createWireClient(opts: WireClientOptions): WireClient {
       }
       return;
     }
-    const p = frame.id ? settle(frame.id) : undefined;
-    if (!p) return;
-    if (frame.t === "err") return p.reject(new WireCallError(frame.error));
-    p.resolve(
-      frame.kind === "data"
-        ? (frame.data ?? null)
-        : { kind: frame.kind, message: frame.message, payload: frame.data },
-    );
+    calls.answer(frame);
   }
 
   function onConnStatus(s: ConnectionStatus) {
-    // a call in flight on a socket that dropped may or may not have run: say so
-    if (s !== "open") {
-      for (const id of [...pending.keys()]) {
-        settle(id)?.reject(failure("disconnected", "The connection dropped before an answer came"));
-      }
-    }
+    if (s !== "open") calls.dropAll();
     for (const fn of statusListeners) fn(s);
   }
 
   const conn = opts.ws
     ? createConnection({ ...opts, url: opts.ws }, onMessage, onConnStatus)
     : null;
-
-  function viaSocket(frameText: string, id: string, name: string, signal?: AbortSignal) {
-    return new Promise<unknown>((resolve, reject) => {
-      if (signal?.aborted) return reject(failure("aborted", `${name} was cancelled`));
-      const onAbort = () => settle(id)?.reject(failure("aborted", `${name} was cancelled`));
-      const timer = setTimeout(() => {
-        settle(id)?.reject(
-          failure("timeout", `${name} did not answer within ${http.timeoutMs} ms`),
-        );
-        // a socket that swallowed a call may be half-open: make it prove it is alive
-        conn?.probe();
-      }, http.timeoutMs);
-      signal?.addEventListener("abort", onAbort, { once: true });
-      const cleanup = () => {
-        clearTimeout(timer);
-        signal?.removeEventListener("abort", onAbort);
-      };
-      pending.set(id, { resolve, reject, cleanup });
-      if (!conn?.send(frameText))
-        settle(id)?.reject(failure("disconnected", "The socket is not open"));
-    });
-  }
 
   function dispatch(
     name: string,
@@ -180,7 +133,7 @@ export function createWireClient(opts: WireClientOptions): WireClient {
     // UTF-8 is at most 3 bytes per UTF-16 unit; only measure exactly when it could matter
     const big = text.length * 3 > maxFrame && new TextEncoder().encode(text).byteLength > maxFrame;
     if (big && o.via !== "ws") return httpCall(http, name, args, httpRoute, extras);
-    return viaSocket(text, id, name, o.signal);
+    return calls.call(conn, text, id, name, o.signal);
   }
 
   return {
@@ -207,6 +160,7 @@ export function createWireClient(opts: WireClientOptions): WireClient {
     },
     onStatus: (fn) => {
       statusListeners.add(fn);
+      fn(conn?.status ?? "idle"); // a late listener learns where things stand now
       return () => statusListeners.delete(fn);
     },
     get status() {

@@ -1,4 +1,5 @@
 import type { ArgSpec, ArgValue, ArgValues } from "./args.js";
+import { setOwn } from "./own.js";
 import type { JsonSchemaNode } from "./schema.js";
 import type { CommandNode } from "./types.js";
 
@@ -72,7 +73,7 @@ function fit(schema: JsonSchemaNode, v: ArgValue): ArgValue {
       const out: Record<string, ArgValue> = {};
       for (const [k, x] of Object.entries(obj)) {
         const sub = Object.hasOwn(props, k) ? props[k] : undefined;
-        out[k] = sub ? fit(sub, x) : x;
+        setOwn(out, k, sub ? fit(sub, x) : x); // "__proto__" stays a key (own.ts)
       }
       return out;
     }
@@ -121,7 +122,7 @@ export function coerceArgs(node: CommandNode, values: ArgValues): ArgValues {
     const c = coerceValue(spec, v);
     if (JSON.stringify(c) !== JSON.stringify(v)) {
       out ??= { ...values };
-      out[spec.id] = c;
+      setOwn(out, spec.id, c);
     }
   }
   return out ?? values;

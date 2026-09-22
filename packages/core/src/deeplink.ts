@@ -1,4 +1,5 @@
 import type { ArgSpec, ArgValues } from "./args.js";
+import { setOwn } from "./own.js";
 import type { PathSegment } from "./types.js";
 
 /**
@@ -75,9 +76,9 @@ function decodeQuery(qs: string): ArgValues {
     if (!key) continue;
     const val = eq === -1 ? "" : decodeURIComponent(pair.slice(eq + 1));
     // a repeated key accumulates into a list
-    const existing = out[key];
-    if (existing === undefined) out[key] = val;
-    else out[key] = Array.isArray(existing) ? [...existing, val] : [existing, val];
+    const existing = Object.hasOwn(out, key) ? out[key] : undefined;
+    if (existing === undefined) setOwn(out, key, val);
+    else setOwn(out, key, Array.isArray(existing) ? [...existing, val] : [existing, val]);
   }
   return out;
 }

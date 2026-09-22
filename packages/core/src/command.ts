@@ -3,11 +3,10 @@ import { coerceArgs } from "./coerce.js";
 import { argCompletions, resolveEntities } from "./command-args.js";
 import { describeNode, type NodeDescriptor } from "./describe.js";
 import type { Entity, EntityRegistry } from "./entity.js";
-import { pathKey } from "./evidence.js";
+import { type Hop, hopsKey } from "./hops-key.js";
 import { type ExecuteDeps, executeNode, missingArgs, resolveChildren } from "./kernel.js";
 import type { Ranker } from "./rank.js";
 import type { ArgError } from "./schema.js";
-import { signingArgs } from "./signing.js";
 import type { CommandNode, CommandResult, Ctx, GateVerdict, PathSegment, Role } from "./types.js";
 
 /**
@@ -46,6 +45,12 @@ export interface CommandRequest {
   query?: string;
   /** attempt to run the tip instead of browsing into it */
   execute?: boolean;
+  /**
+   * With `execute`: check args and the gate exactly as a run would, but never run.
+   * The answer is `args` / `disambiguate`, or `gate`, whose verdict says whether a
+   * confirm is owed (`needsConfirm: false` = this would simply run).
+   */
+  dryRun?: boolean;
   /** principal override for the whole walk (e.g. an elevated token) */
   role?: Role;
 }
@@ -84,6 +89,8 @@ export type CommandResponse =
       args: ArgValues;
       /** canonical key of the path BEFORE this node — the grant's binding context */
       priorKey: string;
+      /** who asked (`principalOf(ctx)`): the grant is bound to them; absent = nobody */
+      principal?: string;
     }
   | { kind: "result"; node: CommandNode; result: CommandResult };
 
@@ -105,12 +112,12 @@ export async function command(
   let level = roots;
   let tip: CommandNode | null = null;
   let values: ArgValues = {};
-  const walked: Array<{ id: string; args: ArgValues }> = [];
+  const walked: Hop[] = [];
   for (const seg of req.path ?? []) {
     const node = level.find((n) => n.id === seg.id);
     if (!node) return { kind: "completions", at: tip, items: [] };
     tip = node;
-    walked.push({ id: node.id, args: signingArgs(node, seg.args ?? {}) });
+    walked.push({ node, args: seg.args ?? {} });
     values = coerceArgs(node, { ...(node.prefill ? node.prefill(ectx) : {}), ...(seg.args ?? {}) });
     level = node.resolve ? await resolveChildren(node, values, ectx) : [];
   }
@@ -136,11 +143,15 @@ export async function command(
     // the grant on the tip segment is bound to everything before it
     const segments = req.path ?? [];
     const tipSeg = segments[segments.length - 1];
-    const priorKey = pathKey(walked.slice(0, -1));
-    const outcome = await executeNode(tip, values, ectx, deps, {
-      ...(tipSeg?.evidence !== undefined && { grant: tipSeg.evidence }),
-      priorKey,
-    });
+    const priorKey = hopsKey(walked.slice(0, -1));
+    const outcome = await executeNode(
+      tip,
+      values,
+      ectx,
+      deps,
+      { ...(tipSeg?.evidence !== undefined && { grant: tipSeg.evidence }), priorKey },
+      { dryRun: Boolean(req.dryRun) },
+    );
     // the kernel validated inside executeNode — surface bad values as `args`
     if (outcome.argErrors.length > 0) {
       return {
@@ -151,10 +162,18 @@ export async function command(
         items: await argCompletions(tip, values, ectx, deps.entities),
       };
     }
-    if (!outcome.verdict.allowed || outcome.awaitingConfirm) {
-      // hand back the EFFECTIVE args + binding context so the approving driver
-      // mints a grant the kernel will actually verify (see the `gate` variant)
-      return { kind: "gate", node: tip, verdict: outcome.verdict, args: values, priorKey };
+    if (!outcome.verdict.allowed || outcome.awaitingConfirm || req.dryRun) {
+      // hand back the EFFECTIVE args + binding context (path and principal) so the
+      // approving driver mints a grant the kernel will actually verify
+      const principal = deps.principalOf?.(ectx);
+      return {
+        kind: "gate",
+        node: tip,
+        verdict: outcome.verdict,
+        args: values,
+        priorKey,
+        ...(principal !== undefined && { principal }),
+      };
     }
     if (outcome.result) return { kind: "result", node: tip, result: outcome.result };
   }

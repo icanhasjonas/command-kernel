@@ -2,7 +2,7 @@ import type { ArgValues } from "./args.js";
 import { type CommandRecord, toRecord } from "./audit.js";
 import { type CommandDeps, type CommandRequest, type CommandResponse, command } from "./command.js";
 import { createEntityRegistry, type EntityRegistry, type EntityType } from "./entity.js";
-import { createMemoryEvidenceStore, type EvidenceStore } from "./evidence.js";
+import { bindingKey, createMemoryEvidenceStore, type EvidenceStore } from "./evidence.js";
 import { evaluateGate, type GatePolicy } from "./gate.js";
 import {
   type Confirmation,
@@ -63,7 +63,19 @@ export interface KernelConfig {
   fallback?: FallbackSearch;
   /** observability hook — fires after every successful run (audit / telemetry / undo) */
   onExecute?: (record: CommandRecord, response: CommandResponse) => void;
+  /**
+   * Who a grant belongs to (default: `ctx.user.id`). A grant minted for one
+   * principal never verifies for another, so it cannot be handed on or replayed
+   * by a different caller. Return undefined to bind no principal.
+   */
+  principalOf?: (ctx: Ctx) => string | undefined;
 }
+
+/** What `grantFor` signs: a `gate` response, or the same fields a driver holds itself. */
+export type GrantRequest = Pick<
+  Extract<CommandResponse, { kind: "gate" }>,
+  "node" | "args" | "priorKey" | "principal"
+>;
 
 export interface Kernel {
   /** the one verb — roots default to the configured registry/static roots */
@@ -84,9 +96,12 @@ export interface Kernel {
    * turn a human's "Allow" into evidence. It signs the kernel's EFFECTIVE args
    * (post-prefill, post-entity-resolution) against the response's `priorKey`, so
    * re-issuing the same request with this grant verifies. Minting by hand from
-   * the args you typed does not, whenever the kernel derived anything.
+   * the args you typed does not, whenever the kernel derived anything. The grant
+   * is bound to `res.principal`: it verifies only for that same principal.
    */
-  grantFor(res: Extract<CommandResponse, { kind: "gate" }>): Grant;
+  grantFor(res: GrantRequest): Grant;
+  /** who a grant minted under `ctx` belongs to (see `KernelConfig.principalOf`) */
+  principalOf(ctx: Ctx): string | undefined;
   /** the assembled root list (from the registry, or the static roots) */
   roots(ctx?: Ctx): CommandNode[];
   /** chord-leader lookup over the roots */
@@ -122,11 +137,13 @@ export function createKernel(config: KernelConfig = {}): Kernel {
     : null;
   const fallback = config.fallback ?? null;
   const staticRoots = config.roots ?? [];
+  const principalOf = config.principalOf ?? ((ctx: Ctx) => ctx.user.id);
   const deps: CommandDeps = {
     ranker,
     gate,
     evidence,
     policy,
+    principalOf,
     ...(entities != null && { entities }),
   };
 
@@ -143,7 +160,13 @@ export function createKernel(config: KernelConfig = {}): Kernel {
     resolveChildren,
     executeNode: (node, args, ctx, confirmation) =>
       executeNode(node, args, ctx, deps, confirmation),
-    grantFor: (res) => evidence.sign(res.node.id, signingArgs(res.node, res.args), res.priorKey),
+    grantFor: (res) =>
+      evidence.sign(
+        res.node.id,
+        signingArgs(res.node, res.args),
+        bindingKey(res.principal, res.priorKey),
+      ),
+    principalOf,
     roots,
     chords: (ctx) => collectChords(roots(ctx)),
     shortcuts: (ctx) => collectShortcuts(roots(ctx), ctx),

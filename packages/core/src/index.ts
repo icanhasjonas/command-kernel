@@ -39,7 +39,12 @@ export {
   command,
 } from "./command.js";
 // the kernel factory — where the seams meet
-export { createKernel, type Kernel, type KernelConfig } from "./create-kernel.js";
+export {
+  createKernel,
+  type GrantRequest,
+  type Kernel,
+  type KernelConfig,
+} from "./create-kernel.js";
 // DRIVER #4 — deeplinks (serialize / parse a path; same arg schema)
 export { type DeeplinkOptions, parseDeeplink, serializePath } from "./deeplink.js";
 // self-description — what an agent reads to navigate the tree without guessing
@@ -63,10 +68,17 @@ export {
 // a run() that fails for a reason a caller can act on throws one of these
 export { CommandError, isCommandError } from "./errors.js";
 // SEAM 3 — evidence (the session-salted honesty tag)
-export { createMemoryEvidenceStore, type EvidenceStore, pathKey } from "./evidence.js";
+export {
+  bindingKey,
+  createMemoryEvidenceStore,
+  type EvidenceStore,
+  pathKey,
+} from "./evidence.js";
 export { type FuzzyResult, fuzzyMatch } from "./fuzzy.js";
 // SEAM 2 — the gate (the single permission-enforcement point)
 export { createRoleGate, evaluateGate, type GatePolicy, isGated } from "./gate.js";
+// the key of a walked chain (command() and any driver that walks one itself)
+export { type Hop, hopsKey } from "./hops-key.js";
 // the lower verbs the drivers compose (usually reached via the Kernel instance)
 export {
   bumpFrecency,
@@ -74,6 +86,7 @@ export {
   collectChords,
   collectShortcuts,
   type ExecuteDeps,
+  type ExecuteMode,
   type ExecuteOutcome,
   executeNode,
   missingArgs,
@@ -117,10 +130,8 @@ export { createRegistry, type Provider, type Registry } from "./registry.js";
 // the keystone — the arg schema, derived into JSON Schema + runtime validation
 export {
   type ArgError,
-  type JsonSchema,
   type JsonSchemaNode,
   type JsonSchemaObject,
-  type JsonSchemaProperty,
   toJsonSchema,
   validateArgs,
 } from "./schema.js";

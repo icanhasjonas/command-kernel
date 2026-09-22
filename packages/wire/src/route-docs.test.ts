@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import { commandManifest, renderCommandDocs } from "./docs.js";
 import { boxChanged, specs } from "./fixtures.test-util.js";
-import { fillRoute, matchRoute } from "./route.js";
+import { fillRoute, matchRoute, queryArgs } from "./route.js";
 
 describe("routes", () => {
   it("match reads decoded params, and only an exact shape matches", () => {
@@ -18,6 +18,13 @@ describe("routes", () => {
       fillRoute("/boxes/:b/messages/:m", { b: "a/b", m: "m1", raw: true, tags: ["x", "y"] }),
     ).toBe("/boxes/a%2Fb/messages/m1?raw=true&tags=x&tags=y");
     expect(() => fillRoute("/boxes/:b", {})).toThrow("missing :b");
+  });
+
+  it("a __proto__ query param is an own arg, never the prototype", () => {
+    const args = queryArgs(new URLSearchParams("__proto__=a&__proto__=b&x=1"));
+    expect(Object.hasOwn(args, "__proto__")).toBe(true);
+    expect(Object.getPrototypeOf(args)).toBe(Object.prototype);
+    expect(Object.keys(args)).toEqual(["__proto__", "x"]);
   });
 });
 

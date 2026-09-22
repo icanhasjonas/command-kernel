@@ -56,11 +56,12 @@ export async function runCall(
           details: { arg: res.arg.id, candidates: res.candidates.map((c) => c.id) },
         });
       case "gate":
-        // `details` is what a host needs to mint a grant (kernel.grantFor) once a person confirms
+        // `details` is what a client needs to SHOW the confirm; never the args, which
+        // after prefill can hold server-side values the caller never sent
         return res.verdict.allowed
           ? fail("confirmRequired", `${res.node.title} needs a confirmation`, {
               checks: res.verdict.checks,
-              details: { args: res.args, priorKey: res.priorKey },
+              details: { command: res.node.id, title: res.node.title },
             })
           : fail("forbidden", `Not allowed: ${res.node.title}`, { checks: res.verdict.checks });
       case "completions":
