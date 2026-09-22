@@ -71,10 +71,10 @@ const buildRoots = (): CommandNode[] => [
   },
 ];
 
-function mountHook(role: Ctx["user"]["role"] = "admin") {
+function mountHook(role: Ctx["user"]["role"] = "admin", rootsOverride?: CommandNode[]) {
   const results: CommandResult[] = [];
   const executed: string[] = [];
-  const roots = buildRoots();
+  const roots = rootsOverride ?? buildRoots();
   const kernel = createKernel({ roots });
   // STABLE identities across renders — a fresh ctx object each render would
   // retrigger usePalette's ctx-dependent effects and loop forever.
@@ -207,6 +207,128 @@ describe("usePalette — the gate + evidence flow", () => {
     expect(view.result.current.mode).toBe("confirm");
     expect(view.result.current.confirm?.blocked).toBe(true);
     expect(results).toHaveLength(0);
+  });
+});
+
+// regression coverage ahead of the usePalette split into usePaletteFrames /
+// usePaletteArgs / usePaletteGate: these paths had no test at all before —
+// each is proven green here BEFORE the move, and re-checked green after.
+describe("usePalette — selection movement", () => {
+  it("move() wraps forward and backward across the ranked list, and no-ops at zero length", () => {
+    const { view } = mountHook();
+    expect(view.result.current.selected).toBe(0);
+    act(() => view.result.current.move(-1, 5));
+    expect(view.result.current.selected).toBe(4); // wraps to the last item
+    act(() => view.result.current.move(1, 5));
+    expect(view.result.current.selected).toBe(0); // wraps back to the first
+    act(() => view.result.current.move(1, 0));
+    expect(view.result.current.selected).toBe(0); // empty list never moves
+  });
+});
+
+describe("usePalette — a `multiple` arg accumulates until finishArg", () => {
+  const tagRoots: CommandNode[] = [
+    {
+      id: "tag.item",
+      title: "Tag item",
+      args: [{ id: "tags", label: "Tags", kind: "string", required: true, multiple: true }],
+      run: async (a) => ({
+        kind: "toast",
+        message: `tagged ${Array.isArray(a.tags) ? a.tags.join(",") : ""}`,
+      }),
+    },
+  ];
+
+  it("commitArg accumulates values and stays put; finishArg advances and runs", async () => {
+    const { view, nodeById, results, executed } = mountHook("admin", tagRoots);
+    act(() => view.result.current.activate(nodeById("tag.item"), false));
+    expect(view.result.current.arg?.activeArg).toBe("tags");
+
+    act(() => view.result.current.commitArg("red"));
+    expect(view.result.current.mode).toBe("args"); // stayed put — multiple accumulates
+    expect(view.result.current.arg?.activeArg).toBe("tags");
+    expect(view.result.current.arg?.values.tags).toEqual(["red"]);
+
+    act(() => view.result.current.commitArg("blue"));
+    expect(view.result.current.arg?.values.tags).toEqual(["red", "blue"]);
+
+    await act(async () => {
+      view.result.current.finishArg();
+      await tick();
+    });
+    expect(view.result.current.mode).toBe("browse");
+    expect(results.map((r) => r.message)).toEqual(["tagged red,blue"]);
+    expect(executed).toEqual(["tag.item"]);
+  });
+});
+
+describe("usePalette — confirmAlways records a standing rule", () => {
+  it("runs once, then auto-satisfies the same gate next time without asking again", async () => {
+    const { view, nodeById, results, executed } = mountHook();
+    await act(async () => {
+      view.result.current.activate(nodeById("delete.account"), false);
+      await tick();
+    });
+    expect(view.result.current.mode).toBe("confirm");
+
+    await act(async () => {
+      view.result.current.confirmAlways();
+      await tick();
+    });
+    expect(results.map((r) => r.message)).toEqual(["deleted"]);
+    expect(executed).toEqual(["delete.account"]);
+
+    // second attempt: activate() alone runs it — the standing rule auto-satisfies
+    // the gate, so it completes without a second confirmProceed/confirmAlways call
+    await act(async () => {
+      view.result.current.activate(nodeById("delete.account"), false);
+      await tick();
+    });
+    expect(results.map((r) => r.message)).toEqual(["deleted", "deleted"]);
+    expect(executed).toEqual(["delete.account", "delete.account"]);
+  });
+});
+
+describe("usePalette — arg value completion from enumValues", () => {
+  const colorRoots: CommandNode[] = [
+    {
+      id: "paint.wall",
+      title: "Paint wall",
+      args: [
+        {
+          id: "color",
+          label: "Color",
+          kind: "enum",
+          required: true,
+          enumValues: [
+            { value: "red", label: "Red" },
+            { value: "blue", label: "Blue" },
+            { value: "green", label: "Green" },
+          ],
+        },
+      ],
+      run: async (a) => ({ kind: "toast", message: `painted ${String(a.color)}` }),
+    },
+  ];
+
+  it("argOptions lists the matching enum values as the query narrows", async () => {
+    const { view, nodeById } = mountHook("admin", colorRoots);
+    act(() => view.result.current.activate(nodeById("paint.wall"), false));
+    expect(view.result.current.mode).toBe("args");
+    await act(async () => {
+      await tick();
+    });
+    expect(view.result.current.argOptions.map((o) => o.value).sort()).toEqual([
+      "blue",
+      "green",
+      "red",
+    ]);
+
+    act(() => view.result.current.setArgQuery("bl"));
+    await act(async () => {
+      await tick();
+    });
+    expect(view.result.current.argOptions.map((o) => o.value)).toEqual(["blue"]);
   });
 });
 
