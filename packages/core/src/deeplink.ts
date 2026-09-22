@@ -33,8 +33,10 @@ function encodeQuery(args: ArgValues): string {
   const parts: string[] = [];
   for (const k of Object.keys(args).sort()) {
     const v = args[k];
-    // a list of scalars repeats the key: ?to=a&to=b. An object is one JSON value.
-    const items = Array.isArray(v) && v.every((x) => typeof x !== "object") ? v : [v];
+    // a list of scalars repeats the key: ?to=a&to=b. Anything holding an object is one
+    // JSON value. A one-item list reads back as one value; coercion re-lists it for an
+    // array schema or a `multiple` arg, so [7] survives the round trip.
+    const items = Array.isArray(v) && v.every((x) => x === null || typeof x !== "object") ? v : [v];
     for (const item of items) {
       if (item !== undefined && item !== null && item !== "") {
         parts.push(`${encodeURIComponent(k)}=${encodeURIComponent(asQueryText(item))}`);

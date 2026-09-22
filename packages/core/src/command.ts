@@ -5,6 +5,7 @@ import { pathKey } from "./evidence.js";
 import { type ExecuteDeps, executeNode, missingArgs, resolveChildren } from "./kernel.js";
 import type { Ranker } from "./rank.js";
 import type { ArgError } from "./schema.js";
+import { signingArgs } from "./signing.js";
 import type {
   ArgOption,
   ArgSpec,
@@ -171,23 +172,24 @@ export async function command(
       ? { ...ctx, user: { ...ctx.user, role: req.role } }
       : ctx;
 
-  // walk the path, resolving children at each hop
+  // walk the path, resolving children at each hop. Every hop's args are coerced to
+  // their declared kinds (resolve() sees 5, not "5"), and each hop is keyed in its
+  // canonical signing form, so every driver computes the same binding context.
   let level = roots;
   let tip: CommandNode | null = null;
   let values: ArgValues = {};
+  const walked: Array<{ id: string; args: ArgValues }> = [];
   for (const seg of req.path ?? []) {
     const node = level.find((n) => n.id === seg.id);
     if (!node) return { kind: "completions", at: tip, items: [] };
     tip = node;
-    values = { ...(node.prefill ? node.prefill(ectx) : {}), ...(seg.args ?? {}) };
+    walked.push({ id: node.id, args: signingArgs(node, seg.args ?? {}) });
+    values = coerceArgs(node, { ...(node.prefill ? node.prefill(ectx) : {}), ...(seg.args ?? {}) });
     level = node.resolve ? await resolveChildren(node, values, ectx) : [];
   }
 
   // EXECUTE the tip
   if (req.execute && tip) {
-    // coerce HERE, not only in executeNode: a `gate` response must hand back the
-    // exact typed args the grant will be verified against
-    values = coerceArgs(tip, values);
     // resolve entity-typed args: auto-resolve a single match, disambiguate on many
     if (deps.entities) {
       const dis = await resolveEntities(tip, values, ectx, deps.entities);
@@ -207,7 +209,7 @@ export async function command(
     // the grant on the tip segment is bound to everything before it
     const segments = req.path ?? [];
     const tipSeg = segments[segments.length - 1];
-    const priorKey = pathKey(segments.slice(0, -1));
+    const priorKey = pathKey(walked.slice(0, -1));
     const outcome = await executeNode(tip, values, ectx, deps, {
       ...(tipSeg?.evidence !== undefined && { grant: tipSeg.evidence }),
       priorKey,

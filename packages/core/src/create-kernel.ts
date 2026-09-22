@@ -17,6 +17,7 @@ import { type ShortcutConflict, validateShortcuts } from "./keyboard.js";
 import { createMemoryPolicyStore, type PolicyStore } from "./policy.js";
 import { type Ranker, rank } from "./rank.js";
 import type { Registry } from "./registry.js";
+import { signingArgs } from "./signing.js";
 import type { ArgValues, CommandNode, Ctx, FallbackSearch, Grant, Ranked } from "./types.js";
 
 /**
@@ -141,7 +142,7 @@ export function createKernel(config: KernelConfig = {}): Kernel {
     resolveChildren,
     executeNode: (node, args, ctx, confirmation) =>
       executeNode(node, args, ctx, deps, confirmation),
-    grantFor: (res) => evidence.sign(res.node.id, res.args, res.priorKey),
+    grantFor: (res) => evidence.sign(res.node.id, signingArgs(res.node, res.args), res.priorKey),
     roots,
     chords: (ctx) => collectChords(roots(ctx)),
     shortcuts: (ctx) => collectShortcuts(roots(ctx), ctx),

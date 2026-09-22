@@ -9,6 +9,7 @@ import { executeNode } from "./kernel.js";
 import { createMemoryPolicyStore } from "./policy.js";
 import { rank } from "./rank.js";
 import { type JsonSchemaNode, toJsonSchema, validateArgs } from "./schema.js";
+import { signingArgs } from "./signing.js";
 import type { ArgValues, CommandNode, Ctx } from "./types.js";
 
 /**
@@ -191,7 +192,8 @@ describe("executeNode and command() run with typed, coerced args", () => {
     const first = await command([node], { path, execute: true }, ctx, { ...d, gate: confirmGate });
     if (first.kind !== "gate") throw new Error(`expected gate, got ${first.kind}`);
     expect(first.args).toEqual({ thread: "t1", seen: true });
-    const evidence = d.evidence.sign(node.id, first.args, first.priorKey);
+    // what kernel.grantFor does: sign the canonical form of the effective args
+    const evidence = d.evidence.sign(node.id, signingArgs(node, first.args), first.priorKey);
     const second = await command(
       [node],
       { path: [{ ...path[0], id: node.id, evidence }], execute: true },
@@ -207,12 +209,12 @@ describe("evidence and deeplinks stay canonical", () => {
     expect(pathKey([{ id: "a", args: { x: "1", y: ["b", "a"] } }])).toBe("a(x=1&y=a,b)");
   });
 
-  it("typed values key canonically, and never collide with the same text", () => {
+  it("raw typed values key canonically, and never collide with text", () => {
     const typed = pathKey([{ id: "a", args: { n: 1, o: { b: 1, a: 2 } } }]);
     expect(typed).toBe('a(n=~1&o=~{"a":2,"b":1})');
-    expect(pathKey([{ id: "a", args: { n: "1" } }])).not.toBe(
-      pathKey([{ id: "a", args: { n: 1 } }]),
-    );
+    const key = (n: string | number) => pathKey([{ id: "a", args: { n } }]);
+    expect(key("1")).not.toBe(key(1));
+    expect(key("~1")).not.toBe(key(1));
   });
 
   it("typed args survive a deeplink round trip through coercion", () => {

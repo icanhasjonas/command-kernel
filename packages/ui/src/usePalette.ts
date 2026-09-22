@@ -16,6 +16,7 @@ import {
   pathKey,
   resolveChildren,
   ruleForNode,
+  signingArgs,
 } from "@command-kernel/core";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -214,7 +215,12 @@ export function usePalette({
   // human clicked Confirm — mint a grant bound to this exact command+args+path
   const confirmProceed = useCallback(() => {
     if (!confirm) return;
-    const grant = kernel.evidence.sign(confirm.node.id, confirm.values, ancestorKey());
+    // sign the canonical form the kernel verifies against, not the typed-in text
+    const grant = kernel.evidence.sign(
+      confirm.node.id,
+      signingArgs(confirm.node, confirm.values),
+      ancestorKey(),
+    );
     void proceedGate(confirm.node, confirm.values, grant);
   }, [confirm, ancestorKey, proceedGate, kernel]);
 

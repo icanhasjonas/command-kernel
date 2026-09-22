@@ -122,6 +122,8 @@ export {
   type ParsedShortcut,
   parseShortcut,
 } from "./shortcut.js";
+// the canonical form a grant is signed and verified over (sign with this, never raw args)
+export { canonicalJson, signingArgs } from "./signing.js";
 // the data model
 export type {
   ArgKind,

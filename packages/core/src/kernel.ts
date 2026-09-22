@@ -4,6 +4,7 @@ import type { GatePolicy } from "./gate.js";
 import type { PolicyStore } from "./policy.js";
 import { type Ranker, rank } from "./rank.js";
 import { type ArgError, validateArgs } from "./schema.js";
+import { signingArgs } from "./signing.js";
 import type {
   ArgValues,
   CommandNode,
@@ -147,9 +148,16 @@ export async function executeNode(
   let autoAllowed = false;
   if (verdict.needsConfirm) {
     autoAllowed = deps.policy.match(node.id, args) !== null;
+    // verify over the canonical signing form, so a grant minted from the palette's
+    // text ("yes") verifies the same act arriving typed (true) and vice versa
     const proven =
       autoAllowed ||
-      deps.evidence.verify(confirmation.grant, node.id, args, confirmation.priorKey ?? "");
+      deps.evidence.verify(
+        confirmation.grant,
+        node.id,
+        signingArgs(node, args),
+        confirmation.priorKey ?? "",
+      );
     if (!proven) {
       return {
         verdict,

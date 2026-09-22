@@ -1,3 +1,4 @@
+import { canonicalJson } from "./signing.js";
 import type { ArgValues, Grant, PathSegment } from "./types.js";
 
 /**
@@ -44,33 +45,28 @@ function randomId(seq: { n: number }): string {
   return `${seq.n++}-${Math.floor(Math.random() * 1e9).toString(16)}`;
 }
 
-/** JSON with object keys sorted at every depth, so equal values serialize equally. */
-function canonicalJson(v: unknown): string {
-  if (Array.isArray(v)) return `[${v.map(canonicalJson).join(",")}]`;
-  if (v !== null && typeof v === "object") {
-    const obj = v as Record<string, unknown>; // a non-array object: walk its own keys
-    return `{${Object.keys(obj)
-      .sort()
-      .map((k) => `${JSON.stringify(k)}:${canonicalJson(obj[k])}`)
-      .join(",")}}`;
-  }
-  return JSON.stringify(v);
-}
+/** A text value, with a leading `~` doubled so it can never read as a typed value. */
+const escapeText = (s: string) => (s.startsWith("~") ? `~${s}` : s);
 
 /**
- * Stable, order-independent serialization of an arg bag. Text values keep the
- * original format (a list of strings is sorted and comma-joined), so every grant
- * minted before typed args existed still verifies. A typed value is written as
- * `~` + canonical JSON: the marker keeps the number 1 and the text "1" apart.
+ * Stable, order-independent serialization of an arg bag. The kernel only ever
+ * signs `signingArgs(node, args)` (signing.ts), which is all text, so the text
+ * format is THE format and is unchanged from before typed args existed (a list is
+ * sorted and comma-joined: `multiple` is a set). A non-text value only arrives
+ * here when a driver signs raw typed args itself; it is written as `~` + canonical
+ * JSON, and text starting with `~` is escaped, so the two can never collide.
  */
 function argStr(args: ArgValues): string {
   return Object.keys(args)
     .sort()
     .map((k) => {
       const v = args[k];
-      if (v === undefined || typeof v === "string") return `${k}=${v ?? ""}`;
+      if (v === undefined || typeof v === "string") return `${k}=${escapeText(v ?? "")}`;
       if (Array.isArray(v) && v.every((x) => typeof x === "string"))
-        return `${k}=${[...v].sort().join(",")}`;
+        return `${k}=${v
+          .map((x) => escapeText(String(x)))
+          .sort()
+          .join(",")}`;
       return `${k}=~${canonicalJson(v)}`;
     })
     .join("&");

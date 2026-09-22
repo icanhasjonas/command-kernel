@@ -17,5 +17,14 @@ Typed args, arg-aware gates, structured results and errors.
 - Grants over text-only args hash exactly as before; typed values key as canonical JSON.
 - Agent projection: object values from a model travel as JSON text, so `json` args survive.
 
-Migration: code that assumed every `ArgValue` is `string | string[]` should read values
-through `argText` / `argList`, which accept every kind.
+- Grants are signed and verified over `signingArgs(node, args)`: args coerced to their
+  kinds, then written as text by kind (json as canonical JSON). A grant minted from the
+  palette's text verifies the same act arriving typed, and vice versa. `kernel.grantFor`
+  and the palette do this; a driver that calls `evidence.sign` itself must pass
+  `signingArgs(node, args)`, never raw args.
+
+BREAKING (type level; released as a 0.x minor, which semver permits): `ArgValue` is wider,
+so code that narrows with `typeof v === "string" ? v : v.join()` no longer compiles. Read
+values through `argText` / `argList`, which accept every kind. Runtime behaviour for
+text-only args is unchanged, and their grants key exactly as before (except text that
+starts with `~`, now escaped). Vendored copies are unaffected until they re-vendor.

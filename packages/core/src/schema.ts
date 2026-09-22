@@ -74,7 +74,11 @@ function typedElement(a: ArgSpec): JsonSchemaNode | null {
   const description = a.label && a.label !== a.id ? { description: a.label } : {};
   if (a.kind === "number") return { type: "number", ...description };
   if (a.kind === "boolean") return { type: "boolean", ...description };
-  if (a.kind === "json") return a.schema ?? { type: "object", ...description };
+  if (a.kind === "json") {
+    // the declared schema wins; the arg's label still describes it unless the schema does
+    if (!a.schema) return { type: "object", ...description };
+    return a.schema.description === undefined ? { ...a.schema, ...description } : a.schema;
+  }
   return null;
 }
 

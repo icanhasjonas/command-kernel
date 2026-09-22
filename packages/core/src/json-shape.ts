@@ -33,18 +33,22 @@ export function checkShape(value: unknown, schema: JsonSchemaNode, path: string)
     case "object": {
       if (value === null || typeof value !== "object" || Array.isArray(value))
         return [`${path} must be an object`];
-      const obj = value as Record<string, unknown>;
+      const obj = value as Record<string, unknown>; // checked: a non-null, non-array object
       const props = schema.properties ?? {};
       const out: string[] = [];
+      // own keys only: "constructor" or "__proto__" must never resolve through the prototype
       for (const key of schema.required ?? []) {
-        if (obj[key] === undefined) out.push(`${path}.${key} is required`);
+        if (!Object.hasOwn(obj, key) || obj[key] === undefined)
+          out.push(`${path}.${key} is required`);
       }
       for (const [key, v] of Object.entries(obj)) {
-        const sub = props[key];
+        const sub = Object.hasOwn(props, key) ? props[key] : undefined;
         if (sub) out.push(...checkShape(v, sub, `${path}.${key}`));
         else if (schema.additionalProperties === false) out.push(`${path}.${key} is not allowed`);
       }
       return out;
     }
+    default:
+      return [`${path} has a schema this kernel cannot check`];
   }
 }
