@@ -129,6 +129,10 @@ route param that is not a declared arg; and a GET route on a node that does not 
 cross-site by a link or an `<img>` with the user's cookies, so a node with no `effect` is
 never assumed pure, gate or not. A write is always a POST.
 
+A route param whose value is `""`, `.` or `..` is `400 invalidArguments` on every transport
+(GET, POST and socket alike), and the client refuses it before sending: the URL parser
+folds those segments away, so `/boxes/../messages/m1` would reach `/messages/m1`.
+
 The host MUST check `Origin` on the WebSocket upgrade. A browser opens a cross-origin
 socket without any preflight and sends the user's cookies with it, so a socket that trusts
 its cookie alone can be driven by any page the user visits.

@@ -10,10 +10,33 @@ function segments(path: string): string[] {
   return path.split("/").filter(Boolean);
 }
 
-/** Params from `pathname` when it matches `template`, else null. Values are URL-decoded. */
+/** The `:name` params a route template names, in order. */
+export function routeParams(template: string): string[] {
+  return segments(template)
+    .filter((s) => s.startsWith(":"))
+    .map((s) => s.slice(1));
+}
+
+/**
+ * Why `v` cannot be a path param, or null when it can. The URL parser folds a "."
+ * or ".." segment (and their %2e escapes) away, and an empty one would collapse
+ * the path: each would reach a DIFFERENT route (/boxes/../messages/m1 is /messages/m1).
+ */
+export function unfitParam(v: ArgValue | undefined): string | null {
+  if (v === undefined) return null;
+  const t = text(v);
+  return t === "" || t === "." || t === ".." ? `cannot be "${t}" (it is a URL path segment)` : null;
+}
+
+/**
+ * Params from `pathname` when it matches `template`, else null. Values are URL-decoded.
+ * An empty segment stays in place (`/boxes//m` has an empty first param, it is not
+ * `/boxes/m`), so a caller can refuse it instead of it reaching a shorter route.
+ */
 export function matchRoute(template: string, pathname: string): Record<string, string> | null {
   const want = segments(template);
-  const got = segments(pathname);
+  const got = pathname.split("/").slice(1);
+  if (got.length === want.length + 1 && got.at(-1) === "") got.pop(); // one trailing slash
   if (want.length !== got.length) return null;
   const params: Record<string, string> = {};
   for (let i = 0; i < want.length; i++) {
@@ -26,7 +49,6 @@ export function matchRoute(template: string, pathname: string): Record<string, s
       } catch {
         return null; // a malformed escape is not this route
       }
-      if (!value) return null;
       params[w.slice(1)] = value;
     } else if (w !== g) return null;
   }
@@ -46,7 +68,9 @@ export function fillRoute(template: string, args: ArgValues): string {
       if (!s.startsWith(":")) return s;
       const name = s.slice(1);
       const v = args[name];
-      if (v === undefined || v === "") throw new Error(`route ${template}: missing :${name}`);
+      if (v === undefined) throw new Error(`route ${template}: missing :${name}`);
+      const unfit = unfitParam(v);
+      if (unfit) throw new Error(`route ${template}: :${name} ${unfit}`);
       used.add(name);
       return encodeURIComponent(text(v));
     })

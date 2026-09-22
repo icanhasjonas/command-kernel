@@ -1,4 +1,5 @@
 import type { ArgValues, Ctx, Grant, Kernel } from "@command-kernel/core";
+import { argGuards } from "./arg-guards.js";
 import { overLimit, readGrant } from "./body.js";
 import { frameId } from "./frame-id.js";
 import { httpHandler } from "./http-handler.js";
@@ -79,10 +80,12 @@ export function createWireServer(opts: WireServerOptions): WireServer {
   // an undeclared command answers word for word as one that does not exist
   const unknown = (name: string) => refusal("unknownCommand", `No command ${name}`);
 
-  const call = (name: string, args: ArgValues, ctx: Ctx, evidence?: Grant) =>
-    commandIds.has(name)
-      ? runCall(opts.kernel, name, args, ctx, evidence, opts)
-      : Promise.resolve(unknown(name));
+  const guards = argGuards(opts.specs);
+
+  const call = async (name: string, args: ArgValues, ctx: Ctx, evidence?: Grant) => {
+    if (!commandIds.has(name)) return unknown(name);
+    return guards.check(name, args) ?? runCall(opts.kernel, name, args, ctx, evidence, opts);
+  };
 
   /** The gate's verdict for a call (a dry run: never executed), turned into a grant when the host allows it. */
   async function approve(
@@ -111,6 +114,8 @@ export function createWireServer(opts: WireServerOptions): WireServer {
   async function confirmCall(name: string, args: ArgValues, ctx: Ctx): Promise<Outcome> {
     if (!commandIds.has(name)) return unknown(name);
     if (!opts.confirm) return refusal("forbidden", "Confirmations are not enabled here");
+    const refusedArgs = guards.check(name, args);
+    if (refusedArgs) return refusedArgs;
     try {
       return await approve(opts.confirm, name, args, ctx);
     } catch (err) {
