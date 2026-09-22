@@ -164,7 +164,21 @@ export function createHmacEvidenceStore(
  * The default evidence store: HMAC-SHA256 under a random key drawn for this store
  * alone, for a single process. Isolates that must accept each other's grants use
  * `createHmacEvidenceStore(sharedKey)`.
+ *
+ * The key is drawn on first use, not here: a host builds its kernel at module scope,
+ * and some runtimes (Cloudflare Workers) refuse randomness there.
  */
 export function createMemoryEvidenceStore(opts: HmacStoreOptions = {}): EvidenceStore {
-  return createHmacEvidenceStore(randomBytes(KEY_BYTES), opts);
+  let inner: EvidenceStore | undefined;
+  const store = () => {
+    inner ??= createHmacEvidenceStore(randomBytes(KEY_BYTES), opts);
+    return inner;
+  };
+  return {
+    sign: (commandId, args, priorKey, o) => store().sign(commandId, args, priorKey, o),
+    verify: (grant, commandId, args, priorKey, now) =>
+      store().verify(grant, commandId, args, priorKey, now),
+    grantForPath: (path, principal) => store().grantForPath(path, principal),
+    rotate: () => store().rotate(),
+  };
 }
