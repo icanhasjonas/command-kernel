@@ -39,16 +39,20 @@ function asQueryText(v: unknown): string {
 }
 
 function encodeQuery(args: ArgValues, specs: readonly ArgSpec[] = []): string {
-  const json = new Set(specs.filter((a) => a.kind === "json").map((a) => a.id));
+  const json = new Map(specs.filter((a) => a.kind === "json").map((a) => [a.id, a]));
   const parts: string[] = [];
   const put = (k: string, text: string) =>
     parts.push(`${encodeURIComponent(k)}=${encodeURIComponent(text)}`);
   for (const k of Object.keys(args).sort()) {
     const v = args[k];
     if (v === undefined) continue;
-    // a declared json arg is one JSON value, whatever it holds
-    if (json.has(k)) {
-      put(k, typeof v === "string" ? v : JSON.stringify(v));
+    // a declared json arg is one JSON value, whatever it holds; a `multiple` one is
+    // a repeated key, one JSON value per item
+    const spec = json.get(k);
+    if (spec) {
+      const one = (x: unknown) => (typeof x === "string" ? x : JSON.stringify(x));
+      if (spec.multiple && Array.isArray(v)) for (const x of v) put(k, one(x));
+      else put(k, one(v));
       continue;
     }
     // a list of scalars repeats the key: ?to=a&to=b. Anything holding an object is one

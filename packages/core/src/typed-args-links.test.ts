@@ -126,3 +126,32 @@ describe("review round 3", () => {
     expect([arg?.multiple, arg?.schema]).toEqual([true, { type: "object" }]);
   });
 });
+
+describe("review round 4", () => {
+  const rows: CommandNode = {
+    id: "r",
+    title: "r",
+    args: [
+      { id: "j", label: "j", kind: "json", multiple: true, schema: { type: "object" } },
+      { id: "s", label: "s", kind: "json", schema: { type: "string" } },
+      { id: "tags", label: "tags", kind: "string", multiple: true },
+    ],
+  };
+
+  it("a multiple json arg round-trips a deeplink, one JSON value per item", () => {
+    const j = [{ a: 1 }, { b: 2 }];
+    expect(roundTrip(rows, { j }, true).j).toEqual(j);
+  });
+
+  it("a number sent where the schema says text becomes its text, at any depth", () => {
+    expect(coerceArgs(rows, { s: 5 }).s).toBe("5");
+    expect(coerceArgs(setSeen, { thread: "t", cursor: { box: 7, seq: "3" } }).cursor).toEqual({
+      box: "7",
+      seq: 3,
+    });
+  });
+
+  it("a multiple arg given one value is a list of one, from any driver", () => {
+    expect(coerceArgs(rows, { tags: "a" }).tags).toEqual(["a"]);
+  });
+});

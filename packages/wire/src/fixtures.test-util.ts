@@ -132,3 +132,12 @@ export class FakeSocket implements WebSocketLike {
     this.onclose?.({});
   }
 }
+
+/** Wait until `cond` holds, instead of sleeping a fixed time (robust under load). */
+export async function waitFor(cond: () => boolean, ms = 2000) {
+  const end = Date.now() + ms;
+  while (!cond()) {
+    if (Date.now() > end) throw new Error("condition not met in time");
+    await new Promise((r) => setTimeout(r, 2));
+  }
+}

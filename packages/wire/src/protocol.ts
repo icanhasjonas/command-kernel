@@ -17,9 +17,9 @@ import type { ArgError, ArgValues, GateCheck, Grant } from "@command-kernel/core
  * Responses on a socket may arrive out of order; a client matches them by `id`.
  */
 
-/** Client -> server on a socket: call a command. */
+/** Client -> server on a socket: call a command, or ask for a grant for one. */
 export interface CallFrame {
-  t: "cmd";
+  t: "cmd" | "confirm";
   /** client-chosen, unique per socket; echoed on the answer */
   id: string;
   name: string;
@@ -103,7 +103,8 @@ export const ERROR_STATUS: Readonly<Record<string, number>> = {
 
 /** The built-in status for a code, else `fallback`. May be 0 for a client-only code. */
 export function statusOf(code: string, fallback = 400): number {
-  return ERROR_STATUS[code] ?? fallback;
+  // own properties only: a code named "constructor" must not read off the prototype
+  return Object.hasOwn(ERROR_STATUS, code) ? (ERROR_STATUS[code] as number) : fallback;
 }
 
 /**
@@ -115,7 +116,9 @@ export function serverStatus(
   code: string,
   statusFor?: (code: string) => number | undefined,
 ): number {
-  const s = ERROR_STATUS[code] ?? statusFor?.(code) ?? 400;
+  const s = Object.hasOwn(ERROR_STATUS, code)
+    ? (ERROR_STATUS[code] as number)
+    : (statusFor?.(code) ?? 400);
   return Number.isInteger(s) && s >= 400 && s <= 599 ? s : 500;
 }
 

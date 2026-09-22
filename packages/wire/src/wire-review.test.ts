@@ -3,8 +3,15 @@ import { CommandError, createKernel } from "@command-kernel/core";
 import { createWireClient } from "./client.js";
 import type { WireCallError } from "./client-error.js";
 import { defineCommand, implement } from "./define.js";
-import { commandManifest } from "./docs.js";
-import { ctx, FakeSocket, makeServer, setSeen } from "./fixtures.test-util.js";
+import { commandManifest, renderCommandDocs } from "./docs.js";
+import {
+  ctx,
+  FakeSocket,
+  makeServer,
+  setSeen as setSeenSpec,
+  waitFor,
+} from "./fixtures.test-util.js";
+import { serverStatus, statusOf } from "./protocol.js";
 import { createWireServer } from "./server.js";
 
 /** One regression per defect found in review of the wire package (W1..W14). */
@@ -164,7 +171,11 @@ describe("client", () => {
       return new Response("{}");
     });
     const e = await failed(
-      c.call(setSeen, { boxId: "b", threadId: "t", seen: true }, { signal: AbortSignal.abort() }),
+      c.call(
+        setSeenSpec,
+        { boxId: "b", threadId: "t", seen: true },
+        { signal: AbortSignal.abort() },
+      ),
     );
     expect([e.code, e.retryable, fetched]).toEqual(["aborted", false, 0]);
   });
@@ -236,5 +247,155 @@ describe("docs (W14)", () => {
       defineCommand<object, unknown>()({ id, title: id }),
     );
     expect(commandManifest(specs).commands.map((c) => c.id)).toEqual(["B", "_", "a", "b"]);
+  });
+});
+
+describe("review round 2", () => {
+  it("D1: a quiet socket is only dropped when a ping goes unanswered", async () => {
+    const live = new Set<FakeSocket>();
+    const c = createWireClient({
+      http: "/api",
+      ws: "wss://x",
+      heartbeat: { intervalMs: 5, ping: "ping", pong: "pong", pongWaitMs: 30 },
+      socket: (u) => {
+        const s = new FakeSocket(u, makeServer(), false);
+        live.add(s);
+        return s;
+      },
+      random: () => 0,
+    });
+    c.connect();
+    const sock = FakeSocket.all.at(-1);
+    sock?.open();
+    // pings go out, and each is answered late but before its deadline
+    for (let i = 0; i < 4; i++) {
+      await new Promise((r) => setTimeout(r, 8));
+      sock?.push("pong");
+    }
+    expect(c.status).toBe("open");
+    expect(live.size).toBe(1);
+    c.close();
+  });
+
+  it("D2: a call that times out makes the socket prove it is alive", async () => {
+    const c = createWireClient({
+      http: "/api",
+      ws: "wss://x",
+      timeoutMs: 10,
+      heartbeat: { intervalMs: 10_000, ping: "ping", pong: "pong", pongWaitMs: 20 },
+      socket: (u) => new FakeSocket(u, makeServer(), false),
+      random: () => 0,
+    });
+    c.connect();
+    FakeSocket.all.at(-1)?.open();
+    await failed(c.callName("thread.list", { boxId: "b1" }));
+    expect(FakeSocket.all.at(-1)?.sent).toContain("ping");
+    await waitFor(() => FakeSocket.all.length > 1); // no pong came: the socket is replaced
+    c.close();
+  });
+
+  it("D3: a socket factory that throws does not end reconnecting", async () => {
+    let made = 0;
+    const c = createWireClient({
+      http: "/api",
+      ws: "wss://x",
+      heartbeat: false,
+      random: () => 0,
+      socket: (u) => {
+        made++;
+        if (made > 1 && made < 4) throw new Error("no token");
+        return new FakeSocket(u);
+      },
+    });
+    c.connect();
+    FakeSocket.all.at(-1)?.close();
+    await waitFor(() => made >= 4);
+    FakeSocket.all.at(-1)?.open();
+    expect(c.status).toBe("open");
+    c.close();
+  });
+
+  it("D4: an oversized frame answers tooLarge and still settles the call", async () => {
+    const wire = createWireServer({ kernel: server().kernel, maxBytes: 40 });
+    const frame = JSON.stringify({
+      t: "cmd",
+      id: "c9",
+      name: "say.hi",
+      args: { pad: "x".repeat(200) },
+    });
+    const res = JSON.parse(await wire.handleFrame(frame, ctx));
+    expect([res.id, res.error.code, res.error.status]).toEqual(["c9", "tooLarge", 413]);
+  });
+
+  it("D6: the server mints a grant only when the host's policy says so", async () => {
+    const kernel = server().kernel;
+    const asked: string[] = [];
+    const yes = createWireServer({ kernel, confirm: ({ name }) => (asked.push(name), true) });
+    const no = createWireServer({ kernel, confirm: () => false });
+    const off = createWireServer({ kernel });
+    const args = { n: 2 };
+    const minted = await yes.confirmCall("danger", args, ctx);
+    expect(
+      minted.ok && (minted.result.payload as { grant: { sig: string } }).grant.sig,
+    ).toBeTruthy();
+    expect(asked).toEqual(["danger"]);
+    expect(!(await no.confirmCall("danger", args, ctx)).ok).toBe(true);
+    expect(!(await off.confirmCall("danger", args, ctx)).ok).toBe(true);
+    // and a command that is not gated cannot be "confirmed"
+    expect(!(await yes.confirmCall("say.hi", {}, ctx)).ok).toBe(true);
+  });
+
+  it("D7: a frame that is not ours never breaks the socket handler", () => {
+    const c = createWireClient({
+      http: "/api",
+      ws: "wss://x",
+      socket: (u) => new FakeSocket(u),
+      heartbeat: false,
+    });
+    c.connect();
+    const sock = FakeSocket.all.at(-1);
+    sock?.open();
+    for (const junk of ["null", "7", '"hi"', '{"t":"other","id":"c1"}', "{"]) {
+      expect(() => sock?.push(junk)).not.toThrow();
+    }
+    c.close();
+  });
+
+  it("D9: a literal segment wins at the first position that differs", async () => {
+    const kernel = server().kernel;
+    const a = defineCommand<{ x: string }, unknown>()(
+      { id: "a", title: "a" },
+      { http: { method: "GET", path: "/:x/b" } },
+    );
+    const b = defineCommand<{ y: string }, unknown>()(
+      { id: "b", title: "b" },
+      { http: { method: "GET", path: "/a/:y" } },
+    );
+    const wire = createWireServer({ kernel, specs: [a, b] });
+    expect(await wire.handleHttp(new Request("https://x/api/a/b"), ctx)).not.toBeNull();
+  });
+
+  it("D10: doc anchors are GitHub slugs", () => {
+    expect(renderCommandDocs("x", [setSeenSpec])).toContain("(#threadsetseen)");
+  });
+
+  it("D11: a code named like an Object member is not a status", () => {
+    expect(statusOf("constructor")).toBe(400);
+    expect(serverStatus("toString")).toBe(400);
+  });
+
+  it("D12: OPTIONS says what the path accepts; GET on a command path says POST", async () => {
+    const { wire } = server();
+    const withSpecs = createWireServer({ kernel: server().kernel, specs: [setSeenSpec] });
+    const options = await wire.handleHttp(
+      new Request("https://x/api/say.hi", { method: "OPTIONS" }),
+      ctx,
+    );
+    expect([options?.status, options?.headers.get("allow")]).toEqual([
+      204,
+      "GET, HEAD, POST, OPTIONS",
+    ]);
+    const get = await withSpecs.handleHttp(new Request("https://x/api/thread.setSeen"), ctx);
+    expect([get?.status, get?.headers.get("allow")]).toEqual([405, "POST"]);
   });
 });

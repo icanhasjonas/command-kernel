@@ -1,8 +1,14 @@
 /**
  * A socket that stays up: connects, notices when it is dead, and reconnects with
- * jittered exponential backoff. It knows nothing about commands; the client
- * layers calls and events on top. DOM-free: the host supplies the socket factory
- * (the browser's WebSocket by default, a header-carrying one on a native app).
+ * jittered exponential backoff. It knows nothing about commands; the client layers
+ * calls and events on top. DOM-free: the host supplies the socket factory (the
+ * browser's WebSocket by default, a header-carrying one on a native app).
+ *
+ * Liveness is a PING with its own DEADLINE, not a clock comparison: a background tab
+ * whose timers the browser throttles to once a minute would fail any "did anything
+ * arrive in the last N seconds" test even on a perfectly healthy socket. Here the
+ * deadline is armed when a ping goes out and cancelled by any message that arrives,
+ * so throttling delays the next ping instead of killing the connection.
  */
 
 /** The part of a WebSocket this needs; the browser's, Bun's and undici's all fit. */
@@ -18,18 +24,22 @@ export interface WebSocketLike {
 
 export type ConnectionStatus = "idle" | "connecting" | "open" | "reconnecting" | "closed";
 
+export interface Heartbeat {
+  /** how often to ping while the socket is quiet (default 25,000 ms) */
+  intervalMs: number;
+  ping: string;
+  pong: string;
+  /** how long a ping may go unanswered before the socket is replaced (default 10,000 ms) */
+  pongWaitMs?: number;
+}
+
 export interface ConnectionOptions {
   url: string;
   socket?: (url: string) => WebSocketLike;
   /** backoff bounds for reconnecting, ms (default 500 .. 15,000) */
   backoff?: { minMs?: number; maxMs?: number };
-  /**
-   * Liveness: send `ping` every `intervalMs`; if nothing at all arrives for two
-   * intervals the socket is treated as dead and replaced. A server answers `ping`
-   * with `pong` (a Durable Object does it without waking, via its auto-response).
-   * `false` turns it off. Default { intervalMs: 25000, ping: "ping", pong: "pong" }.
-   */
-  heartbeat?: { intervalMs: number; ping: string; pong: string } | false;
+  /** liveness checks; `false` turns them off */
+  heartbeat?: Heartbeat | false;
   /** WebSocket subprotocols for the default socket factory */
   protocols?: string[];
   /** 0..1, for tests */
@@ -37,6 +47,7 @@ export interface ConnectionOptions {
 }
 
 const OPEN = 1;
+const DEFAULT_BEAT: Heartbeat = { intervalMs: 25_000, ping: "ping", pong: "pong" };
 
 type SocketCtor = new (url: string, protocols?: string[]) => WebSocketLike;
 
@@ -56,6 +67,8 @@ export interface Connection {
   start(): void;
   /** skip the backoff wait and try now (e.g. the host saw the network come back) */
   retryNow(): void;
+  /** check this socket is still alive (a call just timed out): ping, and replace it if silent */
+  probe(): void;
   stop(): void;
   send(data: string): boolean;
 }
@@ -68,10 +81,8 @@ export function createConnection(
   const make = opts.socket ?? defaultSocket(opts.protocols);
   const minMs = opts.backoff?.minMs ?? 500;
   const maxMs = opts.backoff?.maxMs ?? 15_000;
-  const beat =
-    opts.heartbeat === undefined
-      ? { intervalMs: 25_000, ping: "ping", pong: "pong" }
-      : opts.heartbeat;
+  const beat = opts.heartbeat === undefined ? DEFAULT_BEAT : opts.heartbeat;
+  const pongWait = beat ? (beat.pongWaitMs ?? Math.min(10_000, beat.intervalMs)) : 0;
   const random = opts.random ?? Math.random;
 
   let ws: WebSocketLike | null = null;
@@ -79,7 +90,7 @@ export function createConnection(
   let attempt = 0;
   let retry: ReturnType<typeof setTimeout> | null = null;
   let pulse: ReturnType<typeof setInterval> | null = null;
-  let lastSeen = 0;
+  let deadline: ReturnType<typeof setTimeout> | null = null;
   let wanted = false;
 
   const set = (s: ConnectionStatus) => {
@@ -90,34 +101,45 @@ export function createConnection(
   const clearTimers = () => {
     if (retry) clearTimeout(retry);
     if (pulse) clearInterval(pulse);
-    retry = null;
-    pulse = null;
+    if (deadline) clearTimeout(deadline);
+    retry = pulse = deadline = null;
   };
+
+  /** Send a ping and require an answer before `pongWait`. */
+  function ping(sock: WebSocketLike) {
+    if (!beat || sock.readyState !== OPEN || deadline) return;
+    sock.send(beat.ping);
+    deadline = setTimeout(() => {
+      deadline = null;
+      lost(sock);
+      sock.close(4000, "no pong");
+    }, pongWait);
+  }
 
   function open() {
     clearTimers();
     set(attempt === 0 ? "connecting" : "reconnecting");
-    const sock = make(opts.url);
+    let sock: WebSocketLike;
+    try {
+      sock = make(opts.url);
+    } catch {
+      // a factory that throws (a token it could not fetch) must not end reconnecting
+      schedule();
+      return;
+    }
     ws = sock;
     sock.onopen = () => {
       if (ws !== sock) return;
       attempt = 0;
-      lastSeen = Date.now();
       set("open");
-      if (beat) {
-        pulse = setInterval(() => {
-          // a half-open mobile socket can sit in CLOSING for tens of seconds before
-          // onclose fires: give up on it NOW and reconnect, then let close() finish
-          if (Date.now() - lastSeen > beat.intervalMs * 2) {
-            lost(sock);
-            sock.close(4000, "heartbeat lost");
-          } else if (sock.readyState === OPEN) sock.send(beat.ping);
-        }, beat.intervalMs);
-      }
+      if (beat) pulse = setInterval(() => ping(sock), beat.intervalMs);
     };
     sock.onmessage = (ev) => {
       if (ws !== sock) return;
-      lastSeen = Date.now();
+      if (deadline) {
+        clearTimeout(deadline); // anything at all proves the socket is alive
+        deadline = null;
+      }
       const text = typeof ev.data === "string" ? ev.data : "";
       if (!text || (beat && text === beat.pong)) return;
       onMessage(text);
@@ -128,17 +150,21 @@ export function createConnection(
     sock.onclose = () => lost(sock);
   }
 
-  /** `sock` is gone (closed, or declared dead): forget it and, if still wanted, come back. */
-  function lost(sock: WebSocketLike) {
-    if (ws !== sock) return; // already replaced; a late close of an old socket means nothing
-    ws = null;
-    clearTimers();
-    if (!wanted) return set("closed");
-    // full jitter: a fleet of clients must not reconnect in lockstep
+  /** Come back after the backoff wait (full jitter: a fleet must not reconnect in lockstep). */
+  function schedule() {
     const delay = Math.floor(random() * Math.min(maxMs, minMs * 2 ** attempt));
     attempt++;
     set("reconnecting");
     retry = setTimeout(open, delay);
+  }
+
+  /** `sock` is gone (closed, or declared dead): forget it and, if still wanted, come back. */
+  function lost(sock: WebSocketLike) {
+    if (ws !== sock) return; // a late close of an already-replaced socket means nothing
+    ws = null;
+    clearTimers();
+    if (!wanted) return set("closed");
+    schedule();
   }
 
   return {
@@ -154,6 +180,9 @@ export function createConnection(
     },
     retryNow() {
       if (wanted && !ws) open();
+    },
+    probe() {
+      if (ws) ping(ws);
     },
     stop() {
       wanted = false;

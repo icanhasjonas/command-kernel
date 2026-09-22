@@ -3,26 +3,27 @@ import type { JsonSchemaNode } from "./schema.js";
 import type { CommandNode } from "./types.js";
 
 /**
- * Coercion -- how a text-only driver reaches a typed arg.
+ * Coercion -- one rule for every driver: a value is fitted to its declared type.
  *
- * The palette and a deeplink can only produce text. A network RPC or an agent
- * sends real JSON. The kernel accepts both: before validation, each TYPED arg
- * (`number`, `boolean`, `json`) that arrived as text is parsed to its declared
- * type. Text kinds are never touched ("42" stays "42" for a string arg).
+ * The palette and a deeplink can only produce text; a network RPC and an agent send
+ * JSON, and a model sends `5` where the schema says text. Every arg kind is a JSON
+ * schema here (text kinds are `{type:"string"}`, `number` is `{type:"number"}`, a
+ * `json` arg carries its own), and `fit` walks value and schema together: text is
+ * parsed where the schema wants a number, a boolean, a list or an object; a number
+ * or boolean becomes its text where the schema wants text; lists and object
+ * properties are fitted item by item. A `multiple` arg is always a list: one value
+ * is a list of one, and blank items are dropped.
  *
- * A `json` arg is coerced by its SCHEMA, not by guessing: a string schema keeps
- * text as text, a number schema parses a number, an array schema accepts one
- * repeated URL key as a one-item list and coerces each element by `items`.
- *
- * Unparseable text is left exactly as it came, so `validateArgs` can say what is
- * wrong with it instead of the value silently becoming NaN, false or 16 (`0x10`
- * is not a number here: only plain decimal notation is). Coercing an
- * already-typed value is a no-op, so running this twice is harmless.
+ * Anything that does not fit is left exactly as it came, so `validateArgs` can say
+ * what is wrong instead of the value silently becoming NaN, false or 16 (only plain
+ * decimal text is a number: not `0x10`, not `Infinity`). Fitting an already-fitting
+ * value is a no-op, so running this twice is harmless.
  */
 
 const TRUE = new Set(["true", "1", "yes", "on"]);
 const FALSE = new Set(["false", "0", "no", "off"]);
 const DECIMAL = /^-?(\d+(\.\d*)?|\.\d+)([eE][+-]?\d+)?$/;
+const TEXT: JsonSchemaNode = { type: "string" };
 
 function num(t: string): ArgValue {
   const s = t.trim();
@@ -36,70 +37,65 @@ function bool(t: string): ArgValue {
   return t;
 }
 
-/** Text to a value of `schema`'s type; text that does not fit is returned unchanged. */
-function fromText(schema: JsonSchemaNode, t: string): ArgValue {
+function parse(t: string): ArgValue | undefined {
+  try {
+    return JSON.parse(t) as ArgValue; // JSON.parse yields JSON; checked by the caller's schema
+  } catch {
+    return undefined;
+  }
+}
+
+const isObject = (v: unknown): v is Record<string, ArgValue> =>
+  typeof v === "object" && v !== null && !Array.isArray(v);
+
+/** `v` fitted to `schema` where it can be; otherwise `v` unchanged. */
+function fit(schema: JsonSchemaNode, v: ArgValue): ArgValue {
   switch (schema.type) {
     case "string":
-      return t;
+      return typeof v === "number" || typeof v === "boolean" ? String(v) : v;
     case "number":
     case "integer":
-      return num(t);
+      return typeof v === "string" ? num(v) : v;
     case "boolean":
-      return bool(t);
-    default: {
-      let parsed: ArgValue;
-      try {
-        parsed = JSON.parse(t) as ArgValue;
-      } catch {
-        // one URL key (`?ids=a`) is a one-item list of an array schema
-        return schema.type === "array" ? shaped(schema, [t]) : t;
-      }
-      // `?ids=7` against an array schema is the list [7], not the number 7
-      if (schema.type === "array" && !Array.isArray(parsed)) return shaped(schema, [t]);
-      return shaped(schema, parsed);
+      return typeof v === "string" ? bool(v) : v;
+    case "array": {
+      // text is a JSON list, or else one item (`?ids=7`); any other lone value is one item
+      const p = typeof v === "string" ? parse(v) : undefined;
+      const list = Array.isArray(v) ? v : Array.isArray(p) ? p : [v];
+      const items = schema.items;
+      return (items ? list.map((x) => fit(items, x as ArgValue)) : list) as ArgValue;
     }
+    case "object": {
+      const obj = typeof v === "string" ? parse(v) : v;
+      if (!isObject(obj)) return v;
+      const props = schema.properties ?? {};
+      const out: Record<string, ArgValue> = {};
+      for (const [k, x] of Object.entries(obj)) {
+        const sub = Object.hasOwn(props, k) ? props[k] : undefined;
+        out[k] = sub ? fit(sub, x) : x;
+      }
+      return out;
+    }
+    default:
+      return v;
   }
 }
 
-/** Coerce the text elements of a list against an array schema's `items`. */
-function shaped(schema: JsonSchemaNode, v: ArgValue): ArgValue {
-  if (schema.type !== "array" || !Array.isArray(v) || !schema.items) return v;
-  const items = schema.items;
-  return v.map((x) => (typeof x === "string" ? fromText(items, x) : x)) as ArgValue;
+/** The schema an arg's value (one item, for `multiple`) is fitted to. */
+function schemaOf(spec: ArgSpec): JsonSchemaNode {
+  if (spec.kind === "number") return { type: "number" };
+  if (spec.kind === "boolean") return { type: "boolean" };
+  if (spec.kind === "json") return spec.schema ?? { type: "object" };
+  return TEXT;
 }
 
-/** Blank text: an untouched field, or `?n=`. */
 const isBlank = (v: unknown) => typeof v === "string" && v.trim() === "";
 
-function coerceOne(spec: ArgSpec, x: ArgValue): ArgValue {
-  if (spec.kind === "json") {
-    const schema = spec.schema ?? { type: "object" };
-    return typeof x === "string" ? fromText(schema, x) : shaped(schema, x);
-  }
-  if (typeof x === "string") return spec.kind === "number" ? num(x) : bool(x);
-  return x;
-}
-
 function coerceValue(spec: ArgSpec, v: ArgValue): ArgValue {
-  const typed = spec.kind === "number" || spec.kind === "boolean" || spec.kind === "json";
-  if (!typed) {
-    // a model or an RPC may send 5 or true for a text arg; its text is what it means
-    if (typeof v === "number" || typeof v === "boolean") return String(v);
-    if (
-      spec.multiple &&
-      Array.isArray(v) &&
-      v.every((x) => typeof x === "number" || typeof x === "boolean")
-    )
-      return v.map(String);
-    return v;
-  }
-  // a `multiple` arg holds a list (from a URL: repeated keys, or one text for one item);
-  // each item is coerced on its own, blank items are dropped as they are for text
-  if (spec.multiple) {
-    const items = (Array.isArray(v) ? v : [v]) as ArgValue[];
-    return items.filter((x) => !isBlank(x)).map((x) => coerceOne(spec, x)) as ArgValue;
-  }
-  return coerceOne(spec, v);
+  const schema = schemaOf(spec);
+  if (!spec.multiple) return fit(schema, v);
+  const items = (Array.isArray(v) ? v : [v]) as ArgValue[];
+  return items.filter((x) => !isBlank(x)).map((x) => fit(schema, x)) as ArgValue;
 }
 
 /** Typed kinds treat blank text as no value, except a json arg whose schema IS text. */
@@ -108,7 +104,7 @@ export function blankIsAbsent(spec: ArgSpec): boolean {
   return spec.kind === "json" && spec.schema?.type !== "string";
 }
 
-/** The args with every typed arg parsed from text where possible. Never mutates `values`. */
+/** The args fitted to their declared kinds. Never mutates `values`. */
 export function coerceArgs(node: CommandNode, values: ArgValues): ArgValues {
   const specs = node.args;
   if (!specs?.length) return values;
@@ -123,7 +119,7 @@ export function coerceArgs(node: CommandNode, values: ArgValues): ArgValues {
       continue;
     }
     const c = coerceValue(spec, v);
-    if (c !== v) {
+    if (JSON.stringify(c) !== JSON.stringify(v)) {
       out ??= { ...values };
       out[spec.id] = c;
     }

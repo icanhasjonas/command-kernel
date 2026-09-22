@@ -53,8 +53,16 @@ function randomId(seq: { n: number }): string {
 }
 
 /** Marks a non-text value in a key (ASCII record separator); text starting with it is escaped. */
-const TYPED = "";
-const text = (s: string) => (s.startsWith(TYPED) ? TYPED + s : s);
+const TYPED = "\u001e";
+/**
+ * The characters that separate parts of a key are percent-escaped inside a name or
+ * a value, so `{ t: "1&u=2" }` can never key like `{ t: "1", u: "2" }` and `["a,b"]`
+ * never like `["a", "b"]`. Text without them keys exactly as it always has.
+ */
+const SEPARATORS = /[%&=,()>|]/g;
+const esc = (s: string) =>
+  s.replace(SEPARATORS, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase().padStart(2, "0")}`);
+const text = (s: string) => esc(s.startsWith(TYPED) ? TYPED + s : s);
 
 /**
  * Stable, order-independent serialization of an arg bag (a list of text is sorted:
@@ -69,20 +77,21 @@ function argStr(args: ArgValues): string {
     .sort()
     .map((k) => {
       const v = args[k];
-      if (v === undefined || typeof v === "string") return `${k}=${text(v ?? "")}`;
+      const key = esc(k);
+      if (v === undefined || typeof v === "string") return `${key}=${text(v ?? "")}`;
       if (Array.isArray(v) && v.every((x) => typeof x === "string"))
-        return `${k}=${v
+        return `${key}=${v
           .map((x) => text(String(x)))
           .sort()
           .join(",")}`;
-      return `${k}=${TYPED}${canonicalJson(v)}`;
+      return `${key}=${TYPED}${esc(canonicalJson(v))}`;
     })
     .join("&");
 }
 
 /** Canonical key for a chain of segments — the binding context for a grant. */
 export function pathKey(segments: Array<{ id: string; args?: ArgValues }>): string {
-  return segments.map((s) => `${s.id}(${argStr(s.args ?? {})})`).join(">");
+  return segments.map((s) => `${esc(s.id)}(${argStr(s.args ?? {})})`).join(">");
 }
 
 function payload(
@@ -92,7 +101,7 @@ function payload(
   priorKey: string,
   nonce: string,
 ): string {
-  return `${priorKey}|${commandId}(${argStr(args)})|${nonce}|${salt}`;
+  return `${priorKey}|${esc(commandId)}(${argStr(args)})|${esc(nonce)}|${salt}`;
 }
 
 /** FNV-1a — tiny, synchronous, fast. An honesty tag, not a defense. */

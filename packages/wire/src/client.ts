@@ -40,6 +40,12 @@ export interface CallOpts {
 
 export interface WireClient {
   call<A extends object, O>(spec: WireSpec<A, O>, args: A, opts?: CallOpts): Promise<O>;
+  /**
+   * Ask the server to approve a confirm-gated call and hand back the grant, then
+   * pass it as `evidence` on the call itself. The SERVER decides (its `confirm`
+   * policy); this only asks.
+   */
+  confirm<A extends object>(spec: WireSpec<A, unknown>, args: A, opts?: CallOpts): Promise<Grant>;
   /** Call by name, untyped (tools, scripts). */
   callName(name: string, args?: ArgValues, opts?: CallOpts): Promise<unknown>;
   on<D>(event: EventSpec<D>, handler: (data: D) => void): () => void;
@@ -80,12 +86,16 @@ export function createWireClient(opts: WireClientOptions): WireClient {
   };
 
   function onMessage(text: string) {
-    let frame: ServerFrame;
+    let parsed: unknown;
     try {
-      frame = JSON.parse(text) as ServerFrame; // our server's frames; `t` routes below
+      parsed = JSON.parse(text);
     } catch {
       return;
     }
+    // a frame from something that is not our server must not break the socket
+    if (typeof parsed !== "object" || parsed === null) return;
+    const frame = parsed as ServerFrame;
+    if (frame.t !== "evt" && frame.t !== "ok" && frame.t !== "err") return;
     if (frame.t === "evt") {
       for (const fn of [...(listeners.get(frame.name) ?? [])]) {
         try {
@@ -124,13 +134,13 @@ export function createWireClient(opts: WireClientOptions): WireClient {
     return new Promise<unknown>((resolve, reject) => {
       if (signal?.aborted) return reject(failure("aborted", `${name} was cancelled`));
       const onAbort = () => settle(id)?.reject(failure("aborted", `${name} was cancelled`));
-      const timer = setTimeout(
-        () =>
-          settle(id)?.reject(
-            failure("timeout", `${name} did not answer within ${http.timeoutMs} ms`),
-          ),
-        http.timeoutMs,
-      );
+      const timer = setTimeout(() => {
+        settle(id)?.reject(
+          failure("timeout", `${name} did not answer within ${http.timeoutMs} ms`),
+        );
+        // a socket that swallowed a call may be half-open: make it prove it is alive
+        conn?.probe();
+      }, http.timeoutMs);
       signal?.addEventListener("abort", onAbort, { once: true });
       const cleanup = () => {
         clearTimeout(timer);
@@ -142,13 +152,25 @@ export function createWireClient(opts: WireClientOptions): WireClient {
     });
   }
 
-  function dispatch(name: string, args: ArgValues, route: HttpRoute | undefined, o: CallOpts = {}) {
-    const extras = { signal: o.signal, evidence: o.evidence };
-    if (o.via !== "ws" && (o.via === "http" || route || !conn?.isOpen))
-      return httpCall(http, name, args, route, extras);
+  function dispatch(
+    name: string,
+    args: ArgValues,
+    route: HttpRoute | undefined,
+    o: CallOpts = {},
+    kind: "cmd" | "confirm" = "cmd",
+  ) {
+    const extras = {
+      signal: o.signal,
+      evidence: o.evidence,
+      ...(kind === "confirm" && { confirm: true }),
+    };
+    // a confirmation is a POST, never a cacheable GET route
+    const httpRoute = kind === "confirm" ? undefined : route;
+    if (o.via !== "ws" && (o.via === "http" || httpRoute || !conn?.isOpen))
+      return httpCall(http, name, args, httpRoute, extras);
     const id = `c${++seq}`;
     const frame: CallFrame = {
-      t: "cmd",
+      t: kind,
       id,
       name,
       args,
@@ -157,7 +179,7 @@ export function createWireClient(opts: WireClientOptions): WireClient {
     const text = JSON.stringify(frame);
     // UTF-8 is at most 3 bytes per UTF-16 unit; only measure exactly when it could matter
     const big = text.length * 3 > maxFrame && new TextEncoder().encode(text).byteLength > maxFrame;
-    if (big && o.via !== "ws") return httpCall(http, name, args, route, extras);
+    if (big && o.via !== "ws") return httpCall(http, name, args, httpRoute, extras);
     return viaSocket(text, id, name, o.signal);
   }
 
@@ -165,6 +187,13 @@ export function createWireClient(opts: WireClientOptions): WireClient {
     call: <A extends object, O>(spec: WireSpec<A, O>, args: A, o?: CallOpts) =>
       // A is the declared arg shape; it IS an arg bag on the wire. O is the declared result.
       dispatch(spec.node.id, args as ArgValues, spec.http, o) as Promise<O>,
+    confirm: async <A extends object>(spec: WireSpec<A, unknown>, args: A, o?: CallOpts) => {
+      const out = (await dispatch(spec.node.id, args as ArgValues, spec.http, o, "confirm")) as {
+        grant?: Grant;
+      };
+      if (!out?.grant) throw failure("serverFail", `${spec.node.id}: no grant came back`);
+      return out.grant;
+    },
     callName: (name, args = {}, o) => dispatch(name, args, undefined, o),
     on: <D>(event: EventSpec<D>, handler: (data: D) => void) => {
       const set = listeners.get(event.name) ?? new Set();

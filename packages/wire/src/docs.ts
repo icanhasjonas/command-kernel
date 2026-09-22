@@ -130,7 +130,7 @@ export function renderCommandDocs(
     "| Command | What it does |",
     "|---|---|",
     ...manifest.commands.map(
-      (c) => `| [\`${c.id}\`](#${c.id.replace(/\./g, "")}) | ${cell(c.title)} |`,
+      (c) => `| [\`${c.id}\`](#${c.id.replace(/\./g, "").toLowerCase()}) | ${cell(c.title)} |`,
     ),
     "",
     "## Commands",

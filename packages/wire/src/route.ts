@@ -86,9 +86,19 @@ export function compileRoutes<R>(entries: Array<RouteEntry<R>>) {
       throw new Error(`GET routes of ${other} and ${e.id} match the same paths: ${e.route.path}`);
     seen.set(key, e.id);
   }
-  const literals = (p: string) => segments(p).filter((s) => !s.startsWith(":")).length;
-  // most literal segments first; ties keep declaration order (Array.prototype.sort is stable)
-  const ordered = [...entries].sort((a, b) => literals(b.route.path) - literals(a.route.path));
+  // segment by segment from the left, a literal beats a param: `/boxes/new` is tried
+  // before `/boxes/:id`, and `/a/:x` before `/:y/b`, whatever order they were declared in
+  const rank = (a: RouteEntry<R>, b: RouteEntry<R>) => {
+    const x = segments(a.route.path);
+    const y = segments(b.route.path);
+    for (let i = 0; i < Math.min(x.length, y.length); i++) {
+      const xs = x[i] as string;
+      const ys = y[i] as string;
+      if (xs.startsWith(":") !== ys.startsWith(":")) return xs.startsWith(":") ? 1 : -1;
+    }
+    return 0;
+  };
+  const ordered = [...entries].sort(rank);
   return {
     match(pathname: string) {
       for (const e of ordered) {

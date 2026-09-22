@@ -73,10 +73,35 @@ describe("keys", () => {
   });
 
   it("raw typed values carry a mark text cannot forge", () => {
+    const MARK = "\u001e";
     const key = (n: string | number) => pathKey([{ id: "a", args: { n } }]);
-    expect(key(1)).toBe("a(n=1)");
+    expect(key(1)).toBe(`a(n=${MARK}1)`);
     expect(key("1")).not.toBe(key(1));
-    expect(key("1")).not.toBe(key(1));
-    expect(pathKey([{ id: "a", args: { o: { b: 1, a: 2 } } }])).toBe('a(o={"a":2,"b":1})');
+    expect(key(`${MARK}1`)).not.toBe(key(1));
+    expect(pathKey([{ id: "a", args: { o: { b: 1, a: 2 } } }])).toBe(`a(o=${MARK}{"a":2%2C"b":1})`);
+  });
+});
+
+describe("review round 4", () => {
+  const plain: CommandNode = {
+    id: "p",
+    title: "p",
+    gate: { confirm: true },
+    run: async () => ({ kind: "noop", message: "" }),
+  };
+
+  it("separators inside a value cannot forge other args", async () => {
+    expect(await verifies(plain, { t: "1&u=2" }, { t: "1", u: "2" })).toBe(false);
+    expect(await verifies(plain, { t: ["a,b"] }, { t: ["a", "b"] })).toBe(false);
+    expect(pathKey([{ id: "a", args: { x: "plain text" } }])).toBe("a(x=plain text)");
+  });
+
+  it("a multiple json arg is a set, like every other multiple arg", async () => {
+    const rows: CommandNode = {
+      ...trim,
+      args: [{ id: "r", label: "r", kind: "json", multiple: true, schema: { type: "number" } }],
+    };
+    expect(await verifies(rows, { r: [1, 2] }, { r: [2, 1] })).toBe(true);
+    expect(await verifies(rows, { r: [1, 2] }, { r: [1, 3] })).toBe(false);
   });
 });

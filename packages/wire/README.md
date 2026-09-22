@@ -86,7 +86,42 @@ unexpected exception is a `serverFail` whose message never includes the exceptio
 Socket responses may arrive out of order and are matched by `id`. A call in flight when the
 socket drops rejects with `disconnected` (`retryable: true`; it may or may not have run, so
 make mutations idempotent). The client reconnects with full-jitter exponential backoff and
-sends a heartbeat (`ping`, expecting `pong`) so a dead mobile connection is noticed.
+sends a heartbeat: a `ping` every 25 s, and the socket is replaced only when that ping
+goes unanswered for 10 s, so a background tab whose timers the browser throttles is not
+mistaken for a dead connection. A call that times out also probes the socket, so a
+half-open connection is found in seconds rather than at the next interval.
+
+`handleFrame` answers `ping` with `pong`, so any host works out of the box. A Durable
+Object can answer it without waking at all:
+
+```ts
+ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair("ping", "pong"));
+```
+
+`OPTIONS` on a command path answers `204` with `Allow`; CORS headers stay the host's job.
+`HEAD` behaves as `GET` on a declared route.
+
+## Confirm-gated commands
+
+A command with `gate: { confirm: true }` answers `confirmRequired` until a grant proves a
+person approved it. Over the wire the SERVER mints that grant, never the client:
+
+```ts
+createWireServer({
+  kernel,
+  // where you check a person is really there: a step-up, a fresh sign-in, an operator
+  confirm: async ({ name, args, ctx }) => isHuman(ctx) && (await askOperator(name, args)),
+});
+```
+
+```ts
+const grant = await client.confirm(deleteBox, { boxId });   // asks; the server decides
+await client.call(deleteBox, { boxId }, { evidence: grant }); // now it runs
+```
+
+Without a `confirm` policy the wire carries grants but cannot mint them, and a
+confirm-gated command is unreachable from a remote client. That is the safe default: a
+client that could approve itself is not a gate.
 
 ## The server owns no sockets and no auth
 

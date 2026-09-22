@@ -24,7 +24,7 @@ import type { CommandNode, Ctx, GateVerdict } from "./types.js";
 export type GatePolicy = (
   node: CommandNode,
   ctx: Ctx,
-  args?: ArgValues,
+  args: ArgValues,
 ) => GateVerdict | Promise<GateVerdict>;
 
 /** Build a gate policy from an ordered role ladder (lowest privilege first). */

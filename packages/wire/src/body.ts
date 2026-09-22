@@ -6,7 +6,7 @@ import type { Grant } from "@command-kernel/core";
  * all), and a grant accepted only in its exact shape.
  */
 
-/** The body as text, or null when it is over `maxBytes`. Reading stops at the limit. */
+/** The body as text, or null when it is over `maxBytes` or could not be read. Reading stops at the limit. */
 export async function readLimited(request: Request, maxBytes: number): Promise<string | null> {
   const declared = Number(request.headers.get("content-length") ?? Number.NaN);
   if (declared > maxBytes) return null;
@@ -15,8 +15,14 @@ export async function readLimited(request: Request, maxBytes: number): Promise<s
   const chunks: Uint8Array[] = [];
   let size = 0;
   for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
+    let done: boolean;
+    let value: Uint8Array | undefined;
+    try {
+      ({ done, value } = await reader.read());
+    } catch {
+      return null; // the caller went away mid-upload, or the stream failed: refuse it
+    }
+    if (done || !value) break;
     size += value.byteLength;
     if (size > maxBytes) {
       await reader.cancel();

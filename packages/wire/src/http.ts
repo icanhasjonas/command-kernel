@@ -25,6 +25,8 @@ export interface HttpOptions {
 export interface CallExtras {
   signal?: AbortSignal | undefined;
   evidence?: Grant | undefined;
+  /** ask the server to mint a grant for this call instead of running it */
+  confirm?: boolean;
 }
 
 /** A non-data result, as both transports hand it to the caller. */
@@ -56,7 +58,7 @@ export async function httpCall(
 ): Promise<unknown> {
   const { signal, evidence } = extras;
   if (signal?.aborted) throw failure("aborted", `${name} was cancelled`);
-  const url = target(o, name, args, route);
+  const url = `${target(o, name, args, route)}${extras.confirm ? "?confirm" : ""}`;
   const ctrl = new AbortController();
   const cancel = () => ctrl.abort();
   const timer = setTimeout(cancel, o.timeoutMs);
