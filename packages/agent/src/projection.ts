@@ -131,13 +131,23 @@ function str(v: unknown): string {
   return typeof v === "string" ? v : "";
 }
 
-/** Coerce a model-supplied args object to the kernel's ArgValues (arrays preserved). */
+/** One model-supplied value as text: objects as JSON, so a `json` arg coerces back intact. */
+function text(v: unknown): string {
+  return typeof v === "object" && v !== null ? JSON.stringify(v) : String(v);
+}
+
+/**
+ * Coerce a model-supplied args object to the kernel's ArgValues (arrays preserved).
+ * Everything becomes text; the kernel parses typed args (number / boolean / json)
+ * back to their declared type before validating, so a text arg can never receive a
+ * number the model happened to emit.
+ */
 function toArgValues(v: unknown): ArgValues {
   if (!v || typeof v !== "object") return {};
   const out: ArgValues = {};
   for (const [k, val] of Object.entries(v as Record<string, unknown>)) {
     if (val === undefined || val === null) continue;
-    out[k] = Array.isArray(val) ? val.map(String) : String(val);
+    out[k] = Array.isArray(val) ? val.map(text) : text(val);
   }
   return out;
 }

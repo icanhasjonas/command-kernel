@@ -18,6 +18,8 @@
 
 // audit + replay — a serializable command record and a replay verb
 export { type CommandRecord, replay, toRecord } from "./audit.js";
+// typed args: text from a palette or URL parsed to the declared number/boolean/json
+export { coerceArgs } from "./coerce.js";
 // the one verb + its request/response shapes (usually reached via kernel.command)
 export {
   type CommandDeps,
@@ -48,6 +50,8 @@ export {
   type EntityType,
   entityOption,
 } from "./entity.js";
+// a run() that fails for a reason a caller can act on throws one of these
+export { CommandError, isCommandError } from "./errors.js";
 // SEAM 3 — evidence (the session-salted honesty tag)
 export { createMemoryEvidenceStore, type EvidenceStore, pathKey } from "./evidence.js";
 export { type FuzzyResult, fuzzyMatch } from "./fuzzy.js";
@@ -136,6 +140,7 @@ export type {
   GateCheck,
   GateVerdict,
   Grant,
+  JsonValue,
   PathSegment,
   Ranked,
   ResultKind,

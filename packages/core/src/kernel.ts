@@ -1,3 +1,4 @@
+import { coerceArgs } from "./coerce.js";
 import type { EvidenceStore } from "./evidence.js";
 import type { GatePolicy } from "./gate.js";
 import type { PolicyStore } from "./policy.js";
@@ -86,11 +87,14 @@ export interface Confirmation {
  */
 export async function executeNode(
   node: CommandNode,
-  args: ArgValues,
+  input: ArgValues,
   ctx: Ctx,
   deps: ExecuteDeps,
   confirmation: Confirmation = {},
 ): Promise<ExecuteOutcome> {
+  // typed args sent as text (palette, URL) become their declared type; a no-op otherwise
+  const args = coerceArgs(node, input);
+
   // COMPLETE first — a required arg with no value is not a runnable command.
   const missing = missingArgs(node, args);
   if (missing.length > 0) {
@@ -127,7 +131,7 @@ export async function executeNode(
     };
   }
 
-  const verdict = await deps.gate(node, ctx);
+  const verdict = await deps.gate(node, ctx, args);
 
   if (!verdict.allowed) {
     return {

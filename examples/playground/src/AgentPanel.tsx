@@ -8,7 +8,7 @@ import type {
   GateVerdict,
   Kernel,
 } from "@command-kernel/core";
-import { allowLabel, ruleForNode } from "@command-kernel/core";
+import { allowLabel, argText, ruleForNode } from "@command-kernel/core";
 import { cn, Icon } from "@command-kernel/ui";
 import { AnimatePresence, motion } from "framer-motion";
 import {
@@ -345,7 +345,7 @@ function CallCard({
       <div className="pl-3 font-mono text-[12px] text-white/60">
         {Object.entries(values ?? {}).map(([k, v]) => (
           <div key={k}>
-            {k}: <span className="text-teal-soft">"{v}"</span>
+            {k}: <span className="text-teal-soft">"{argText(v)}"</span>
           </div>
         ))}
         {Object.keys(values ?? {}).length === 0 && <div className="text-white/30">no args</div>}

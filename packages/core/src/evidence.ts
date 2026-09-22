@@ -44,14 +44,34 @@ function randomId(seq: { n: number }): string {
   return `${seq.n++}-${Math.floor(Math.random() * 1e9).toString(16)}`;
 }
 
-/** Stable, order-independent serialization of an arg bag (list values are sorted). */
+/** JSON with object keys sorted at every depth, so equal values serialize equally. */
+function canonicalJson(v: unknown): string {
+  if (Array.isArray(v)) return `[${v.map(canonicalJson).join(",")}]`;
+  if (v !== null && typeof v === "object") {
+    const obj = v as Record<string, unknown>; // a non-array object: walk its own keys
+    return `{${Object.keys(obj)
+      .sort()
+      .map((k) => `${JSON.stringify(k)}:${canonicalJson(obj[k])}`)
+      .join(",")}}`;
+  }
+  return JSON.stringify(v);
+}
+
+/**
+ * Stable, order-independent serialization of an arg bag. Text values keep the
+ * original format (a list of strings is sorted and comma-joined), so every grant
+ * minted before typed args existed still verifies. A typed value is written as
+ * `~` + canonical JSON: the marker keeps the number 1 and the text "1" apart.
+ */
 function argStr(args: ArgValues): string {
   return Object.keys(args)
     .sort()
     .map((k) => {
       const v = args[k];
-      const s = Array.isArray(v) ? [...v].sort().join(",") : (v ?? "");
-      return `${k}=${s}`;
+      if (v === undefined || typeof v === "string") return `${k}=${v ?? ""}`;
+      if (Array.isArray(v) && v.every((x) => typeof x === "string"))
+        return `${k}=${[...v].sort().join(",")}`;
+      return `${k}=~${canonicalJson(v)}`;
     })
     .join("&");
 }

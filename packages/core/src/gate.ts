@@ -1,4 +1,4 @@
-import type { CommandNode, Ctx, GateVerdict } from "./types.js";
+import type { ArgValues, CommandNode, Ctx, GateVerdict } from "./types.js";
 
 /**
  * The gate — SEAM #2, and the TRUST CORE's first line.
@@ -15,8 +15,16 @@ import type { CommandNode, Ctx, GateVerdict } from "./types.js";
  * viewer<advisor<admin ladder. Apps with different roles pass their own ladder,
  * or swap the whole policy for richer rules (ownership, time windows, flags) via
  * `createKernel({ gate })`.
+ *
+ * `args` are the EFFECTIVE, coerced args the node will run with, so a policy can
+ * decide on what is being touched ("may this user write to box B?"), not only on
+ * which command it is. Policies that ignore them keep working unchanged.
  */
-export type GatePolicy = (node: CommandNode, ctx: Ctx) => GateVerdict | Promise<GateVerdict>;
+export type GatePolicy = (
+  node: CommandNode,
+  ctx: Ctx,
+  args?: ArgValues,
+) => GateVerdict | Promise<GateVerdict>;
 
 /** Build a gate policy from an ordered role ladder (lowest privilege first). */
 export function createRoleGate(ladder: string[]): (node: CommandNode, ctx: Ctx) => GateVerdict {

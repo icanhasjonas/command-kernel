@@ -1,10 +1,12 @@
 /**
- * The universal command system — headless core.
+ * The universal command system -- headless core.
  *
  * ZERO framework imports live in this folder. A CommandNode is plain data +
  * two async hooks (`resolve` to drill in, `run` to execute). Every surface
- * (palette, agent, chords, deeplinks) is just a renderer over this kernel.
+ * (palette, agent, chords, deeplinks, the wire) is just a renderer over this kernel.
  */
+
+import type { JsonSchemaNode } from "./schema.js";
 
 /**
  * A principal's role. Deliberately `string`, not a fixed union — a consumer
@@ -14,7 +16,31 @@
  */
 export type Role = string;
 
-export type ArgKind = "string" | "email" | "enum" | "entity" | "text";
+/**
+ * The kinds an arg can be. The first five are TEXT kinds: their value is a string
+ * (or a list of strings for `multiple`). `number`, `boolean` and `json` are TYPED
+ * kinds for drivers that carry real JSON (a network RPC, an agent). A text-only
+ * driver (the palette, a deeplink) may still send them as text: the kernel coerces
+ * "42" / "true" / '{"a":1}' to the declared type before validating (coerce.ts).
+ */
+export type ArgKind =
+  | "string"
+  | "email"
+  | "enum"
+  | "entity"
+  | "text"
+  | "number"
+  | "boolean"
+  | "json";
+
+/** Any JSON value. A `json` arg holds one; its shape is checked against `ArgSpec.schema`. */
+export type JsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | JsonValue[]
+  | { [key: string]: JsonValue };
 
 export interface ArgOption {
   value: string;
@@ -56,12 +82,21 @@ export interface ArgSpec {
   multiple?: boolean;
   /** async, arg-scoped value completion (one-off; entity is the registered path) */
   complete?: (query: string, ctx: Ctx) => Promise<ArgOption[]>;
-  /** return an error string, or null when valid */
+  /** return an error string, or null when valid (text kinds; called once per value) */
   validate?: (value: string) => string | null;
+  /**
+   * For a `json` arg: the JSON Schema its value must satisfy. Checked by
+   * `validateArgs` and emitted as-is by `toJsonSchema`, so the agent's tool params
+   * and the runtime check are the same declaration. Omitted = any object.
+   */
+  schema?: JsonSchemaNode;
 }
 
-/** One arg's value: a single string, or a list (a `multiple` arg). */
-export type ArgValue = string | string[];
+/**
+ * One arg's value. Text kinds hold a string, or a list of strings for `multiple`.
+ * Typed kinds hold a number, a boolean, a list of those, or (for `json`) any JSON.
+ */
+export type ArgValue = string | string[] | number | number[] | boolean | JsonValue;
 
 export type ArgValues = Record<string, ArgValue>;
 
@@ -109,7 +144,12 @@ export interface GateVerdict {
   checks: GateCheck[];
 }
 
-export type ResultKind = "toast" | "page" | "navigate" | "noop";
+/**
+ * What a run produced. "toast" / "page" / "navigate" / "noop" are for a UI driver
+ * to present; "data" is a structured answer for a caller that consumes it (an RPC
+ * client, an agent): `payload` IS the answer and `message` is a one-line summary.
+ */
+export type ResultKind = "toast" | "page" | "navigate" | "noop" | "data";
 
 export interface CommandResult {
   kind: ResultKind;

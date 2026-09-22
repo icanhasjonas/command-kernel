@@ -24,14 +24,20 @@ export interface DeeplinkOptions {
   prefix?: string;
 }
 
+/** A URL carries text: strings as-is, numbers and booleans as their text, JSON as JSON. */
+function asQueryText(v: unknown): string {
+  return typeof v === "string" ? v : JSON.stringify(v);
+}
+
 function encodeQuery(args: ArgValues): string {
   const parts: string[] = [];
   for (const k of Object.keys(args).sort()) {
     const v = args[k];
-    // a list value repeats the key: ?to=a&to=b
-    for (const item of Array.isArray(v) ? v : [v]) {
-      if (item !== undefined && item !== "") {
-        parts.push(`${encodeURIComponent(k)}=${encodeURIComponent(item)}`);
+    // a list of scalars repeats the key: ?to=a&to=b. An object is one JSON value.
+    const items = Array.isArray(v) && v.every((x) => typeof x !== "object") ? v : [v];
+    for (const item of items) {
+      if (item !== undefined && item !== null && item !== "") {
+        parts.push(`${encodeURIComponent(k)}=${encodeURIComponent(asQueryText(item))}`);
       }
     }
   }

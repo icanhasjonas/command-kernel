@@ -1,19 +1,27 @@
 import type { ArgValue } from "./types.js";
 
 /**
- * Arg-value helpers. An arg value is `string | string[]` (a `multiple` arg holds
- * a list). These three functions centralize the single-vs-list handling so the
- * rest of the kernel never branches on `Array.isArray` inline.
+ * Arg-value helpers. A text arg's value is `string | string[]` (a `multiple` arg
+ * holds a list); a typed arg may hold a number, a boolean or JSON. These helpers
+ * centralize the single-vs-list handling so the rest of the kernel never branches
+ * on `Array.isArray` inline, and every one of them is safe on a typed value.
  */
 
-/** Normalize a value to a list (single -> [single], undefined -> []). */
-export function argList(v: ArgValue | undefined): string[] {
-  if (v === undefined) return [];
-  return Array.isArray(v) ? v : [v];
+/** A value as display text: strings as-is, anything else as JSON. */
+function asText(v: unknown): string {
+  return typeof v === "string" ? v : JSON.stringify(v);
 }
 
-/** True when at least one non-blank value is present. */
+/** Normalize a value to a list of texts (single -> [single], undefined/null -> []). */
+export function argList(v: ArgValue | undefined): string[] {
+  if (v === undefined || v === null) return [];
+  return Array.isArray(v) ? v.map(asText) : [asText(v)];
+}
+
+/** True when at least one non-blank value is present. `false` and `0` are values. */
 export function isFilled(v: ArgValue | undefined): boolean {
+  if (typeof v === "number" || typeof v === "boolean") return true;
+  if (v !== null && typeof v === "object" && !Array.isArray(v)) return true;
   return argList(v).some((s) => s.trim() !== "");
 }
 

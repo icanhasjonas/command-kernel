@@ -177,7 +177,44 @@ serializePath(path);         // -> "cmd/users/users.search?email=x"   (DRIVER #4
 parseDeeplink(url);          // -> PathSegment[]  ->  kernel.command({ path })
 ```
 
-One declaration, four surfaces, zero duplication. A deeplink can carry args but
+One declaration, four surfaces, zero duplication.
+
+### Typed args
+
+Text kinds (`string`, `email`, `enum`, `entity`, `text`) hold strings. Three typed kinds
+carry real JSON for drivers that have it (the wire, an agent):
+
+```ts
+args: [
+  { id: "seen", label: "seen", kind: "boolean", required: true },
+  { id: "limit", label: "limit", kind: "number" },
+  { id: "cursor", label: "cursor", kind: "json", schema: {
+      type: "object",
+      properties: { box: { type: "string" }, seq: { type: "integer" } },
+      required: ["box", "seq"],
+      additionalProperties: false,
+  } },
+]
+```
+
+A text-only driver may still send `"true"`, `"25"` or `'{"box":"b","seq":4}'`: the kernel
+coerces text to the declared type (`coerceArgs`) before validating, so the palette and a
+deeplink reach typed commands unchanged. Unparseable text is left alone and reported by
+`validateArgs`. A `json` value is checked against `schema`, and `toJsonSchema` emits that
+same schema, so what an agent is told and what the kernel enforces cannot drift.
+
+### Results and errors a program can use
+
+A `run()` that answers a question returns `{ kind: "data", message, payload }`: `payload`
+is the answer, `message` a one-line summary. A `run()` that cannot do the thing throws
+`new CommandError(code, message, details?)`; drivers act on `code` (`notFound`,
+`forbidden`, `conflict`, ...) instead of parsing prose.
+
+### Gates that see the args
+
+`GatePolicy` is `(node, ctx, args?)`. `args` are the effective, coerced values, so a
+policy can say "this user may write to box B but not box C". Two-parameter policies keep
+working unchanged. A deeplink can carry args but
 **never a grant** (the salt never leaves the kernel), so a URL into a gated
 command can't auto-fire — it returns a `gate`. `@command-kernel/agent`'s
 `collectTools` turns nodes into MCP `{ name, description, inputSchema }` tools off

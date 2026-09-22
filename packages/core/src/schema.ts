@@ -1,5 +1,11 @@
-import type { ArgSpec, ArgValues, CommandNode } from "./types.js";
+import { checkShape } from "./json-shape.js";
+import type { ArgSpec, ArgValue, ArgValues, CommandNode } from "./types.js";
 import { argList } from "./values.js";
+
+/** A text kind's value: a string, or a list of strings. */
+function isText(v: ArgValue): boolean {
+  return typeof v === "string" || (Array.isArray(v) && v.every((x) => typeof x === "string"));
+}
 
 /**
  * The arg schema — THE KEYSTONE, finally cut.
@@ -63,7 +69,18 @@ export interface ArgError {
 // loose, dependency-free email shape — an honesty check, not RFC 5322
 const EMAIL = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
-function elementProperty(a: ArgSpec): JsonSchemaProperty {
+/** The element schema of a typed kind (number / boolean / json), or null for a text kind. */
+function typedElement(a: ArgSpec): JsonSchemaNode | null {
+  const description = a.label && a.label !== a.id ? { description: a.label } : {};
+  if (a.kind === "number") return { type: "number", ...description };
+  if (a.kind === "boolean") return { type: "boolean", ...description };
+  if (a.kind === "json") return a.schema ?? { type: "object", ...description };
+  return null;
+}
+
+function elementProperty(a: ArgSpec): JsonSchemaNode {
+  const typed = typedElement(a);
+  if (typed) return typed;
   const prop: JsonSchemaProperty = { type: "string" };
   if (a.label && a.label !== a.id) prop.description = a.label;
   if (a.kind === "email") prop.format = "email";
@@ -88,6 +105,22 @@ function argToProperty(a: ArgSpec): JsonSchemaNode {
   return element;
 }
 
+/** Errors for one value of a typed arg (number / boolean / json), or null for a text kind. */
+function typedErrors(a: ArgSpec, v: ArgValue): string[] | null {
+  if (a.kind === "number")
+    return typeof v === "number" && Number.isFinite(v) ? [] : [`${a.label} must be a number`];
+  if (a.kind === "boolean")
+    return typeof v === "boolean" ? [] : [`${a.label} must be true or false`];
+  if (a.kind === "json") return checkShape(v, a.schema ?? { type: "object" }, a.id);
+  return null;
+}
+
+/** The individual values of an arg: the list for a `multiple` arg, else the one value. */
+function valuesOf(a: ArgSpec, v: ArgValue | undefined): ArgValue[] {
+  if (v === undefined) return [];
+  return a.multiple && Array.isArray(v) ? v : [v];
+}
+
 /** Derive the JSON Schema for a node's args (the LLM tool's `inputSchema`). */
 export function toJsonSchema(node: CommandNode): JsonSchemaObject {
   const properties: Record<string, JsonSchemaNode> = {};
@@ -108,8 +141,21 @@ export function toJsonSchema(node: CommandNode): JsonSchemaObject {
 export function validateArgs(node: CommandNode, values: ArgValues): ArgError[] {
   const errors: ArgError[] = [];
   for (const a of node.args ?? []) {
+    // typed kinds: check the value's type (and a json value's shape)
+    const present = values[a.id];
+    if (present !== undefined && typedElement(a)) {
+      for (const v of valuesOf(a, present)) {
+        for (const message of typedErrors(a, v) ?? []) errors.push({ argId: a.id, message });
+      }
+      continue;
+    }
+    // text kinds: a value that is not text is a caller bug worth naming, not coercing
+    if (present !== undefined && !isText(present)) {
+      errors.push({ argId: a.id, message: `${a.label} must be text` });
+      continue;
+    }
     // validate each present value (a `multiple` arg holds several)
-    for (const raw of argList(values[a.id])) {
+    for (const raw of argList(present)) {
       const v = raw.trim();
       if (!v) continue; // empty -> covered by required-presence elsewhere
 

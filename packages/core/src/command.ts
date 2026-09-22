@@ -1,3 +1,4 @@
+import { coerceArgs } from "./coerce.js";
 import { describeNode, type NodeDescriptor } from "./describe.js";
 import { type Entity, type EntityRegistry, entityOption } from "./entity.js";
 import { pathKey } from "./evidence.js";
@@ -184,6 +185,9 @@ export async function command(
 
   // EXECUTE the tip
   if (req.execute && tip) {
+    // coerce HERE, not only in executeNode: a `gate` response must hand back the
+    // exact typed args the grant will be verified against
+    values = coerceArgs(tip, values);
     // resolve entity-typed args: auto-resolve a single match, disambiguate on many
     if (deps.entities) {
       const dis = await resolveEntities(tip, values, ectx, deps.entities);
