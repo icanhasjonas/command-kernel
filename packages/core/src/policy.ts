@@ -1,4 +1,6 @@
 import type { ArgValues } from "./args.js";
+import { getOwn } from "./own.js";
+import { canonicalJson } from "./signing.js";
 import type { CommandNode } from "./types.js";
 import { argList, isFilled } from "./values.js";
 
@@ -17,8 +19,9 @@ import { argList, isFilled } from "./values.js";
  *
  * A `PolicyStore` owns the rule list. The default `createMemoryPolicyStore()`
  * keeps it in memory on the INSTANCE and dies with the session, exactly like the
- * salt — "always" means "always, for this session." Back it with localStorage or
- * a server by implementing this interface and passing `createKernel({ policy })`.
+ * default evidence key: "always" means "always, for this session." Back it with
+ * localStorage or a server by implementing this interface and passing
+ * `createKernel({ policy })`.
  */
 
 export type AllowScope =
@@ -45,8 +48,11 @@ export interface PolicyStore {
 }
 
 function sameRule(a: AllowRule, b: AllowRule): boolean {
-  return a.commandId === b.commandId && JSON.stringify(a.scope) === JSON.stringify(b.scope);
+  return a.commandId === b.commandId && canonicalJson(a.scope) === canonicalJson(b.scope);
 }
+
+/** An arg's values as text (json in canonical form), read from own keys only. */
+const texts = (args: ArgValues, argId: string) => argList(getOwn(args, argId));
 
 /** The default policy store: an in-memory, per-instance, session-scoped rule list. */
 export function createMemoryPolicyStore(): PolicyStore {
@@ -69,8 +75,8 @@ export function createMemoryPolicyStore(): PolicyStore {
         if (r.commandId !== commandId) continue;
         const s = r.scope;
         if (s.kind === "command") return r;
-        if (s.kind === "arg" && argList(args[s.argId]).includes(s.value)) return r;
-        if (s.kind === "prefix" && argList(args[s.argId]).some((v) => v.startsWith(s.prefix)))
+        if (s.kind === "arg" && texts(args, s.argId).includes(s.value)) return r;
+        if (s.kind === "prefix" && texts(args, s.argId).some((v) => v.startsWith(s.prefix)))
           return r;
       }
       return null;
@@ -85,12 +91,12 @@ export function createMemoryPolicyStore(): PolicyStore {
  */
 export function ruleForNode(node: CommandNode, args: ArgValues): AllowRule {
   const ent = node.args?.find(
-    (a) => (a.kind === "email" || a.kind === "entity") && isFilled(args[a.id]),
+    (a) => (a.kind === "email" || a.kind === "entity") && isFilled(getOwn(args, a.id)),
   );
   if (ent) {
     return {
       commandId: node.id,
-      scope: { kind: "arg", argId: ent.id, value: argList(args[ent.id])[0] ?? "" },
+      scope: { kind: "arg", argId: ent.id, value: texts(args, ent.id)[0] ?? "" },
     };
   }
   return { commandId: node.id, scope: { kind: "command" } };

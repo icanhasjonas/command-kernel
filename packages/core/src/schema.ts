@@ -1,5 +1,6 @@
 import type { ArgSpec, ArgValue, ArgValues } from "./args.js";
-import { checkShape } from "./json-shape.js";
+import { checkShape, notJson } from "./json-shape.js";
+import { getOwn } from "./own.js";
 import type { CommandNode } from "./types.js";
 import { argList } from "./values.js";
 
@@ -101,7 +102,11 @@ function typedErrors(a: ArgSpec, v: unknown): string[] | null {
     return typeof v === "number" && Number.isFinite(v) ? [] : [`${a.label} must be a number`];
   if (a.kind === "boolean")
     return typeof v === "boolean" ? [] : [`${a.label} must be true or false`];
-  if (a.kind === "json") return checkShape(v, a.schema ?? { type: "object" }, a.id);
+  if (a.kind === "json") {
+    // a value JSON cannot carry would sign as something else (NaN as null): refuse it first
+    const unsendable = notJson(v, a.id);
+    return unsendable.length > 0 ? unsendable : checkShape(v, a.schema ?? { type: "object" }, a.id);
+  }
   return null;
 }
 
@@ -132,7 +137,8 @@ export function validateArgs(node: CommandNode, values: ArgValues): ArgError[] {
   const errors: ArgError[] = [];
   for (const a of node.args ?? []) {
     // typed kinds: check the value's type (and a json value's shape)
-    const present = values[a.id];
+    // own keys only: an absent "constructor" arg must not read Object.prototype's
+    const present = getOwn(values, a.id);
     if (present !== undefined && typedElement(a)) {
       for (const v of valuesOf(a, present)) {
         for (const message of typedErrors(a, v) ?? []) errors.push({ argId: a.id, message });
@@ -142,6 +148,11 @@ export function validateArgs(node: CommandNode, values: ArgValues): ArgError[] {
     // text kinds: a value that is not text is a caller bug worth naming, not coercing
     if (present !== undefined && !isText(present)) {
       errors.push({ argId: a.id, message: `${a.label} must be text` });
+      continue;
+    }
+    // one value, not a list: a list here would be signed as an order-free set
+    if (!a.multiple && Array.isArray(present)) {
+      errors.push({ argId: a.id, message: `${a.label} takes one value, not a list` });
       continue;
     }
     // validate each present value (a `multiple` arg holds several)

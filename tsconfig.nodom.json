@@ -1,0 +1,10 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2023"],
+    "types": [],
+    "noEmit": true
+  },
+  "include": ["packages/core/src", "packages/wire/src", "scripts/nodom-host.d.ts"],
+  "exclude": ["packages/*/src/**/*.test.ts", "packages/*/src/**/*.test-util.ts"]
+}

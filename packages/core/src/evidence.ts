@@ -1,24 +1,28 @@
 import type { ArgValues } from "./args.js";
-import { canonicalJson } from "./signing.js";
+import { argStr, bindingKey, pathKey } from "./evidence-key.js";
+import { hex, hmacSha256, utf8 } from "./sha256.js";
 import type { Grant, PathSegment } from "./types.js";
 
+export { bindingKey, pathKey } from "./evidence-key.js";
+
 /**
- * Evidence — SEAM #3, the honesty-tag layer of the TRUST CORE.
+ * Evidence: SEAM #3, the signature layer of the TRUST CORE.
  *
- * When a human approves an action the gate mints a `Grant`: a cheap hash over
- * (prior path + command + args + nonce + a per-SESSION salt). It is deliberately
- * NOT cryptographically strong. Its single purpose is to stop a caller — the
- * agent above all — from forging `approved: true`: the only way to hold a valid
- * tag is to have gone through the gate, because the salt isn't visible to the
- * caller.
+ * When a human approves an action the gate mints a `Grant`: an HMAC-SHA256
+ * signature, under a secret key the caller never sees, over the full binding (who
+ * approved and where, the command, its canonical args, and the grant's nonce). A
+ * caller, the agent above all, cannot forge `approved: true` or turn one grant into
+ * another: without the key no valid signature can be computed for any other
+ * command, args, path, principal or nonce.
  *
- * An `EvidenceStore` owns the salt and the sign/verify pair. The default
- * `createMemoryEvidenceStore()` keeps the salt in memory on the INSTANCE (no
- * module global — two kernels never share a salt). `rotate()` mints a new salt
- * and so invalidates every outstanding grant; a browser reload does it for free,
- * which is why the session lifetime IS the grant TTL — no expiry clock, no
- * revocation list. Swap the FNV hash for HMAC-SHA, or back it with Redis, by
- * implementing this interface and passing `createKernel({ evidence })`.
+ * An `EvidenceStore` owns the key and the sign/verify pair. The default
+ * `createMemoryEvidenceStore()` draws a random 32-byte key per INSTANCE (no module
+ * global: two kernels never share one). `rotate()` draws a new key and so
+ * invalidates every outstanding grant; a browser reload does it for free, which is
+ * why the session lifetime IS the grant TTL. A host running several isolates (or a
+ * Durable Object that hibernates) passes ONE secret to `createHmacEvidenceStore(key)`
+ * in each, so a grant minted in one verifies in another. Back it with Redis, or
+ * anything else, by implementing this interface and passing `createKernel({ evidence })`.
  */
 export interface EvidenceStore {
   /**
@@ -47,115 +51,66 @@ export interface EvidenceStore {
    * without one verifies only under a kernel whose `principalOf` returns undefined.
    */
   grantForPath(path: PathSegment[], principal?: string): Grant;
-  /** New session salt — invalidate every outstanding grant. */
+  /** New key: invalidate every outstanding grant this store minted. */
   rotate(): void;
 }
 
-function randomId(seq: { n: number }): string {
-  const c = globalThis.crypto;
-  if (c?.randomUUID) return c.randomUUID();
-  // fallback for ancient runtimes — entropy quality is irrelevant here
-  return `${seq.n++}-${Math.floor(Math.random() * 1e9).toString(16)}`;
-}
-
-/** Marks a non-text value in a key (ASCII record separator); text starting with it is escaped. */
-const TYPED = "\u001e";
-/**
- * The characters that separate parts of a key are percent-escaped inside a name or
- * a value, so `{ t: "1&u=2" }` can never key like `{ t: "1", u: "2" }`, `["a,b"]`
- * never like `["a", "b"]`, and the text "[1]a" never like the list `["a"]`. Text
- * without them keys exactly as it always has.
- */
-const SEPARATORS = /[%&=,()>|[\]]/g;
-const esc = (s: string) =>
-  s.replace(SEPARATORS, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase().padStart(2, "0")}`);
-const text = (s: string) => esc(s.startsWith(TYPED) ? TYPED + s : s);
-
-/**
- * A list of text: its length, then its items sorted (a `multiple` arg is a set).
- * The length keeps `[]` apart from `[""]`, and the brackets (escaped inside text)
- * keep `["prod"]` apart from `"prod"`: a key encodes arity, not only the items.
- */
-const textList = (xs: string[]) =>
-  `[${xs.length}]${xs
-    .map((x) => text(x))
-    .sort()
-    .join(",")}`;
-
-/**
- * Stable, order-independent serialization of an arg bag. The kernel signs
- * `signingArgs(node, args)` (signing.ts), in which every DECLARED arg is text or a
- * list of text. A non-text value (an undeclared typed arg, or raw typed args a
- * driver signed itself) is written as the TYPED mark plus canonical JSON, so the
- * number 5 and the text "5" never share a key.
- */
-function argStr(args: ArgValues): string {
-  return Object.keys(args)
-    .sort()
-    .map((k) => {
-      const v = args[k];
-      const key = esc(k);
-      if (v === undefined || typeof v === "string") return `${key}=${text(v ?? "")}`;
-      if (Array.isArray(v) && v.every((x) => typeof x === "string"))
-        return `${key}=${textList(v.map(String))}`;
-      return `${key}=${TYPED}${esc(canonicalJson(v))}`;
-    })
-    .join("&");
-}
-
-/** Canonical key for a chain of segments: where a grant was approved. */
-export function pathKey(segments: Array<{ id: string; args?: ArgValues }>): string {
-  return segments.map((s) => `${esc(s.id)}(${argStr(s.args ?? {})})`).join(">");
+/** The one piece of `crypto` the store needs, read without assuming any lib's types. */
+function randomBytes(n: number): Uint8Array {
+  type RandomSource = { getRandomValues(array: Uint8Array): Uint8Array };
+  const c = (globalThis as unknown as { crypto?: Partial<RandomSource> }).crypto;
+  if (typeof c?.getRandomValues !== "function")
+    throw new Error("evidence: this runtime has no crypto.getRandomValues");
+  return c.getRandomValues(new Uint8Array(n));
 }
 
 /**
- * The full binding context of a grant: WHO it was minted for, then the prior path.
- * A grant is not a bearer token: another principal replaying it fails to verify.
- * `undefined` (a kernel whose `principalOf` names nobody) keys as the path alone;
- * the principal is escaped, so no principal can forge another's context.
+ * What is signed: one JSON array, so no part can bleed into another (and lone
+ * surrogates are escaped before the text becomes bytes).
  */
-export function bindingKey(principal: string | undefined, priorKey: string): string {
-  return principal === undefined ? priorKey : `${esc(principal)}|${priorKey}`;
+const payload = (commandId: string, args: ArgValues, priorKey: string, nonce: string) =>
+  JSON.stringify(["ck.grant.v1", priorKey, commandId, argStr(args), nonce]);
+
+/** Equal-length strings compared without an early exit on the first difference. */
+function sameText(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
 }
 
-function payload(
-  salt: string,
-  commandId: string,
-  args: ArgValues,
-  priorKey: string,
-  nonce: string,
-): string {
-  return `${priorKey}|${esc(commandId)}(${argStr(args)})|${esc(nonce)}|${salt}`;
-}
-
-/** FNV-1a — tiny, synchronous, fast. An honesty tag, not a defense. */
-function hash(str: string): string {
-  let h = 0x811c9dc5;
-  for (let i = 0; i < str.length; i++) {
-    h ^= str.charCodeAt(i);
-    h = Math.imul(h, 0x01000193);
-  }
-  return (h >>> 0).toString(16).padStart(8, "0");
-}
+const KEY_BYTES = 32;
 
 /**
- * The default evidence store: a per-instance, in-memory, session-salted FNV tag.
- * Each call to this factory is an independent session with its own salt.
+ * An evidence store that signs with HMAC-SHA256 under `key` (at least 32 random
+ * bytes; the store keeps its own copy). Every store built from the same key accepts
+ * the others' grants: that is how a grant minted in one isolate verifies in another.
+ * `rotate()` swaps this store to a fresh random key, which detaches it from the
+ * shared one; a host that shares a key rotates by building its stores from a new one.
  */
-export function createMemoryEvidenceStore(): EvidenceStore {
-  const seq = { n: 0 };
-  let salt = randomId(seq);
+export function createHmacEvidenceStore(key: Uint8Array): EvidenceStore {
+  if (!(key instanceof Uint8Array) || key.length < KEY_BYTES)
+    throw new Error(`createHmacEvidenceStore: the key must be at least ${KEY_BYTES} random bytes`);
+  let secret: Uint8Array = key.slice();
+  const mac = (commandId: string, args: ArgValues, priorKey: string, nonce: string) =>
+    hex(hmacSha256(secret, utf8(payload(commandId, args, priorKey, nonce))));
 
-  const sign: EvidenceStore["sign"] = (commandId, args, priorKey, nonce = randomId(seq)) => ({
+  const sign: EvidenceStore["sign"] = (
+    commandId,
+    args,
+    priorKey,
+    nonce = hex(randomBytes(16)),
+  ) => ({
     nonce,
-    sig: hash(payload(salt, commandId, args, priorKey, nonce)),
+    sig: mac(commandId, args, priorKey, nonce),
   });
 
   return {
     sign,
     verify(grant, commandId, args, priorKey) {
-      if (!grant?.nonce || !grant.sig) return false;
-      return hash(payload(salt, commandId, args, priorKey, grant.nonce)) === grant.sig;
+      if (typeof grant?.nonce !== "string" || typeof grant.sig !== "string" || !grant.nonce)
+        return false;
+      return sameText(mac(commandId, args, priorKey, grant.nonce), grant.sig);
     },
     grantForPath(path, principal) {
       const tip = path[path.length - 1];
@@ -163,7 +118,16 @@ export function createMemoryEvidenceStore(): EvidenceStore {
       return sign(tip.id, tip.args ?? {}, bindingKey(principal, pathKey(path.slice(0, -1))));
     },
     rotate() {
-      salt = randomId(seq);
+      secret = randomBytes(KEY_BYTES);
     },
   };
+}
+
+/**
+ * The default evidence store: HMAC-SHA256 under a random key drawn for this store
+ * alone. Each call is an independent session; for several isolates that must accept
+ * each other's grants, use `createHmacEvidenceStore(sharedKey)`.
+ */
+export function createMemoryEvidenceStore(): EvidenceStore {
+  return createHmacEvidenceStore(randomBytes(KEY_BYTES));
 }

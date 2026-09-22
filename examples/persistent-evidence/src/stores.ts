@@ -96,7 +96,11 @@ function payload(salt: string, commandId: string, args: ArgValues, prior: string
   return `${prior}|${commandId}(${argStr(args)})|${nonce}|${salt}`;
 }
 
-/** FNV-1a — an honesty tag, not a defense (same shape as the core default). */
+/**
+ * FNV-1a: a demo of the seam, NOT a defense. It is forgeable (its state runs
+ * backwards), which is why the core default signs with HMAC-SHA256. A real
+ * file-backed store would persist a key and use `createHmacEvidenceStore(key)`.
+ */
 function hash(str: string): string {
   let h = 0x811c9dc5;
   for (let i = 0; i < str.length; i++) {

@@ -124,7 +124,7 @@ stock everything; override any seam in isolation.
 |---|---|---|
 | `Ranker` | BM25, a learned model, alphabetical | `createRanker()` (fzf blend) |
 | `GatePolicy` | your roles, ownership, feature flags | `evaluateGate` (role ladder) |
-| `EvidenceStore` | HMAC-SHA, Redis-backed grants | in-memory session-salted |
+| `EvidenceStore` | a shared key across isolates, Redis-backed grants | HMAC-SHA256, random key per store |
 | `PolicyStore` | localStorage / server always-allow | in-memory session-scoped |
 | `Registry` | lazy, context-aware provider contribution | `createRegistry(...)` |
 | `EntityType` | typed-arg catalog (`Person<'with-email'>`), agent-queryable | `createEntityRegistry(...)` |

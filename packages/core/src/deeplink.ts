@@ -11,7 +11,7 @@ import type { PathSegment } from "./types.js";
  * path you hand straight to `kernel.command(...)`.
  *
  * THE SECURITY PROPERTY: a URL can carry args but it CANNOT carry a grant — the
- * session salt never leaves the kernel. So a deeplink into a gated command can
+ * signing key never leaves the kernel. So a deeplink into a gated command can
  * never auto-fire; `kernel.command({ path: parseDeeplink(url), execute: true })`
  * returns a `gate`, and the driver routes the human to the approval UI. That
  * falls out of the trust core for free; deeplink.test.ts proves it.

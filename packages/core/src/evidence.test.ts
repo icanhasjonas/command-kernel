@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import { createMemoryEvidenceStore, pathKey } from "./evidence.js";
 
-describe("evidence — the honesty tag", () => {
+describe("evidence: the signed grant", () => {
   it("verifies a grant for the exact command+args+prior-path it was minted for", () => {
     const ev = createMemoryEvidenceStore();
     const g = ev.sign("users.reset", { user: "a@b.io" }, "users");

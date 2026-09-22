@@ -1,9 +1,8 @@
 import type { ArgOption, ArgSpec, ArgValues } from "./args.js";
-import { coerceArgs } from "./coerce.js";
 import { argCompletions, resolveEntities } from "./command-args.js";
 import { describeNode, type NodeDescriptor } from "./describe.js";
 import type { Entity, EntityRegistry } from "./entity.js";
-import { type Hop, hopsKey } from "./hops-key.js";
+import { type Hop, hopArgs, hopsKey } from "./hops-key.js";
 import { type ExecuteDeps, executeNode, missingArgs, resolveChildren } from "./kernel.js";
 import type { Ranker } from "./rank.js";
 import type { ArgError } from "./schema.js";
@@ -106,9 +105,10 @@ export async function command(
       ? { ...ctx, user: { ...ctx.user, role: req.role } }
       : ctx;
 
-  // walk the path, resolving children at each hop. Every hop's args are coerced to
-  // their declared kinds (resolve() sees 5, not "5"), and each hop is keyed in its
-  // canonical signing form, so every driver computes the same binding context.
+  // walk the path, resolving children at each hop. Each hop resolves with its
+  // prefill overlaid by the segment's args, coerced to their declared kinds (resolve()
+  // sees 5, not "5"), and is keyed by exactly those args: the children a hop hands out
+  // depend on all of them, so a grant must too (hopArgs, shared with the palette).
   let level = roots;
   let tip: CommandNode | null = null;
   let values: ArgValues = {};
@@ -117,8 +117,8 @@ export async function command(
     const node = level.find((n) => n.id === seg.id);
     if (!node) return { kind: "completions", at: tip, items: [] };
     tip = node;
-    walked.push({ node, args: seg.args ?? {} });
-    values = coerceArgs(node, { ...(node.prefill ? node.prefill(ectx) : {}), ...(seg.args ?? {}) });
+    values = hopArgs(node, seg.args, ectx);
+    walked.push({ node, args: values });
     level = node.resolve ? await resolveChildren(node, values, ectx) : [];
   }
 

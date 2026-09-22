@@ -2,6 +2,7 @@ import type { ArgValues } from "./args.js";
 import { coerceArgs } from "./coerce.js";
 import { bindingKey, type EvidenceStore } from "./evidence.js";
 import type { GatePolicy } from "./gate.js";
+import { getOwn } from "./own.js";
 import type { PolicyStore } from "./policy.js";
 import { type Ranker, rank } from "./rank.js";
 import { type ArgError, validateArgs } from "./schema.js";
@@ -189,7 +190,9 @@ export function shortcutNodes(nodes: CommandNode[], ctx: Ctx): CommandNode[] {
 
 /** Required args still missing a value. Drives the "2 of 3" arg counter. */
 export function missingArgs(node: CommandNode, values: ArgValues): string[] {
-  return (node.args ?? []).filter((a) => a.required && !hasValue(a, values[a.id])).map((a) => a.id);
+  return (node.args ?? [])
+    .filter((a) => a.required && !hasValue(a, getOwn(values, a.id)))
+    .map((a) => a.id);
 }
 
 export function bumpFrecency(frecency: Record<string, number>, id: string): Record<string, number> {

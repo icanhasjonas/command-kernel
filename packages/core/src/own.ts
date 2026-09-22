@@ -9,3 +9,13 @@
 export function setOwn<T>(obj: Record<string, T>, key: string, value: NoInfer<T>): void {
   Object.defineProperty(obj, key, { value, enumerable: true, writable: true, configurable: true });
 }
+
+/**
+ * Read `key` only if it is an OWN property. `obj[key]` with an absent key named after
+ * an Object.prototype member ("constructor", "toString", "__proto__") reads the
+ * prototype's function or object instead of undefined. Every place the kernel reads
+ * a caller-keyed bag by a declared id uses this.
+ */
+export function getOwn<T>(obj: Record<string, T>, key: string): T | undefined {
+  return Object.hasOwn(obj, key) ? obj[key] : undefined;
+}

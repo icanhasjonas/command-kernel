@@ -118,13 +118,16 @@ agent go through the identical path.
   / flag service); `executeNode` awaits it. The default is `createRoleGate(ladder)`
   over a configurable role ladder (`evaluateGate` = viewer < advisor < admin).
 - **Evidence** (`EvidenceStore`) — when a human clicks Allow, the store mints a
-  `Grant`: a session-salted hash bound to the EXACT `(command, args, prior-path)`.
-  A caller (the agent especially) **cannot fabricate approval** — the salt isn't
-  visible, so the only way to hold a valid tag is to have gone through the gate.
-  Args are bound (approve `email→A` can't run `email→B`); the prior path is bound
-  (a grant is valid only inside the chain it was minted in); `rotate()` (or a
-  browser reload) mints a new salt and invalidates every outstanding grant — the
-  session lifetime IS the TTL. No expiry clock, no revocation list.
+  `Grant`: an HMAC-SHA256 signature, under a secret 32-byte key, over the EXACT
+  `(principal, prior-path, command, canonical args, nonce)`. A caller (the agent
+  especially) **cannot fabricate approval** or rework one grant into another: the
+  key never leaves the store, so the only way to hold a valid signature is to have
+  gone through the gate. Args are bound (approve `email→A` can't run `email→B`); the
+  prior path is bound (a grant is valid only inside the chain it was minted in); the
+  principal is bound (another user replaying it gets the gate). `rotate()` (or a
+  browser reload) draws a new key and invalidates every outstanding grant. The
+  default store's key is random per store; a host with several isolates passes one
+  shared key to `createHmacEvidenceStore(key)` in each.
 - **Policy** (`PolicyStore`) — the standing "always allow" exception, checked
   BEFORE evidence is requested. Scope is `command` (any args), `arg` (this value),
   or `prefix` (this folder), session-scoped.
@@ -215,7 +218,7 @@ is the answer, `message` a one-line summary. A `run()` that cannot do the thing 
 `GatePolicy` is `(node, ctx, args?)`. `args` are the effective, coerced values, so a
 policy can say "this user may write to box B but not box C". Two-parameter policies keep
 working unchanged. A deeplink can carry args but
-**never a grant** (the salt never leaves the kernel), so a URL into a gated
+**never a grant** (the signing key never leaves the kernel), so a URL into a gated
 command can't auto-fire — it returns a `gate`. `@command-kernel/agent`'s
 `collectTools` turns nodes into MCP `{ name, description, inputSchema }` tools off
 the same schema.
@@ -333,8 +336,10 @@ Types: `Ranker`, `RankWeights`, `FuzzyResult`.
 **Audit / replay** — `toRecord(req, ctx)`, `replay(kernel, record, ctx)`, and the
 `createKernel({ onExecute })` hook. Type: `CommandRecord`.
 
-**Seam 3 — evidence** — `createMemoryEvidenceStore()`, `pathKey(segments)`. Type:
-`EvidenceStore`.
+**Seam 3: evidence**: `createMemoryEvidenceStore()` (HMAC-SHA256, random key per
+store), `createHmacEvidenceStore(key)` (one shared key across isolates),
+`pathKey(segments)`, `bindingKey(principal, priorKey)`, and `hopArgs(node, args, ctx)` +
+`hopsKey(hops)` for a driver that walks a chain itself. Type: `EvidenceStore`.
 
 **Seam 4 — policy** — `createMemoryPolicyStore()`, `ruleForNode(node, args)`,
 `allowLabel(rule)`. Types: `PolicyStore`, `AllowRule`, `AllowScope`.

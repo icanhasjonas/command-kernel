@@ -67,9 +67,10 @@ export {
 } from "./entity.js";
 // a run() that fails for a reason a caller can act on throws one of these
 export { CommandError, isCommandError } from "./errors.js";
-// SEAM 3 — evidence (the session-salted honesty tag)
+// SEAM 3: evidence (the HMAC-SHA256 grant signature)
 export {
   bindingKey,
+  createHmacEvidenceStore,
   createMemoryEvidenceStore,
   type EvidenceStore,
   pathKey,
@@ -78,7 +79,7 @@ export { type FuzzyResult, fuzzyMatch } from "./fuzzy.js";
 // SEAM 2 — the gate (the single permission-enforcement point)
 export { createRoleGate, evaluateGate, type GatePolicy, isGated } from "./gate.js";
 // the key of a walked chain (command() and any driver that walks one itself)
-export { type Hop, hopsKey } from "./hops-key.js";
+export { type Hop, hopArgs, hopsKey } from "./hops-key.js";
 // the lower verbs the drivers compose (usually reached via the Kernel instance)
 export {
   bumpFrecency,

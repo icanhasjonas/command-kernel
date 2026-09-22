@@ -26,7 +26,7 @@ import { parseDeeplink, serializePath } from "@command-kernel/core";
  * One schema, four surfaces, still.
  *
  * THE SECURITY PROPERTY falls out for free: the markup carries args but never a
- * grant (the session salt never leaves the kernel). A `<button>` into a gated
+ * grant (the signing key never leaves the kernel). A `<button>` into a gated
  * command can't auto-fire — `kernel.command(...)` returns a `gate` and the driver
  * routes the human to approval, exactly like a gated deeplink.
  */

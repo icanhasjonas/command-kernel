@@ -12,6 +12,7 @@ import {
   allowLabel,
   argList,
   entityOption,
+  hopArgs,
   missingArgs,
   resolveChildren,
   ruleForNode,
@@ -85,7 +86,8 @@ export function usePalette({
     const mine = ++token.current;
     const t = setTimeout(() => {
       setResolving(true);
-      const args = { [argId]: query };
+      // resolve (and so key) the hop with exactly what command() would: prefill + query
+      const args = hopArgs(node, { [argId]: query }, ctx);
       resolveChildren(node, args, ctx).then((items) => {
         if (mine !== token.current) return;
         setFrames((f) => {
@@ -145,7 +147,8 @@ export function usePalette({
       if (!node.resolve) return;
       const pos = node.args?.find((a) => a.positional);
       setResolving(true);
-      const args = pos ? { [pos.id]: "" } : {};
+      // the args resolve() receives are the ones the frame is keyed by (core hopArgs)
+      const args = hopArgs(node, pos ? { [pos.id]: "" } : {}, ctx);
       const items = await resolveChildren(node, args, ctx);
       setFrames((f) => [
         ...f,

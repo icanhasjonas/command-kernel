@@ -1,5 +1,36 @@
 import type { JsonSchemaNode } from "./schema.js";
 
+const NOT_JSON: Record<string, string> = {
+  undefined: "undefined",
+  function: "a function",
+  symbol: "a symbol",
+  bigint: "a bigint",
+};
+
+/**
+ * Where a value holds something JSON cannot carry: NaN or an infinity, undefined (a
+ * list hole included), a function, a symbol, a bigint, or a cycle. JSON.stringify
+ * would quietly write such a value as null or leave it out, so it would be signed as
+ * something other than what runs; the kernel refuses it instead. Own keys only.
+ */
+export function notJson(value: unknown, path: string, seen = new Set<object>()): string[] {
+  if (typeof value === "number")
+    return Number.isFinite(value) ? [] : [`${path} must be a finite number`];
+  if (typeof value === "string" || typeof value === "boolean" || value === null) return [];
+  if (typeof value !== "object") return [`${path} is ${NOT_JSON[typeof value]}, not JSON`];
+  if (seen.has(value)) return [`${path} contains itself`];
+  seen.add(value);
+  const out: string[] = [];
+  if (Array.isArray(value)) {
+    for (let i = 0; i < value.length; i++) out.push(...notJson(value[i], `${path}[${i}]`, seen));
+  } else {
+    const obj = value as Record<string, unknown>; // a non-null, non-array object
+    for (const k of Object.keys(obj)) out.push(...notJson(obj[k], `${path}.${k}`, seen));
+  }
+  seen.delete(value);
+  return out;
+}
+
 /**
  * A small structural check of a value against the JsonSchemaNode subset the
  * kernel emits: type (string / number / integer / boolean / object / array),

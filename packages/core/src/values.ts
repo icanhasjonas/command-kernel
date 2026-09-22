@@ -1,5 +1,6 @@
 import type { ArgSpec, ArgValue } from "./args.js";
 import { blankIsAbsent } from "./coerce.js";
+import { canonicalJson } from "./signing.js";
 
 /**
  * Arg-value helpers. A text arg's value is `string | string[]` (a `multiple` arg
@@ -8,9 +9,13 @@ import { blankIsAbsent } from "./coerce.js";
  * on `Array.isArray` inline, and every one of them is safe on a typed value.
  */
 
-/** A value as display text: strings as-is, anything else as JSON. */
+/**
+ * A value as text: strings as-is, anything else as canonical JSON (sorted keys), so
+ * `{b, a}` and `{a, b}` read the same wherever text is compared (a policy rule's
+ * value) or shown.
+ */
 function asText(v: unknown): string {
-  return typeof v === "string" ? v : JSON.stringify(v);
+  return typeof v === "string" ? v : canonicalJson(v);
 }
 
 /** Normalize a value to a list of texts (single -> [single], undefined/null -> []). */

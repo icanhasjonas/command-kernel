@@ -1,5 +1,5 @@
 import type { ArgSpec, ArgValue, ArgValues } from "./args.js";
-import { setOwn } from "./own.js";
+import { getOwn, setOwn } from "./own.js";
 import type { JsonSchemaNode } from "./schema.js";
 import type { CommandNode } from "./types.js";
 
@@ -105,13 +105,43 @@ export function blankIsAbsent(spec: ArgSpec): boolean {
   return spec.kind === "json" && spec.schema?.type !== "string";
 }
 
-/** The args fitted to their declared kinds. Never mutates `values`. */
-export function coerceArgs(node: CommandNode, values: ArgValues): ArgValues {
+/** Deep equality over JSON-shaped values (no JSON.stringify: a bigint would throw). */
+function same(a: unknown, b: unknown): boolean {
+  if (Object.is(a, b)) return true;
+  if (Array.isArray(a) && Array.isArray(b))
+    return a.length === b.length && a.every((x, i) => same(x, b[i]));
+  if (!isObject(a) || !isObject(b)) return false;
+  const keys = Object.keys(a);
+  return (
+    keys.length === Object.keys(b).length &&
+    keys.every((k) => Object.hasOwn(b, k) && same(a[k], b[k]))
+  );
+}
+
+/** `values` without its undefined entries (an undefined value is no value). */
+function withoutUndefined(values: ArgValues): ArgValues {
+  const keys = Object.keys(values);
+  if (keys.every((k) => values[k] !== undefined)) return values;
+  const out: ArgValues = {};
+  for (const k of keys) {
+    const v = values[k];
+    if (v !== undefined) setOwn(out, k, v);
+  }
+  return out;
+}
+
+/**
+ * The args fitted to their declared kinds. Never mutates `values`. A key whose value
+ * is undefined is dropped first, declared or not: `{ note: undefined }` is `{}` to the
+ * gate, the signature and run() alike, never a second spelling of `{ note: "" }`.
+ */
+export function coerceArgs(node: CommandNode, input: ArgValues): ArgValues {
+  const values = withoutUndefined(input);
   const specs = node.args;
   if (!specs?.length) return values;
   let out: ArgValues | null = null;
   for (const spec of specs) {
-    const v = values[spec.id];
+    const v = getOwn(values, spec.id);
     if (v === undefined) continue;
     // an untouched field or `?n=` means "no value" for a typed arg, as it does for text
     if (typeof v === "string" && v.trim() === "" && blankIsAbsent(spec)) {
@@ -120,7 +150,7 @@ export function coerceArgs(node: CommandNode, values: ArgValues): ArgValues {
       continue;
     }
     const c = coerceValue(spec, v);
-    if (JSON.stringify(c) !== JSON.stringify(v)) {
+    if (!same(c, v)) {
       out ??= { ...values };
       setOwn(out, spec.id, c);
     }

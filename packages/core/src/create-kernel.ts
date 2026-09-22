@@ -53,7 +53,7 @@ export interface KernelConfig {
   ranker?: Ranker;
   /** permission gate (default: the viewer<advisor<admin `evaluateGate`) */
   gate?: GatePolicy;
-  /** grant sign/verify store (default: in-memory session-salted) */
+  /** grant sign/verify store (default: HMAC-SHA256 under a random per-store key) */
   evidence?: EvidenceStore;
   /** always-allow store (default: in-memory session-scoped) */
   policy?: PolicyStore;

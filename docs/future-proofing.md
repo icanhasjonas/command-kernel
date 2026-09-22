@@ -58,7 +58,7 @@ surface is a driver over the same verbs and the same gate.
    `args` response carrying `errors`.
 3. **Deeplinks** — `serializePath` / `parseDeeplink` in core (pure string ↔
    path), driven by the same `ArgSpec`. The sharp security property: a URL
-   **cannot carry a session-salted grant**, so a deeplink into a gated command
+   **cannot carry a signed grant**, so a deeplink into a gated command
    *cannot auto-fire* — it returns a `gate`, and the driver must route to the
    approval UI. Proven by test.
 4. **Generic roles** — `Role = string`; `createRoleGate(ladder)` builds the

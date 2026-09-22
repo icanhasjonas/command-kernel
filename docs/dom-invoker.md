@@ -74,7 +74,7 @@ button driver decodes too. One schema, still.
 
 ## The security property (free)
 
-The markup carries args but **never a grant** — the session salt never leaves the
+The markup carries args but **never a grant**: the signing key never leaves the
 kernel. A `<button>` into a gated command therefore cannot auto-fire: the listener
 gets back a `gate` response and routes the human to approval, exactly like a gated
 deeplink. The model / the markup / the URL can all *address* a gated command; none

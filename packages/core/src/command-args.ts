@@ -1,6 +1,7 @@
 import type { ArgOption, ArgValues } from "./args.js";
 import type { CommandResponse, Completion } from "./command.js";
 import { type EntityRegistry, entityOption } from "./entity.js";
+import { getOwn, setOwn } from "./own.js";
 import type { CommandNode, Ctx } from "./types.js";
 import { isFilled } from "./values.js";
 
@@ -24,7 +25,7 @@ export async function resolveEntities(
 ): Promise<CommandResponse | null> {
   for (const a of node.args ?? []) {
     if (!a.entity) continue;
-    const raw = values[a.id];
+    const raw = getOwn(values, a.id);
     if (typeof raw !== "string") continue; // empty or multi-value (listOf) -- handled elsewhere
     const v = raw.trim();
     if (!v) continue;
@@ -38,7 +39,7 @@ export async function resolveEntities(
     );
     const exact = candidates.find((c) => c.id === v);
     if (exact) continue;
-    if (candidates.length === 1 && candidates[0]) values[a.id] = candidates[0].id;
+    if (candidates.length === 1 && candidates[0]) setOwn(values, a.id, candidates[0].id);
     else if (candidates.length > 1)
       return { kind: "disambiguate", node, arg: a, query: v, candidates };
   }
@@ -54,7 +55,7 @@ export async function argCompletions(
   const out: Completion[] = [];
   for (const a of node.args ?? []) {
     if (a.positional) continue;
-    const filled = isFilled(values[a.id]);
+    const filled = isFilled(getOwn(values, a.id));
     let options: ArgOption[] = [];
     if (!filled) {
       // resolution order: closed enum -> registered entity catalog -> one-off complete

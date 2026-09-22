@@ -24,12 +24,13 @@ export interface Gate {
 }
 
 /**
- * The honesty tag a gate mints when a human (or an agent's operator) approves
- * an action. It is NOT a security token — it's a cheap, session-salted hash
- * bound to the EXACT (command, args, prior-path) that was shown and allowed.
- * Its only job: a caller — the agent especially — cannot FABRICATE approval,
- * because it can't compute a valid tag without going through the gate. Reload
- * the page → new session salt → every prior grant fails to verify. See
+ * The signed approval a gate mints when a human (or an agent's operator) approves
+ * an action: an HMAC-SHA256 signature, under the evidence store's secret key, over
+ * the EXACT (principal, prior path, command, canonical args, nonce) that was shown
+ * and allowed. A caller, the agent especially, cannot fabricate approval or turn
+ * one grant into another, because it cannot compute a valid signature without the
+ * key. A new key (a reload, `rotate()`) makes every prior grant fail to verify. It
+ * is not a bearer token: it verifies only for the principal it names. See
  * `evidence.ts`.
  */
 export interface Grant {
