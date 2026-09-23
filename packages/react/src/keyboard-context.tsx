@@ -29,14 +29,9 @@ export function useKeyboard(): Keyboard {
   return useKeyboardContext().keyboard;
 }
 
-/**
- * Everything under `children` pushes its layers above layer `id`; with no `id` (a disabled
- * layer) they attach to the layer outside. Rendered either way, so switching a layer off never
- * changes the tree shape and never remounts (re-opens) what is inside it.
- */
-export function OwnedBy({ id, children }: { id: string | undefined; children?: ReactNode }) {
+/** Everything under `children` pushes its layers above layer `id` (law L3). */
+export function OwnedBy({ id, children }: { id: string; children?: ReactNode }) {
   const outer = useKeyboardContext();
-  const parent = id ?? outer.parent;
-  const value = useMemo(() => ({ ...outer, parent }), [outer, parent]);
+  const value = useMemo(() => ({ ...outer, parent: id }), [outer, id]);
   return <KeyboardContext value={value}>{children}</KeyboardContext>;
 }

@@ -10,6 +10,5 @@ export function KeyboardScope({
   ...options
 }: LayerOptions & { scope: string; children?: ReactNode }) {
   const id = useKeyboardScope(scope, options);
-  // disabled: no layer, and what is inside attaches to the next layer out
   return <OwnedBy id={id}>{children}</OwnedBy>;
 }

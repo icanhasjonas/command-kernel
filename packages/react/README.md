@@ -49,6 +49,7 @@ function Editor() {
 
 A layer's parent is the nearest layer around it in the React tree, portals included, so a
 popover rendered into `document.body` from inside a dialog still sits above the dialog. A layer
-is pushed on mount and popped on unmount; new keys or options are applied in place, so it never
-jumps above a layer opened after it (a new `id`, a new set of scope names or a new `scope` prop is
-a new layer). `useScopeBinding` applies new `nodes` itself: memoize the array.
+is pushed on mount and popped on unmount; new keys, options, owner and `enabled` are applied in
+place, so it never jumps above a layer opened after it (a new `id`, a new set of scope names or a
+new `scope` prop is a new layer). `useScopeBinding` applies new `nodes` itself, and an inline
+array of the same nodes is no change.

@@ -208,6 +208,23 @@ describe("L13 a mounted scope puts its commands on the stack until popped", () =
     expect(hits).toEqual(["back"]);
     expect(kb.describeStack().layers).toEqual([]);
   });
+
+  it("a mounted layer says why a disabled key did not run, attached or not", () => {
+    const { kb } = rig();
+    const said: string[] = [];
+    const b = kb.createScopes({
+      nodes: [cmd("send", "mod+Enter", { scope: "dialog", disabled: () => "Add a recipient" })],
+      scopes: [],
+      mounted: ["dialog"],
+      ctx: () => testCtx,
+      activeScopes: () => [],
+      onActivate: () => {},
+      onDisabled: (_n, reason) => said.push(reason),
+    });
+    b.mount("dialog");
+    kb.handleKeydown(modKey("Enter"));
+    expect(said).toEqual(["Add a recipient"]);
+  });
 });
 
 describe("L14 describeStack says what a press would reach, top first", () => {

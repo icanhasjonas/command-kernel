@@ -116,7 +116,7 @@ export function createLayerStack(): LayerStack {
     const layer: KeyLayer = { id, bindings: canonical(bindings), options: settle(layerOptions) };
     const n = seq++;
     const own = extra.tier ?? tierOf(layerOptions);
-    const place: Place = { seq: n, own, tier: own, stamp: n, depth: 0, placed: false };
+    const place: Place = { seq: n, own };
     if (extra.tier !== undefined) place.fixed = true;
     attachNodes(place, extra.node);
     places.set(layer, place);

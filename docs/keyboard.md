@@ -125,18 +125,21 @@ while the editor is open. `mod+k` still opens the palette.
 - **L2** Base layers (`base: true`) sit below every other layer, whenever they
   were pushed. Every facts scope is base, and `registerShortcuts`' flat map sits
   lower still, under the scopes.
-- **L3** A layer pushed with `parent: "<id>"` sits above that layer, whatever
-  order the two were pushed in: React runs a child's effects before its
-  parent's, so plain push order would put a popover UNDER its own dialog.
-  Otherwise the layer OPENED LAST is on top: a modal editor opened inside an
-  older screen is above a toast that appeared before the editor did, and a menu
-  opened in a dialog is above a toast shown before the menu. (Each layer is
-  stamped with the later of its own push and its owner's stamp; the stack
-  re-sorts on every change.) Ownership beats base: a base layer owned by a
-  dialog sits above the dialog. A layer whose owner is popped keeps the place and
-  tier it had. Two live layers cannot share an id (the second push throws), so a
-  parent id always names one layer; default ids, facts-scope ids and mount ids
-  never repeat and never take an id a host chose.
+- **L3** MODAL LAYERS ARE WINDOWS. Every layer belongs to its nearest modal
+  owner-or-self, or to the screen (below every window). The window opened last
+  is on top, and a layer never rises above a window that is not its own:
+  suggestions that open late in the editor stay under a palette opened in the
+  meantime, and a toast shown while a dialog is open stays under it (its keys
+  do not cross the barrier). Inside a window, the layer opened last is on top,
+  and a layer is always above its owner, whatever order the two were pushed in
+  (React runs a child's effects before its parent's, so plain push order would
+  put a popover UNDER its own dialog). A modal editor opened inside an older
+  screen is a new window, above everything on that screen. The stack re-sorts
+  on every change. Ownership beats base: a base layer owned by a dialog sits
+  above the dialog. A layer whose owner is popped keeps the place and tier it
+  had. Two live layers cannot share an id (the second push throws), so a parent
+  id always names one layer; default ids, facts-scope ids and mount ids never
+  repeat and never take an id a host chose.
 - **L4** A handler that returns exactly `false` declines: the key goes on down,
   as if that binding were not there. Which layers the press visits is fixed
   when the key goes down, and a layer a handler pops during the press does not
@@ -280,11 +283,12 @@ function NewMail() {
   a hidden screen's keys leave the stack with it.
 - `KeyboardLayer` / `useKeyboardLayer(bindings, options)` push plain bindings,
   for keys that are not commands. A layer is pushed when the component mounts
-  (or `enabled` turns on) and popped when it unmounts (or turns off). Everything
-  else is applied in place (L17): new handlers, a new set of keys, a new `modal`
-  or `passThrough`, a new owner. A new `id` prop is a new layer.
-- `enabled={false}` takes the layer off the stack; layers rendered inside it
-  attach to the next layer out, in place, without re-opening.
+  and popped when it unmounts. Everything else is applied in place (L17): new
+  handlers, a new set of keys, a new `modal` or `passThrough`, a new owner,
+  `enabled`. A new `id` prop is a new layer.
+- `enabled={false}` keeps the layer on the stack but not live: it takes no key
+  and is no barrier, and the layers inside it stay its children. Switching it
+  back on is not an open, so it does not jump above a palette opened meanwhile.
 - A new set of `scopes` or `mounted` names makes `useScopeBinding` a new
   binding, and a new `scope` prop re-mounts a `KeyboardScope`: to the stack that
   is a close and an open, so they land on top. Changed commands never do that.
@@ -322,7 +326,11 @@ alone the key never reaches the kernel's listener, and Escape does nothing.
 ```
 
 The key then reaches the dialog's layer unprevented, which runs your close or
-discard command, and that command can ask first ("Discard this draft?"). A host
+discard command, and that command can ask first ("Discard this draft?"). Base
+UI calls `onOpenChange(false, "escape-key")` more than once for one Escape (from
+the popup's own key handler and from its document listener), and a dialog's
+handler also runs while a nested popover takes the key: do nothing else in that
+branch. A host
 using this recipe should keep a browser test with the real library, since a
 library update can change it.
 

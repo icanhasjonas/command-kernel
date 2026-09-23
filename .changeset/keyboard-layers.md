@@ -63,10 +63,13 @@ BEHAVIOUR CHANGES for existing hosts (a 0.x minor):
   pending chord.
 - `@command-kernel/react`: `useScopeBinding` binds in an effect; layers are pushed in layout
   effects (a re-suspended Suspense boundary takes its layers off the stack).
-- Order: the layer OPENED LAST is on top (it stays above its owner). A layer opened inside
-  an older owner is above a root layer that appeared before it; before, a whole owner's
-  subtree sorted by the owner's push.
+- Order: modal layers are windows. The window opened last is on top; every other layer
+  belongs to its nearest modal owner (or the screen) and never rises above a window that is
+  not its own; inside a window the layer opened last is on top, above its owner. So a toast
+  pushed while a dialog is open now sits UNDER the dialog, and its keys stop at the barrier.
 - A chord whose every command is hidden by `when` does not arm.
 - `ScopeBinding` gained required members (`mount`, `setNodes`, `attach`, `detach`) and
   `Keyboard` gained `createScopes`: a type break for code that implements or mocks them.
 - `updateLayer` applies all or nothing, and a change to `base` moves the layer to its tier.
+- `@command-kernel/react`: `enabled={false}` keeps the layer on the stack, not live (it used
+  to pop it); `useScopeBinding` ignores a new array of the same nodes.

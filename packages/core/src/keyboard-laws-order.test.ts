@@ -194,6 +194,34 @@ describe("L3 a layer sits above its owner, whatever order the two were pushed in
     for (let i = 0; i < 4; i++) kb.pushLayer({}, { id: `layer-${i}` });
     expect(() => kb.pushLayer({})).not.toThrow();
   });
+
+  it("modal layers are windows: suggestions opening late in the editor stay under a newer palette", () => {
+    const { kb, hits, on } = rig();
+    kb.pushLayer({ Escape: on("discard") }, { id: "editor", modal: true });
+    kb.pushLayer({ Escape: on("close palette") }, { id: "palette", modal: true });
+    kb.pushLayer({ Escape: on("close suggestions") }, { id: "sugg", parent: "editor" });
+    kb.handleKeydown(key("Escape"));
+    expect(hits).toEqual(["close palette"]);
+    expect(kb.describeStack().layers.map((l) => l.id)).toEqual(["palette", "sugg", "editor"]);
+  });
+
+  it("a plain layer shown while a modal is open belongs under it: a toast's keys do not cross", () => {
+    const { kb, hits, on } = rig();
+    kb.pushLayer({ Escape: on("discard") }, { id: "editor", modal: true });
+    kb.pushLayer({ u: on("undo"), Escape: on("dismiss") }, { id: "toast" });
+    kb.handleKeydown(key("u"));
+    kb.handleKeydown(key("Escape"));
+    expect(hits).toEqual(["discard"]);
+  });
+
+  it("a modal mounted in the same commit as a deep sibling subtree (children first) is on top", () => {
+    const { kb } = rig();
+    kb.pushLayer({}, { id: "g", parent: "x" });
+    kb.pushLayer({}, { id: "x", parent: "a" });
+    kb.pushLayer({}, { id: "a" });
+    kb.pushLayer({}, { id: "b", modal: true });
+    expect(kb.describeStack().layers[0]?.id).toBe("b");
+  });
 });
 
 describe("L4 a handler that returns false declines, and the key goes on down", () => {

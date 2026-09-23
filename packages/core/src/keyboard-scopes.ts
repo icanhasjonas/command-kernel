@@ -124,7 +124,25 @@ export function createScopes(
   for (const scope of scopes) build(scope, nodes);
   const layers: KeyLayer[] = [];
   let disposed = false;
+  let attached = false;
   let unsubscribe: (() => void) | null = null;
+
+  // nothing took the press: if one of ours said no, say why (once, the top-most reason). Heard
+  // while any of our layers is up - facts (attached) or mounted - and never before, so a binding
+  // made and dropped during a render leaves nothing subscribed.
+  function listen(): void {
+    if (unsubscribe !== null) return;
+    unsubscribe = onDeclined(() => {
+      const d = disabled;
+      if (d === null || d.press !== current() || !onDisabled) return;
+      disabled = null;
+      onDisabled(d.node, d.reason, ctx());
+    });
+  }
+  function stopListening(): void {
+    unsubscribe?.();
+    unsubscribe = null;
+  }
 
   /** the mounted layers still up, and the scope each one is, popped on dispose */
   const open = new Map<KeyLayer, string>();
@@ -134,7 +152,9 @@ export function createScopes(
 
   function attach(): void {
     if (disposed) throw new Error("bindScopes: this binding is disposed");
-    if (unsubscribe !== null) return;
+    if (attached) return;
+    attached = true;
+    listen();
     // the facts scopes, pushed as ONE change: BASE layers, ids fresh per binding
     const built = scopes.map((scope) => build(scope, nodes));
     stack.batch(() => {
@@ -146,19 +166,13 @@ export function createScopes(
         layers.push(stack.pushNodeLayer(b.bindings, { id, base: true, active }, b.extra));
       });
     });
-    // nothing took the press: if one of ours said no, say why (once, the top-most reason)
-    unsubscribe = onDeclined(() => {
-      const d = disabled;
-      if (d === null || d.press !== current() || !onDisabled) return;
-      disabled = null;
-      onDisabled(d.node, d.reason, ctx());
-    });
   }
 
   function detach(): void {
-    if (unsubscribe === null) return;
-    unsubscribe();
-    unsubscribe = null;
+    if (!attached) return;
+    attached = false;
+    prune();
+    if (open.size === 0) stopListening();
     const up = layers.splice(0);
     stack.batch(() => {
       for (const layer of up) stack.popLayer(layer);
@@ -183,6 +197,7 @@ export function createScopes(
       const id = mountOptions.id ?? stack.freshId(`scope:${scope}:`);
       const layer = stack.pushNodeLayer(bindings, { ...mountOptions, id }, extra);
       open.set(layer, scope);
+      listen();
       return layer;
     },
     setNodes(next) {
@@ -203,6 +218,7 @@ export function createScopes(
     },
     dispose() {
       detach();
+      stopListening();
       disposed = true;
       stack.batch(() => {
         for (const layer of open.keys()) stack.popLayer(layer);

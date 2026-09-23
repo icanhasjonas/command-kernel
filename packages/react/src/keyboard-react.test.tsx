@@ -11,7 +11,7 @@ import {
   type ScopeBinding,
 } from "@command-kernel/core";
 import { act, cleanup, fireEvent, render } from "@testing-library/react";
-import { type ReactNode, StrictMode, Suspense, useState } from "react";
+import { type ReactNode, StrictMode, Suspense, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { registerDom, unregisterDom } from "../../../test/dom-setup.js";
 import { attachKeyboard, type KeySource } from "./attach-keyboard.js";
@@ -172,20 +172,27 @@ describe("L17 in React: a layer keeps its place while its keys and options chang
     expect(view.container.textContent).toBe("j r");
   });
 
-  it("a disabled layer is not on the stack, and what is inside it attaches to the next one out", () => {
-    const { keyboard, app } = rig();
-    render(
+  it("a disabled layer is on the stack but not live, and switching it on does not re-open it", () => {
+    const { keyboard, hits, on, app } = rig();
+    const tree = (results: boolean) =>
       app(
-        <KeyboardLayer id="outer" bindings={{}}>
-          <KeyboardLayer id="off" bindings={{}} enabled={false}>
-            <KeyboardLayer id="inner" bindings={{}} />
+        <>
+          <KeyboardLayer id="editor" bindings={{}} modal>
+            <KeyboardLayer
+              id="field"
+              bindings={{ ArrowDown: on("next result") }}
+              enabled={results}
+            />
           </KeyboardLayer>
-        </KeyboardLayer>,
-      ),
-    );
-    const layers = keyboard.describeStack().layers;
-    expect(layers.map((l) => l.id)).toEqual(["inner", "outer"]);
-    expect(layers[0]?.parent).toBe("outer");
+          <KeyboardLayer id="palette" bindings={{ ArrowDown: on("next command") }} modal />
+        </>,
+      );
+    const view = render(tree(false));
+    expect(keyboard.describeStack().layers.find((l) => l.id === "field")?.live).toBe(false);
+    view.rerender(tree(true));
+    press("ArrowDown");
+    expect(hits).toEqual(["next command"]);
+    expect(layerIds(keyboard)).toEqual(["palette", "field", "editor"]);
   });
 });
 
@@ -377,6 +384,38 @@ describe("L3 in React: the first render stacks in tree order, scopes and layers 
   });
 });
 
+describe("useScopeBinding with a new nodes array on every render", () => {
+  it("is not a change when the nodes are the same, so a hint beside it cannot loop", () => {
+    const keyboard = createKeyboard();
+    const node: CommandNode = { id: "back", title: "", shortcut: "Escape", scope: "thread" };
+    let renders = 0;
+    function Root() {
+      renders++;
+      const scopes = useScopeBinding(keyboard, {
+        nodes: [node],
+        scopes: ["thread"],
+        ctx: () => ({
+          location: { module: "m" },
+          user: { id: "u", name: "", role: "admin", brand: "b" },
+          now: 0,
+          frecency: {},
+        }),
+        activeScopes: () => ["thread"],
+        onActivate: () => {},
+      });
+      // the component that owns the binding also follows the stack (a hint bar in Root)
+      const version = useSyncExternalStore(keyboard.subscribeStack, () => keyboard.stackVersion);
+      return (
+        <KeyboardProvider keyboard={keyboard} scopes={scopes} source={document}>
+          <p>{version}</p>
+        </KeyboardProvider>
+      );
+    }
+    render(<Root />);
+    expect(renders).toBeLessThan(10);
+  });
+});
+
 describe("a layer inside a Suspense boundary that suspends again leaves the stack", () => {
   it("the fallback shows, and the hidden thread's keys are gone", async () => {
     const { keyboard, hits, on, app } = rig();
@@ -419,7 +458,9 @@ describe("L17 in React: owners change in place", () => {
     view.rerender(tree(false, true));
     press("Escape");
     expect(hits).toEqual(["palette"]);
-    expect(layerIds(keyboard)).toEqual(["palette", "dialog"]);
+    // outer stays on the stack, switched off (not live); nothing moved
+    expect(layerIds(keyboard)).toEqual(["palette", "dialog", "outer"]);
+    expect(keyboard.describeStack().layers.find((l) => l.id === "outer")?.live).toBe(false);
   });
 });
 
