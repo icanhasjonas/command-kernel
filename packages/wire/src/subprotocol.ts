@@ -16,7 +16,9 @@ import { refuse } from "./reply.js";
  */
 
 export type SubprotocolAnswer =
-  | { ok: true; headers?: HeadersInit }
+  // what `new Headers()` takes, spelled out: the global `HeadersInit` type is DOM-only, and
+  // bun-types does not declare it
+  | { ok: true; headers?: Headers | Record<string, string> | [string, string][] }
   | { ok: false; response: Response };
 
 export function negotiateSubprotocol(request: Request, name: string): SubprotocolAnswer {
