@@ -21,7 +21,7 @@ export interface KeyEventLike {
   readonly altKey: boolean;
 }
 
-// structural peek at the browser global (when a host provides one) — keeps the
+// structural peek at the browser global (when a host provides one) - keeps the
 // DOM lib out of core while still auto-detecting the platform in a browser
 const nav = (globalThis as { navigator?: { platform?: string; userAgent?: string } }).navigator;
 export const isMac = Boolean(

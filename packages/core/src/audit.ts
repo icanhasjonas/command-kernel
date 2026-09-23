@@ -7,13 +7,13 @@ import type { Ctx, PathSegment, Role } from "./types.js";
  * Audit + replay.
  *
  * A command is already data: an id chain plus args. `CommandRecord` is the
- * serializable, function-free, evidence-free form of one — safe to log, store, or
+ * serializable, function-free, evidence-free form of one - safe to log, store, or
  * ship over the wire. `createKernel({ onExecute })` fires for every successful
  * run, so audit / telemetry / an undo stack is a one-line opt-in.
  *
  * `replay` re-issues a record through the kernel. Note the trust core still
  * applies: replaying a GATED mutation has no grant, so it correctly comes back as
- * a `gate` for re-approval — you cannot smuggle a past approval into the future.
+ * a `gate` for re-approval - you cannot smuggle a past approval into the future.
  * Pure (read-only) commands replay straight through.
  */
 

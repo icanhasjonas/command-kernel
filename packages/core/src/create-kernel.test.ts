@@ -22,7 +22,7 @@ const reset: CommandNode = {
   run: async () => ({ kind: "toast", message: "sent" }),
 };
 
-describe("createKernel — defaults stay trivial", () => {
+describe("createKernel - defaults stay trivial", () => {
   it("zero-config kernel ranks + completes with stock everything", async () => {
     const k = createKernel({
       roots: [
@@ -37,7 +37,7 @@ describe("createKernel — defaults stay trivial", () => {
   });
 });
 
-describe("SEAM 1 — Ranker", () => {
+describe("SEAM 1 - Ranker", () => {
   it("a custom ranker replaces the blend (reverse-alphabetical here)", async () => {
     const reverseAlpha: Ranker = (nodes) =>
       nodes
@@ -57,8 +57,8 @@ describe("SEAM 1 — Ranker", () => {
   });
 });
 
-describe("SEAM 2 — GatePolicy", () => {
-  it("a custom gate is the authority — it can block an otherwise-open node", async () => {
+describe("SEAM 2 - GatePolicy", () => {
+  it("a custom gate is the authority - it can block an otherwise-open node", async () => {
     const denyAll: GatePolicy = () => ({
       allowed: false,
       needsConfirm: false,
@@ -76,8 +76,8 @@ describe("SEAM 2 — GatePolicy", () => {
   });
 });
 
-describe("SEAM 3 — EvidenceStore", () => {
-  it("the store owns verification — a trusting store satisfies the confirm", async () => {
+describe("SEAM 3 - EvidenceStore", () => {
+  it("the store owns verification - a trusting store satisfies the confirm", async () => {
     const trusting: EvidenceStore = {
       sign: (_c, _a, _p, o) => ({ nonce: o?.nonce ?? "n", sig: "stub" }),
       verify: () => true, // the whole point: executeNode delegates trust here
@@ -93,7 +93,7 @@ describe("SEAM 3 — EvidenceStore", () => {
   });
 });
 
-describe("SEAM 4 — PolicyStore", () => {
+describe("SEAM 4 - PolicyStore", () => {
   it("a custom policy that always matches auto-satisfies the gate (no grant)", async () => {
     const openPolicy: PolicyStore = {
       allow: () => {},
@@ -109,7 +109,7 @@ describe("SEAM 4 — PolicyStore", () => {
   });
 });
 
-describe("SEAM 5 — Registry", () => {
+describe("SEAM 5 - Registry", () => {
   it("assembles static + lazy contextual providers; command() uses them", async () => {
     const base: CommandNode = { id: "base", title: "Base" };
     const adminOnly: CommandNode = { id: "danger", title: "Danger Zone" };

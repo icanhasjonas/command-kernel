@@ -1,6 +1,6 @@
 # @command-kernel/core
 
-The headless command kernel — one source of truth for every action and
+The headless command kernel - one source of truth for every action and
 navigation in an app, with five pluggable extension seams. Pure TypeScript, zero
 framework imports. This is the hero; every driver (palette, agent, chords,
 deeplinks) is a thin renderer over it.
@@ -27,7 +27,7 @@ interface CommandNode {
   id: string;             // stable, dot-namespaced: "users.search"
   title: string;          // human label
   summary?: string;       // machine-readable capability blurb for an agent
-  args?: ArgSpec[];       // zero | one positional | many named — ONE schema
+  args?: ArgSpec[];       // zero | one positional | many named - ONE schema
   gate?: Gate;            // permission requirement, enforced by the kernel
   when?: (ctx) => boolean;   // visibility predicate
   boost?: (ctx) => number;   // dynamic rank bump for the current location
@@ -42,7 +42,7 @@ present → it is **executable**. Both → Quicksilver behaviour: drill the obje
 fire the verb. The **arg schema is the keystone**: one declaration drives palette
 arg-chips, the agent's tool params, deeplink parse/serialize, and audit replay.
 
-A **`Ctx`** is the "where am I" the caller supplies on every call — location,
+A **`Ctx`** is the "where am I" the caller supplies on every call - location,
 user (id/role/brand), `now`, and learned frecency. It drives `when` (visibility),
 `boost` (ranking), and `prefill` (arg pre-binding).
 
@@ -109,18 +109,18 @@ what args? what gate?) so an agent navigates the tree without guessing.
 Permission enforcement lives in the kernel, never in a driver. The human and the
 agent go through the identical path.
 
-- **Validation** — before the gate, `executeNode` runs `validateArgs` against the
-  arg schema (email shape, enum membership, custom `validate`). A driver — the
-  agent above all — can't run a node with a hallucinated value; the call comes
+- **Validation** - before the gate, `executeNode` runs `validateArgs` against the
+  arg schema (email shape, enum membership, custom `validate`). A driver - the
+  agent above all - can't run a node with a hallucinated value; the call comes
   back as an `args` response carrying `errors`. An arg the node does not declare is
   refused the same way, naming the key (a `prefill` included), and a `json` arg holds
   plain JSON only (no `Date`, `Map` or class instance). Coercion writes `-0` as `0`,
   and treats a `multiple` arg with no items (`[]`) as absent, on every driver.
-- **Gate** (`GatePolicy`) — given a node + ctx, is it allowed and does it still
+- **Gate** (`GatePolicy`) - given a node + ctx, is it allowed and does it still
   owe a confirm? The single enforcement point. May be **sync or async** (hit a DB
   / flag service); `executeNode` awaits it. The default is `createRoleGate(ladder)`
   over a configurable role ladder (`evaluateGate` = viewer < advisor < admin).
-- **Evidence** (`EvidenceStore`) — when a human clicks Allow, the store mints a
+- **Evidence** (`EvidenceStore`) - when a human clicks Allow, the store mints a
   `Grant`: an HMAC-SHA256 signature, under a secret 32-byte key, over the EXACT
   `(principal, prior-path, command, canonical args, nonce)`. A caller (the agent
   especially) **cannot fabricate approval** or rework one grant into another: the
@@ -136,7 +136,7 @@ agent go through the identical path.
   invalidates every outstanding grant. The default store's key is random per store; a
   host with several isolates passes one shared key to `createHmacEvidenceStore(key)` in
   each.
-- **Policy** (`PolicyStore`) — the standing "always allow" exception, checked
+- **Policy** (`PolicyStore`) - the standing "always allow" exception, checked
   BEFORE evidence is requested. Scope is `command` (any args), `arg` (this value),
   or `prefix` (this folder), session-scoped. A rule over a list arg matches only when
   it covers EVERY value in the call's list.
@@ -152,28 +152,28 @@ trivial and every override is opt-in.
 ```ts
 createKernel({
   roots,                                   // or `registry`
-  ranker:   createRanker({ frecency: 12 }),// SEAM 1 — or any (nodes,q,ctx)=>Ranked[]
-  gate:     myOwnershipPolicy,             // SEAM 2 — or any (node,ctx)=>GateVerdict
-  evidence: createRedisEvidenceStore(),    // SEAM 3 — implement EvidenceStore
-  policy:   createLocalStoragePolicyStore(),// SEAM 4 — implement PolicyStore
-  registry: createRegistry(...providers),  // SEAM 5 — lazy provider contribution
+  ranker:   createRanker({ frecency: 12 }),// SEAM 1 - or any (nodes,q,ctx)=>Ranked[]
+  gate:     myOwnershipPolicy,             // SEAM 2 - or any (node,ctx)=>GateVerdict
+  evidence: createRedisEvidenceStore(),    // SEAM 3 - implement EvidenceStore
+  policy:   createLocalStoragePolicyStore(),// SEAM 4 - implement PolicyStore
+  registry: createRegistry(...providers),  // SEAM 5 - lazy provider contribution
 });
 ```
 
 | # | Seam | Type | Default |
 |---|---|---|---|
-| 1 | Ranking | `Ranker = (nodes, query, ctx) => Ranked[]` | `createRanker()` — fuzzy + weight + boost + frecency |
+| 1 | Ranking | `Ranker = (nodes, query, ctx) => Ranked[]` | `createRanker()` - fuzzy + weight + boost + frecency |
 | 2 | Gate | `GatePolicy = (node, ctx) => GateVerdict \| Promise<…>` | `createRoleGate([...])` (= `evaluateGate`) |
-| 3 | Evidence | `EvidenceStore` — sign / verify / grantForPath / rotate | `createMemoryEvidenceStore()` |
-| 4 | Policy | `PolicyStore` — allow / revoke / list / clear / match | `createMemoryPolicyStore()` |
-| 5 | Providers | `Registry` — register / roots | `createRegistry(...)` |
-| 6 | Entities | `EntityType` — search / get (typed-arg catalog) | `createEntityRegistry(...)` |
+| 3 | Evidence | `EvidenceStore` - sign / verify / grantForPath / rotate | `createMemoryEvidenceStore()` |
+| 4 | Policy | `PolicyStore` - allow / revoke / list / clear / match | `createMemoryPolicyStore()` |
+| 5 | Providers | `Registry` - register / roots | `createRegistry(...)` |
+| 6 | Entities | `EntityType` - search / get (typed-arg catalog) | `createEntityRegistry(...)` |
 
 A seventh, observability seam: `createKernel({ onExecute })` fires a serializable
-`CommandRecord` after every successful run — wire audit, telemetry, or an undo
+`CommandRecord` after every successful run - wire audit, telemetry, or an undo
 stack in one line. The command has already run when it fires, so a hook that throws
 or rejects is swallowed and the caller still gets the result. Typed entities (seam 6) let an arg reference a registered
-catalog — `entity: { type: "person", constraint: "with-email-address" }` — which
+catalog - `entity: { type: "person", constraint: "with-email-address" }` - which
 becomes its completion source and an agent-queryable noun; see
 [`docs/entities.md`](../../docs/entities.md).
 
@@ -229,7 +229,7 @@ is the answer, `message` a one-line summary. A `run()` that cannot do the thing 
 policy can say "this user may write to box B but not box C". Two-parameter policies keep
 working unchanged. A deeplink can carry args but
 **never a grant** (the signing key never leaves the kernel), so a URL into a gated
-command can't auto-fire — it returns a `gate`. `@command-kernel/agent`'s
+command can't auto-fire - it returns a `gate`. `@command-kernel/agent`'s
 `collectTools` turns nodes into MCP `{ name, description, inputSchema }` tools off
 the same schema.
 
@@ -237,13 +237,13 @@ the same schema.
 
 ```ts
 const kernel = createKernel({ roots, onExecute: (rec) => log.push(rec) });
-// later: re-issue a recorded command (gated ones correctly re-prompt — no smuggled grant)
+// later: re-issue a recorded command (gated ones correctly re-prompt - no smuggled grant)
 await replay(kernel, record, ctx);
 ```
 
 ## Write your own provider
 
-A provider contributes root nodes — a static array, or a function of the context
+A provider contributes root nodes - a static array, or a function of the context
 that contributes **lazily** (so a module can decide what to surface based on where
 the user is or who they are):
 
@@ -271,7 +271,7 @@ kernel.roots(viewerCtx); // [users]
 
 Adding a provider makes its commands appear in EVERY driver at once. For lazy
 sub-items (a backend search), give the node a positional arg and a `resolve` that
-queries — mark it `enumerate: "query"` so a scouting agent knows not to blindly
+queries - mark it `enumerate: "query"` so a scouting agent knows not to blindly
 enumerate it.
 
 ## Write your own driver
@@ -299,8 +299,8 @@ async function runGoal(kernel, goal: string, ctx) {
 ```
 
 `kernel.grantFor(res)` is the only mint you should need. A `gate` response
-carries `args` — the **effective** values, after `prefill` merging and entity
-auto-resolution — plus the `priorKey` they bind against, so the grant covers what
+carries `args` - the **effective** values, after `prefill` merging and entity
+auto-resolution - plus the `priorKey` they bind against, so the grant covers what
 will actually run. Signing the args you *typed* (`evidence.grantForPath`) is
 correct only when the kernel derives nothing; otherwise verification is checked
 against values that never reach your hands and the gate re-asks forever.
@@ -311,39 +311,39 @@ replaying it gets the gate again: a grant is not a bearer token.
 
 The agent driver does exactly this with `pickTool` from `@command-kernel/agent`;
 the palette does it with frames + arg chips in `@command-kernel/ui`. A driver
-that tried to skip the gate physically can't — `run` only fires inside
+that tried to skip the gate physically can't - `run` only fires inside
 `executeNode`, after the gate.
 
 ## API reference
 
-**Factory** — `createKernel(config?) => Kernel`. `Kernel` methods: `command`,
+**Factory** - `createKernel(config?) => Kernel`. `Kernel` methods: `command`,
 `search`, `resolveChildren`, `executeNode`, `grantFor`, `roots`, `chords`,
 `shortcuts`, `shortcutConflicts`; and the wired `ranker`, `gate`, `evidence`,
 `policy`, `registry`, `entities`, `fallback`.
 
-**The verb** — `command(roots, req, ctx, deps)` (the free form; `kernel.command`
+**The verb** - `command(roots, req, ctx, deps)` (the free form; `kernel.command`
 binds `deps`). Types: `CommandRequest`, `CommandResponse`, `Completion`,
 `CommandDeps`.
 
-**Lower verbs** — `searchNodes(nodes, query, ctx, ranker?)`,
+**Lower verbs** - `searchNodes(nodes, query, ctx, ranker?)`,
 `resolveChildren(node, args, ctx)`, `executeNode(node, args, ctx, deps,
 confirmation?)`, `collectChords(nodes)`, `missingArgs(node, values)`,
 `bumpFrecency(frecency, id)`. Types: `ExecuteDeps`, `ExecuteOutcome`,
 `Confirmation`.
 
-**Seam 1 — ranking** — `createRanker(weights?)`, `rank` (default), `fuzzyMatch`.
+**Seam 1 - ranking** - `createRanker(weights?)`, `rank` (default), `fuzzyMatch`.
 Types: `Ranker`, `RankWeights`, `FuzzyResult`.
 
-**Seam 2 — gate** — `createRoleGate(ladder)`, `evaluateGate` (default),
+**Seam 2 - gate** - `createRoleGate(ladder)`, `evaluateGate` (default),
 `isGated(node)`. Type: `GatePolicy` (sync or async).
 
-**Keystone** — `toJsonSchema(node)`, `validateArgs(node, values)`. Types:
+**Keystone** - `toJsonSchema(node)`, `validateArgs(node, values)`. Types:
 `JsonSchemaObject`, `JsonSchemaNode`, `ArgError`.
 
-**Driver #4 — deeplinks** — `serializePath(path, opts?)`,
+**Driver #4 - deeplinks** - `serializePath(path, opts?)`,
 `parseDeeplink(url, opts?)`. Type: `DeeplinkOptions`.
 
-**Audit / replay** — `toRecord(req, ctx)`, `replay(kernel, record, ctx)`, and the
+**Audit / replay** - `toRecord(req, ctx)`, `replay(kernel, record, ctx)`, and the
 `createKernel({ onExecute })` hook. Type: `CommandRecord`.
 
 **Seam 3: evidence**: `createMemoryEvidenceStore()` (HMAC-SHA256, random key per
@@ -351,17 +351,17 @@ store), `createHmacEvidenceStore(key)` (one shared key across isolates),
 `pathKey(segments)`, `bindingKey(principal, priorKey)`, and `hopArgs(node, args, ctx)` +
 `hopsKey(hops)` for a driver that walks a chain itself. Type: `EvidenceStore`.
 
-**Seam 4 — policy** — `createMemoryPolicyStore()`, `ruleForNode(node, args)`,
+**Seam 4 - policy** - `createMemoryPolicyStore()`, `ruleForNode(node, args)`,
 `allowLabel(rule)`. Types: `PolicyStore`, `AllowRule`, `AllowScope`.
 
-**Seam 5 — registry** — `createRegistry(...providers)`. Types: `Registry`,
+**Seam 5 - registry** - `createRegistry(...providers)`. Types: `Registry`,
 `Provider`.
 
-**Self-description** — `describeNode(node)`, `describeTree(nodes, ctx?)`,
+**Self-description** - `describeNode(node)`, `describeTree(nodes, ctx?)`,
 `enumerateMode(node)`, `effectMode(node)`. Types: `NodeDescriptor`,
 `ArgDescriptor`.
 
-**Data model** — `CommandNode`, `ArgSpec`, `ArgOption`, `ArgKind`, `ArgValues`,
+**Data model** - `CommandNode`, `ArgSpec`, `ArgOption`, `ArgKind`, `ArgValues`,
 `Gate`, `GateVerdict`, `GateCheck`, `Grant`, `PathSegment`, `CommandResult`,
 `ResultKind`, `Ctx`, `Role`, `Ranked`, `EnumerateMode`, `EffectMode`.
 

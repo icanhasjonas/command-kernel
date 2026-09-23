@@ -17,7 +17,7 @@ const adminOnly: CommandNode = {
   run: async () => ({ kind: "toast", message: "ran" }),
 };
 
-describe("createRoleGate — generic role ladders", () => {
+describe("createRoleGate - generic role ladders", () => {
   it("the default ladder is viewer < advisor < admin", () => {
     expect(evaluateGate(adminOnly, ctx("viewer"))).toMatchObject({ allowed: false });
     expect(evaluateGate(adminOnly, ctx("admin"))).toMatchObject({ allowed: true });

@@ -11,7 +11,7 @@ import type { CommandNode, CommandResult, Ctx, GateVerdict, Grant, Ranked } from
 import { hasValue } from "./values.js";
 
 /**
- * The kernel verbs. Renderers (palette, agent, chords) call these — usually via
+ * The kernel verbs. Renderers (palette, agent, chords) call these - usually via
  * the bound methods on a `Kernel` instance (see create-kernel.ts), occasionally
  * directly. None of them know about React, the DOM, or each other.
  */
@@ -75,7 +75,7 @@ export interface ExecuteOutcome {
 /**
  * How a renderer proves a confirm-gated command may run. EITHER a `grant` minted
  * by the evidence store when the human/operator clicked Allow (bound to this
- * exact command+args+prior-path), OR — checked first — a standing always-allow
+ * exact command+args+prior-path), OR - checked first - a standing always-allow
  * rule. A raw boolean is gone on purpose: the agent cannot just assert `true`.
  */
 export interface Confirmation {
@@ -106,8 +106,8 @@ function stopped(verdict: GateVerdict, extra: Partial<ExecuteOutcome> = {}): Exe
  * Execute a node. Order is non-negotiable: args COMPLETE and VALID first, then
  * gate, then run. A confirm-gated command runs only when (a) a standing
  * always-allow rule matches, or (b) a valid grant for this exact
- * command+args+prior-path is supplied. Anything else — no grant, a forged grant,
- * a grant for different args, a grant from a rotated session — leaves the confirm
+ * command+args+prior-path is supplied. Anything else - no grant, a forged grant,
+ * a grant for different args, a grant from a rotated session - leaves the confirm
  * owed. The gate, policy, and evidence are INJECTED, so the same enforcement runs
  * whatever a consumer plugged in.
  *
@@ -126,7 +126,7 @@ export async function executeNode(
   // typed args sent as text (palette, URL) become their declared type; a no-op otherwise
   const args = coerceArgs(node, input);
 
-  // COMPLETE first — a required arg with no value is not a runnable command.
+  // COMPLETE first - a required arg with no value is not a runnable command.
   const missing = missingArgs(node, args);
   if (missing.length > 0) {
     const labels = new Map((node.args ?? []).map((a) => [a.id, a.label]));
@@ -137,7 +137,7 @@ export async function executeNode(
     return stopped({ allowed: false, needsConfirm: false, checks }, { missing });
   }
 
-  // VALIDATE next — the kernel checks what ANY driver sends, before the gate.
+  // VALIDATE next - the kernel checks what ANY driver sends, before the gate.
   // A node never runs with a present-but-invalid arg (a hallucinated email/enum).
   const argErrors = validateArgs(node, args);
   if (argErrors.length > 0) {

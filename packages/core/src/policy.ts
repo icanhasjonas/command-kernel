@@ -5,14 +5,14 @@ import type { CommandNode } from "./types.js";
 import { argList, isFilled } from "./values.js";
 
 /**
- * Policy — SEAM #4, the standing-exception half of the TRUST CORE.
+ * Policy - SEAM #4, the standing-exception half of the TRUST CORE.
  *
  * The grant (evidence.ts) is the per-ACT proof. "Always allow" is the standing
  * exception: when the human picks it, the store records a rule and from then on
  * a matching gate is satisfied WITHOUT asking and WITHOUT a grant. It is checked
- * BEFORE evidence is ever requested — a separate short-circuit into the verdict.
+ * BEFORE evidence is ever requested - a separate short-circuit into the verdict.
  *
- * Scope vocabulary — how wide the "always" reaches:
+ * Scope vocabulary - how wide the "always" reaches:
  *   - command : this command, any args ("always allow Send email")
  *   - arg     : this command + one arg equals a value ("…to jon@wall.north")
  *   - prefix  : this command + one arg starts with a prefix ("…under forms/ip/")
@@ -95,7 +95,7 @@ export function createMemoryPolicyStore(): PolicyStore {
 /**
  * Pick a sensible "always allow" scope for a node + the args being run: bind to
  * the entity/email arg when there is one (so "always allow" means "for THIS
- * recipient"), otherwise the whole command. Pure helper — no store needed.
+ * recipient"), otherwise the whole command. Pure helper - no store needed.
  */
 export function ruleForNode(node: CommandNode, args: ArgValues): AllowRule {
   const ent = node.args?.find(

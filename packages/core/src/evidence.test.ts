@@ -47,7 +47,7 @@ describe("evidence: the signed grant", () => {
     expect(ev.verify(g, "reset", { user: "a@b.io" }, pathKey([{ id: "users" }]))).toBe(true);
   });
 
-  it("SEAM: stores are independent — a grant from one never verifies in another", () => {
+  it("SEAM: stores are independent - a grant from one never verifies in another", () => {
     const a = createMemoryEvidenceStore();
     const b = createMemoryEvidenceStore();
     const g = a.sign("users.reset", { user: "a@b.io" }, "");

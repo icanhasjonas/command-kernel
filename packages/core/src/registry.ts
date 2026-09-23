@@ -1,7 +1,7 @@
 import type { CommandNode, Ctx } from "./types.js";
 
 /**
- * Provider registry — SEAM #5.
+ * Provider registry - SEAM #5.
  *
  * The kernel hard-codes no commands. A `Provider` contributes root nodes: either
  * a static array, or a function of the context that contributes LAZILY (so a

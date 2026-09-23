@@ -43,7 +43,7 @@ describe("enumerateMode / effectMode inference", () => {
     expect(enumerateMode(category)).toBe("free");
   });
 
-  it("a node with a positional (search) arg is query — must not be blindly listed", () => {
+  it("a node with a positional (search) arg is query - must not be blindly listed", () => {
     expect(enumerateMode(search)).toBe("query");
   });
 
@@ -62,7 +62,7 @@ describe("enumerateMode / effectMode inference", () => {
   });
 });
 
-describe("describeNode — the self-description an agent reads", () => {
+describe("describeNode - the self-description an agent reads", () => {
   it("describes a navigable, safe-to-scout category", () => {
     const d = describeNode(category);
     expect(d).toMatchObject({
@@ -97,7 +97,7 @@ describe("describeNode — the self-description an agent reads", () => {
   });
 });
 
-describe("describeTree — the root taxonomy", () => {
+describe("describeTree - the root taxonomy", () => {
   it("respects when() against the context", () => {
     const nodes: CommandNode[] = [
       { id: "always", title: "Always" },

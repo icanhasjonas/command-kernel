@@ -3,7 +3,7 @@ import { createKernel } from "./create-kernel.js";
 import type { CommandNode, Ctx } from "./types.js";
 
 /**
- * THE ARG CONTRACT IS THE KERNEL'S — regression.
+ * THE ARG CONTRACT IS THE KERNEL'S - regression.
  *
  * `executeNode` is a public verb; the palette calls it directly rather than
  * going through `command()`. It used to validate the values that were PRESENT
@@ -67,7 +67,7 @@ describe("executeNode enforces required args", () => {
     expect(seen).toEqual({ q: "jon" });
   });
 
-  it("completeness is checked BEFORE the gate — a missing arg never asks for approval", async () => {
+  it("completeness is checked BEFORE the gate - a missing arg never asks for approval", async () => {
     const node: CommandNode = {
       id: "danger",
       title: "Danger",

@@ -4,7 +4,7 @@ import type { JsonSchemaNode } from "./schema.js";
 import type { CommandNode, Ctx, EffectMode, EnumerateMode, Gate } from "./types.js";
 
 /**
- * Self-description — the layer that lets an AGENT navigate the command tree
+ * Self-description - the layer that lets an AGENT navigate the command tree
  * WITHOUT guessing.
  *
  * `command({ path: [] })` returns the root taxonomy; every item carries a

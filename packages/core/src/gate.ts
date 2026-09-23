@@ -2,12 +2,12 @@ import type { ArgValues } from "./args.js";
 import type { CommandNode, Ctx, GateVerdict } from "./types.js";
 
 /**
- * The gate — SEAM #2, and the TRUST CORE's first line.
+ * The gate - SEAM #2, and the TRUST CORE's first line.
  *
  * A `GatePolicy` answers one question: given this node and this context, is the
  * action allowed, and does it still owe a confirm? This is the SINGLE
- * enforcement point — the palette greys the row, the agent refuses to emit
- * `run`, a deeplink returns a gate — all by calling the same policy. A driver
+ * enforcement point - the palette greys the row, the agent refuses to emit
+ * `run`, a deeplink returns a gate - all by calling the same policy. A driver
  * cannot bypass a requirement it never owns. A policy may be sync OR async (hit a
  * DB / flag service); `executeNode` awaits it either way.
  *

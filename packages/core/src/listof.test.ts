@@ -20,7 +20,7 @@ const invite: CommandNode = {
   run: async (a) => ({ kind: "toast", message: `invited ${(a.to as string[]).length}` }),
 };
 
-describe("listOf<X> — multi-value args", () => {
+describe("listOf<X> - multi-value args", () => {
   it("toJsonSchema wraps a multiple arg in an array of the element schema", () => {
     expect(toJsonSchema(invite).properties.to).toEqual({
       type: "array",

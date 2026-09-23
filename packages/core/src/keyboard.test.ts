@@ -17,7 +17,7 @@ const ctx: Ctx = {
   frecency: {},
 };
 
-// The driver is pure and instance-scoped — events are structural
+// The driver is pure and instance-scoped - events are structural
 // (KernelKeyEvent), so the whole layer stack + chord machine runs under bun
 // with fake events. No DOM, no shared state between tests.
 
@@ -97,7 +97,7 @@ describe("layer stack", () => {
     expect(miss.prevented).toBe(false);
   });
 
-  it("two instances share nothing — a layer on one never fires on the other", () => {
+  it("two instances share nothing - a layer on one never fires on the other", () => {
     const a = createKeyboard();
     const b = createKeyboard();
     const hits: string[] = [];
@@ -149,7 +149,7 @@ describe("chord state machine", () => {
   });
 });
 
-describe("registerShortcuts (pure — no DOM event construction)", () => {
+describe("registerShortcuts (pure - no DOM event construction)", () => {
   it("normalizeShortcut agrees with normalizeEvent for the same keystroke", () => {
     const viaEvent = normalizeEvent({ ...modKey("k"), shiftKey: true });
     expect(normalizeShortcut(parseShortcut("mod+shift+K"))).toBe(viaEvent);
@@ -233,7 +233,7 @@ describe("editable-target guard", () => {
     expect(hits).toEqual(["new"]);
   });
 
-  it("a modified shortcut still fires inside a field — mod+k is never typing", () => {
+  it("a modified shortcut still fires inside a field - mod+k is never typing", () => {
     const kb = createKeyboard();
     const hits: string[] = [];
     kb.pushLayer({ "mod+k": () => hits.push("palette") });
@@ -241,7 +241,7 @@ describe("editable-target guard", () => {
     expect(hits).toEqual(["palette"]);
   });
 
-  it("a non-printable key still fires inside a field — Escape is never typing", () => {
+  it("a non-printable key still fires inside a field - Escape is never typing", () => {
     const kb = createKeyboard();
     const hits: string[] = [];
     kb.pushLayer({ Escape: () => hits.push("close") });
@@ -267,7 +267,7 @@ describe("editable-target guard", () => {
   // THE TAGNAME CHECK IS NOT ENOUGH, and every headless UI library proves it: Base UI, Radix and
   // Headless UI all render a listbox as a `div` with a role, and focus lands on the OPTION. Measured
   // in Chrome against Base UI's Select on 2026-09-10: with the popup open, `document.activeElement`
-  // was a `DIV` with `role="option"` — so a bare `n` bound to "New task" fired instead of doing the
+  // was a `DIV` with `role="option"` - so a bare `n` bound to "New task" fired instead of doing the
   // listbox's own typeahead, and the dialog opened over the menu the user was reading.
   const OPTION = { tagName: "DIV", role: "option" };
 
@@ -323,7 +323,7 @@ describe("editable-target guard", () => {
     expect(hits).toEqual([]);
   });
 
-  it("an ordinary div is still fair game — a role is required, not a tag", () => {
+  it("an ordinary div is still fair game - a role is required, not a tag", () => {
     const kb = createKeyboard();
     const hits: string[] = [];
     kb.pushLayer({ n: () => hits.push("new") });

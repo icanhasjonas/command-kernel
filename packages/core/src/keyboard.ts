@@ -8,7 +8,7 @@
  *   const kb = createKeyboard();
  *   window.addEventListener("keydown", kb.handleKeydown, { capture: true });
  *
- * Core never touches window/document/KeyboardEvent — events arrive as the
+ * Core never touches window/document/KeyboardEvent - events arrive as the
  * structural `KernelKeyEvent`, which any real browser event satisfies. State
  * is INSTANCE-scoped (like every other seam): two kernels on one page get two
  * independent layer stacks, never shared chord state.
@@ -25,7 +25,7 @@ import type { CommandNode } from "./types.js";
 
 // ── Key normalization (pure, module-level) ──────────────────────────────────
 
-/** A key event the dispatcher can consume AND cancel — a browser keydown fits. */
+/** A key event the dispatcher can consume AND cancel - a browser keydown fits. */
 export interface KernelKeyEvent extends KeyEventLike {
   /**
    * Whatever the host's event system calls the focused thing. `unknown` rather
@@ -45,7 +45,7 @@ const IGNORE = new Set(["Control", "Meta", "Alt", "Shift"]);
 const EDITABLE_TAGS = new Set(["INPUT", "TEXTAREA", "SELECT"]);
 
 /**
- * ARIA roles whose widget owns the printable keys itself — a listbox does its own typeahead, a menu
+ * ARIA roles whose widget owns the printable keys itself - a listbox does its own typeahead, a menu
  * jumps to the item you spelled, a textbox is a textbox however it was built.
  *
  * THE TAG CHECK ABOVE IS NOT ENOUGH and every headless UI library is why. Base UI, Radix and
@@ -74,7 +74,7 @@ const WIDGET_ROLES = new Set([
   "treeitem",
 ]);
 
-/** `[role=combobox], [role=grid], ...` — built once, for the `closest` probe. */
+/** `[role=combobox], [role=grid], ...` - built once, for the `closest` probe. */
 const WIDGET_SELECTOR = [...WIDGET_ROLES].map((r) => `[role="${r}"]`).join(",");
 
 /** What the guard duck-types its way through. Every member is optional and probed before use. */
@@ -97,7 +97,7 @@ function roleOf(el: TargetLike): string | null {
 }
 
 /**
- * The default answer to "is this keystroke being TYPED?" — a structural sniff at
+ * The default answer to "is this keystroke being TYPED?" - a structural sniff at
  * the event target, so core still imports no DOM lib. A host with a different
  * event system (a terminal, React Native, a canvas) replaces it wholesale via
  * `createKeyboard({ isEditableTarget })`.
@@ -154,7 +154,7 @@ export function normalizeEvent(e: KeyEventLike): string {
 
 /**
  * Normalize a parsed shortcut string to the same canonical form
- * `normalizeEvent` yields for the matching keydown — the pure counterpart, so
+ * `normalizeEvent` yields for the matching keydown - the pure counterpart, so
  * registering a shortcut never has to construct a DOM event.
  */
 export function normalizeShortcut(parsed: ParsedShortcut): string {
@@ -203,7 +203,7 @@ export interface KeyboardOptions {
   isEditableTarget?: (e: KernelKeyEvent) => boolean;
 }
 
-/** One independent keyboard state machine — layers + chord state, no DOM. */
+/** One independent keyboard state machine - layers + chord state, no DOM. */
 export interface Keyboard {
   /** the host's keydown entrypoint; bound, so it can be passed as a listener */
   handleKeydown: (e: KernelKeyEvent) => void;
@@ -217,7 +217,7 @@ export interface Keyboard {
   setChordTimeout(ms: number): void;
   /**
    * Mute the whole stack. GLOBAL rather than per-layer because the caller that
-   * needs it most — a key RECORDER capturing the chord a user is about to bind —
+   * needs it most - a key RECORDER capturing the chord a user is about to bind -
    * cannot know which layer owns the key it is about to swallow.
    */
   setSuspended(value: boolean): void;
@@ -390,8 +390,8 @@ export function createKeyboard(options: KeyboardOptions = {}): Keyboard {
     // surface, belongs to that surface: without this, a bare `n` bound to "New
     // task" fires on every n somebody types into a title field. Modified combos
     // (mod+k) and non-printables (Escape, ArrowDown) are never typing, so they
-    // pass. Deliberately placed AFTER the chord block — a prefix the user already
-    // armed on purpose still resolves — and BEFORE arming, so a bare prefix does
+    // pass. Deliberately placed AFTER the chord block - a prefix the user already
+    // armed on purpose still resolves - and BEFORE arming, so a bare prefix does
     // not swallow the first letter of a word.
     if (editableTarget(e) && !hasModifier(normalized) && e.key.length === 1) return;
 
@@ -507,7 +507,7 @@ export interface ShortcutConflict {
  * Report shortcuts bound to more than one node, normalized so `mod+k` and
  * `cmd+k` (and, off a Mac, `ctrl+k`) count as the SAME binding.
  *
- * Pass a node LIST — a `Map` keyed by shortcut string has already collapsed the
+ * Pass a node LIST - a `Map` keyed by shortcut string has already collapsed the
  * duplicates this function exists to find, so it can only ever report conflicts
  * between different spellings of one key. `kernel.shortcutConflicts(ctx)` passes
  * the list for you.

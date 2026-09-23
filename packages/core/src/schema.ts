@@ -10,13 +10,13 @@ function isText(v: ArgValue): boolean {
 }
 
 /**
- * The arg schema — THE KEYSTONE, finally cut.
+ * The arg schema - THE KEYSTONE, finally cut.
  *
  * One `ArgSpec[]` per command already drives the palette's arg chips. Here it
  * also becomes (a) a flat, MCP-compatible JSON Schema for an LLM tool's params,
  * and (b) the runtime validation the kernel enforces before a node runs. The
  * deeplink driver (deeplink.ts) reads the same specs. One declaration, every
- * surface — no per-surface duplication.
+ * surface - no per-surface duplication.
  *
  * Text kinds are `type: "string"` (`email` carries `format`, `enum` carries `enum`);
  * typed kinds are `number` / `boolean`, and a `json` arg carries its own declared
@@ -53,7 +53,7 @@ export interface ArgError {
   message: string;
 }
 
-// loose, dependency-free email shape — an honesty check, not RFC 5322
+// loose, dependency-free email shape - an honesty check, not RFC 5322
 const EMAIL = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
 /** The element schema of a typed kind (number / boolean / json), or null for a text kind. */
@@ -76,10 +76,10 @@ function elementProperty(a: ArgSpec): JsonSchemaNode {
   if (a.label && a.label !== a.id) prop.description = a.label;
   if (a.kind === "email") prop.format = "email";
   if (a.kind === "enum" && a.enumValues) prop.enum = a.enumValues.map((o) => o.value);
-  // an entity arg's value is the entity id — tell the model what catalog to resolve against
+  // an entity arg's value is the entity id - tell the model what catalog to resolve against
   if (a.entity) {
     const tag = a.entity.constraint ? `${a.entity.type} (${a.entity.constraint})` : a.entity.type;
-    prop.description = `${a.label && a.label !== a.id ? `${a.label}: ` : ""}id of a ${tag} — resolve via the ${a.entity.type} catalog`;
+    prop.description = `${a.label && a.label !== a.id ? `${a.label}: ` : ""}id of a ${tag} - resolve via the ${a.entity.type} catalog`;
   }
   return prop;
 }

@@ -3,13 +3,13 @@ import { createKernel } from "./create-kernel.js";
 import type { CommandNode, Ctx } from "./types.js";
 
 /**
- * THE GRANT BINDS TO WHAT WILL RUN — regression.
+ * THE GRANT BINDS TO WHAT WILL RUN - regression.
  *
  * A grant is signed over (prior path, command, args). The kernel DERIVES the
  * args it runs with: `prefill(ctx)` merges defaults in, and an entity-typed arg
  * auto-resolves a single search match to that entity's id. If a driver mints its
  * grant over the args it typed, verification is checked against values the
- * kernel derived afterwards and can never match — the human clicks Allow, the
+ * kernel derived afterwards and can never match - the human clicks Allow, the
  * gate re-asks, forever.
  *
  * So the `gate` response carries the EFFECTIVE args + the prior-path key, and

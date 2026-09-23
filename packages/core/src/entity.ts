@@ -1,7 +1,7 @@
 import type { Ctx } from "./types.js";
 
 /**
- * Entities — SEAM #6, the typed-argument catalog.
+ * Entities - SEAM #6, the typed-argument catalog.
  *
  * The App Intents model, cut to size: an `AppEntity` is a resolved domain object
  * (a Person, a Submission); an `EntityQuery` lists/searches them. Here an
@@ -10,9 +10,9 @@ import type { Ctx } from "./types.js";
  * carrying a hand-rolled `complete`. One registration, reused by every command's
  * args, and queryable by an agent.
  *
- * The stored value is still the entity's `id` (a string — keeps `ArgValues` flat
+ * The stored value is still the entity's `id` (a string - keeps `ArgValues` flat
  * and the JSON Schema MCP-friendly); `get(id)` hydrates the full object for
- * `run()`. A `constraint` is an opaque refinement the provider interprets — the
+ * `run()`. A `constraint` is an opaque refinement the provider interprets - the
  * runtime form of `Person<'with-email-address'>`.
  */
 

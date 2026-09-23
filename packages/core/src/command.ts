@@ -22,7 +22,7 @@ export type {
  * Everything else in the kernel (search / resolve / gate / run) is an
  * implementation detail this single call composes. A path addresses a command
  * chain from the root; each segment can bind args. The call EITHER returns a
- * structured execution result, OR the list of completions for what comes next —
+ * structured execution result, OR the list of completions for what comes next -
  * exactly the Quicksilver loop, made addressable and renderer-agnostic.
  *
  *   command(roots, { path: [] , query: "user" })                       -> completions
@@ -30,7 +30,7 @@ export type {
  *   command(roots, { path: [{id:"email.send", args:{...}}], execute: true })  -> result | args | gate
  *
  * Proof that a gated tip may run is the per-segment `evidence` (a grant) carried
- * ON the path's tip segment — minted by the evidence store when the
+ * ON the path's tip segment - minted by the evidence store when the
  * human/operator clicked Allow, bound to that exact command+args+prior-path. The
  * palette supplies it from the human; the agent supplies it from the operator's
  * Allow. Same gate, same grant shape, no second code path. `role` is the
@@ -106,7 +106,7 @@ export async function command(
       },
       { dryRun: Boolean(req.dryRun) },
     );
-    // the kernel validated inside executeNode — surface bad values as `args`
+    // the kernel validated inside executeNode - surface bad values as `args`
     if (outcome.argErrors.length > 0) {
       return {
         kind: "args",
@@ -133,7 +133,7 @@ export async function command(
     if (outcome.result) return { kind: "result", node: tip, result: outcome.result };
   }
 
-  // otherwise COMPLETE — rank the children/roots at the tip, each item carrying
+  // otherwise COMPLETE - rank the children/roots at the tip, each item carrying
   // its self-description so an agent can navigate the result without guessing.
   const items: Completion[] = deps.ranker(level, req.query ?? "", ectx).map((r) => ({
     kind: "command",

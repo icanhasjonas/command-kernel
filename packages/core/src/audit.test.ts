@@ -23,7 +23,7 @@ const reset: CommandNode = {
   run: async () => ({ kind: "toast", message: "reset" }),
 };
 
-describe("toRecord — serializable, evidence-free", () => {
+describe("toRecord - serializable, evidence-free", () => {
   it("strips evidence and keeps id + args + role", () => {
     const rec = toRecord(
       {

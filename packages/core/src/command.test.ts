@@ -29,7 +29,7 @@ const k = createKernel({ roots });
 // a grant's binding context: the principal (ctx.user.id by default), then the prior path
 const underUsers = bindingKey("u1", pathKey([{ id: "users" }]));
 
-describe("command() — the one verb", () => {
+describe("command() - the one verb", () => {
   it("returns ranked completions at the root", async () => {
     const r = await k.command({ query: "user" }, ctx());
     expect(r.kind).toBe("completions");
@@ -163,7 +163,7 @@ describe("command() — the one verb", () => {
       ctx("admin"),
     );
     expect(r.kind).toBe("result");
-    k.policy.clear(); // shared kernel — don't leak the rule into sibling tests
+    k.policy.clear(); // shared kernel - don't leak the rule into sibling tests
   });
 
   it("unknown path yields empty completions, not a throw", async () => {

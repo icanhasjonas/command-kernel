@@ -21,15 +21,15 @@ import { signingArgs } from "./signing.js";
 import type { CommandNode, Ctx, FallbackSearch, Grant, Ranked } from "./types.js";
 
 /**
- * createKernel — where the SEAMS meet.
+ * createKernel - where the SEAMS meet.
  *
  * One instance bundles the configured behaviour: a ranker, a gate policy, an
  * evidence store, a policy store, and (optionally) a provider registry. Every
  * driver shares this one instance, so the human palette and the AI agent go
- * through the IDENTICAL gate + evidence — the security invariant, made physical
+ * through the IDENTICAL gate + evidence - the security invariant, made physical
  * by there being one object.
  *
- * Zero-config stays trivial — every seam has a default:
+ * Zero-config stays trivial - every seam has a default:
  *
  *   const kernel = createKernel({ roots })          // stock everything
  *
@@ -92,7 +92,7 @@ export type GrantRequest = Pick<
 > & { now?: number };
 
 export interface Kernel {
-  /** the one verb — roots default to the configured registry/static roots */
+  /** the one verb - roots default to the configured registry/static roots */
   command(req: CommandRequest, ctx: Ctx, roots?: CommandNode[]): Promise<CommandResponse>;
   /** rank a node list with the configured ranker */
   search(nodes: CommandNode[], query: string, ctx: Ctx): Ranked[];
@@ -106,7 +106,7 @@ export interface Kernel {
     confirmation?: Confirmation,
   ): Promise<ExecuteOutcome>;
   /**
-   * Mint the grant for a `gate` response — the ONE correct way for a driver to
+   * Mint the grant for a `gate` response - the ONE correct way for a driver to
    * turn a human's "Allow" into evidence. It signs the kernel's EFFECTIVE args
    * (post-prefill, post-entity-resolution) against the response's `priorKey`, so
    * re-issuing the same request with this grant verifies. Minting by hand from
@@ -122,7 +122,7 @@ export interface Kernel {
   chords(ctx?: Ctx): Map<string, CommandNode>;
   /**
    * Nodes carrying a `shortcut`, filtered by `when(ctx)`, keyed by the shortcut
-   * string. Duplicates collapse — see `shortcutConflicts`.
+   * string. Duplicates collapse - see `shortcutConflicts`.
    */
   shortcuts(ctx: Ctx): Map<string, CommandNode>;
   /** shortcut strings bound to more than one visible node (empty when clean) */

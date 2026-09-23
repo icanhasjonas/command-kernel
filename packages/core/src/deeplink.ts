@@ -3,21 +3,21 @@ import { setOwn } from "./own.js";
 import type { PathSegment } from "./types.js";
 
 /**
- * Deeplinks — DRIVER #4, the keystone in URL form.
+ * Deeplinks - DRIVER #4, the keystone in URL form.
  *
  * A deeplink is just a serialized `PathSegment[]`: the command-id chain plus the
  * tip's args, driven by the SAME arg schema as the palette chips and the agent
  * tool params. `parseDeeplink` turns `cmd/users/users.search?email=x` back into a
  * path you hand straight to `kernel.command(...)`.
  *
- * THE SECURITY PROPERTY: a URL can carry args but it CANNOT carry a grant — the
+ * THE SECURITY PROPERTY: a URL can carry args but it CANNOT carry a grant - the
  * signing key never leaves the kernel. So a deeplink into a gated command can
  * never auto-fire; `kernel.command({ path: parseDeeplink(url), execute: true })`
  * returns a `gate`, and the driver routes the human to the approval UI. That
  * falls out of the trust core for free; deeplink.test.ts proves it.
  *
  * Scope: the id chain round-trips, and the TIP segment's args round-trip.
- * Intermediate-segment args (rare in a deeplink) are not encoded — link to the
+ * Intermediate-segment args (rare in a deeplink) are not encoded - link to the
  * command you mean, with its args.
  */
 

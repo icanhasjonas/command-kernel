@@ -2,7 +2,7 @@ import { fuzzyMatch } from "./fuzzy.js";
 import type { CommandNode, Ctx, Ranked } from "./types.js";
 
 /**
- * Ranking — SEAM #1.
+ * Ranking - SEAM #1.
  *
  * A `Ranker` turns a node list + query + context into scored, ordered results.
  * The default blend is:
@@ -13,7 +13,7 @@ import type { CommandNode, Ctx, Ranked } from "./types.js";
  *         + frecency * W_FRECENCY            // learned recency*frequency
  *
  * Tune the two weights with `createRanker({ weight, frecency })`, or replace the
- * whole function with your own `Ranker` (BM25, a learned model, alphabetical —
+ * whole function with your own `Ranker` (BM25, a learned model, alphabetical -
  * whatever). `createKernel({ ranker })` wires it in; the default is `rank`.
  */
 export type Ranker = (nodes: CommandNode[], query: string, ctx: Ctx) => Ranked[];

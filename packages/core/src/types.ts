@@ -9,7 +9,7 @@
 import type { ArgSpec, ArgValues } from "./args.js";
 
 /**
- * A principal's role. Deliberately `string`, not a fixed union — a consumer
+ * A principal's role. Deliberately `string`, not a fixed union - a consumer
  * brings their own roles. The default gate (`createRoleGate`) understands an
  * ordered ladder; the demo uses "viewer" < "advisor" < "admin", but yours can be
  * anything. Swap the whole `GatePolicy` for non-ladder rules (ownership, flags).
@@ -47,7 +47,7 @@ export interface Grant {
  * One hop of an addressed command chain. A segment is either a bare id or this
  * object carrying the args bound at that hop AND the per-segment `evidence`
  * (the grant) proving that hop was approved. Evidence lives ON the segment, not
- * once at the top — the chain carries its own permissions as it grows.
+ * once at the top - the chain carries its own permissions as it grows.
  */
 export interface PathSegment {
   id: string;
@@ -80,10 +80,10 @@ export interface CommandResult {
 }
 
 /**
- * Enumeration cost of a node's `resolve()` — does listing its children cost
+ * Enumeration cost of a node's `resolve()` - does listing its children cost
  * anything? "free" = static, in-memory children, safe to eagerly scout for
  * context. "query" = async, hits a backend, may be large, needs a search term
- * first — an agent must NOT blindly enumerate it. Inferred when omitted: a node
+ * first - an agent must NOT blindly enumerate it. Inferred when omitted: a node
  * with a positional (search) arg defaults to "query", otherwise "free".
  */
 export type EnumerateMode = "free" | "query";
@@ -100,7 +100,7 @@ export interface CommandNode {
   title: string;
   subtitle?: string;
   /**
-   * Agent-facing description: what this node IS and what lives under it — the
+   * Agent-facing description: what this node IS and what lives under it - the
    * natural language an agent reads to navigate the tree WITHOUT guessing.
    * (`subtitle` is the terse one-line UI caption; `summary` is the fuller,
    * machine-readable capability blurb. Falls back to `subtitle` when omitted.)

@@ -3,7 +3,7 @@ import { createKernel } from "./create-kernel.js";
 import { parseDeeplink, serializePath } from "./deeplink.js";
 import type { CommandNode, Ctx, PathSegment } from "./types.js";
 
-describe("deeplinks — serialize / parse", () => {
+describe("deeplinks - serialize / parse", () => {
   it("round-trips an id chain with tip args", () => {
     const path: PathSegment[] = [
       { id: "users" },
@@ -33,7 +33,7 @@ describe("deeplinks — serialize / parse", () => {
   });
 });
 
-describe("deeplink security — a gated command can't auto-fire from a URL", () => {
+describe("deeplink security - a gated command can't auto-fire from a URL", () => {
   const ctx: Ctx = {
     location: { module: "home" },
     user: { id: "u1", name: "T", role: "admin", brand: "circle" },

@@ -20,7 +20,7 @@ const sendEmail: CommandNode = {
   ],
 };
 
-describe("toJsonSchema — the keystone, MCP-shaped", () => {
+describe("toJsonSchema - the keystone, MCP-shaped", () => {
   it("derives a flat object schema with required + formats + enums", () => {
     expect(toJsonSchema(sendEmail)).toEqual({
       type: "object",
@@ -45,7 +45,7 @@ describe("toJsonSchema — the keystone, MCP-shaped", () => {
   });
 });
 
-describe("validateArgs — the kernel checks what a driver sends", () => {
+describe("validateArgs - the kernel checks what a driver sends", () => {
   it("passes valid values", () => {
     expect(validateArgs(sendEmail, { to: "a@b.io", template: "welcome" })).toEqual([]);
   });

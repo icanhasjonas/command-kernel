@@ -4,7 +4,7 @@
  * Returns a score AND the matched character offsets (so the UI can highlight).
  * Scoring mirrors fzf's shape: a base per-match reward, bonuses at word
  * boundaries / camelCase transitions / consecutive runs, penalties for gaps.
- * Not the full Smith-Waterman DP — a greedy left-to-right pass that is more
+ * Not the full Smith-Waterman DP - a greedy left-to-right pass that is more
  * than good enough for a command list and keeps the positions trivial.
  */
 
