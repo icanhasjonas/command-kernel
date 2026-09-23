@@ -13,6 +13,7 @@
         "@types/node": "^24.0.0",
         "@types/react": "^19.2.0",
         "@types/react-dom": "^19.2.0",
+        "happy-dom": "^20.10.6",
         "publint": "^0.3.21",
         "typescript": "^6.0.0",
       },
@@ -84,6 +85,21 @@
       "name": "@command-kernel/core",
       "version": "0.1.0",
     },
+    "packages/react": {
+      "name": "@command-kernel/react",
+      "version": "0.1.0",
+      "devDependencies": {
+        "@command-kernel/core": "workspace:*",
+        "@testing-library/react": "^16.3.2",
+        "@types/react": "^19.2.0",
+        "react": "^19.2.0",
+        "react-dom": "^19.2.0",
+      },
+      "peerDependencies": {
+        "@command-kernel/core": "workspace:*",
+        "react": "^19.0.0",
+      },
+    },
     "packages/ui": {
       "name": "@command-kernel/ui",
       "version": "0.1.0",
@@ -101,7 +117,6 @@
         "@testing-library/react": "^16.3.2",
         "@types/react": "^19.2.0",
         "@types/react-dom": "^19.2.0",
-        "happy-dom": "^20.10.6",
         "react": "^19.2.0",
         "react-dom": "^19.2.0",
       },
@@ -220,6 +235,8 @@
     "@command-kernel/minimal": ["@command-kernel/minimal@workspace:examples/minimal"],
 
     "@command-kernel/playground": ["@command-kernel/playground@workspace:examples/playground"],
+
+    "@command-kernel/react": ["@command-kernel/react@workspace:packages/react"],
 
     "@command-kernel/ui": ["@command-kernel/ui@workspace:packages/ui"],
 

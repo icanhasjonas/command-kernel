@@ -1,5 +1,5 @@
 /**
- * happy-dom global registration for `bun test` (UI-only).
+ * happy-dom global registration for `bun test`, shared by every React package (ui, react).
  *
  * The upstream `@happy-dom/global-registrator` package is not installed, so we
  * vendor the same logic here: build a happy-dom Window and mirror its property
@@ -10,7 +10,7 @@
  * their `afterAll`, so the DOM globals never leak into core / boundary tests.
  *
  * Because ESM evaluates imports in source order, a test file that does
- *   import { registerDom } from "./dom-setup.js";  // (or `import "./dom-setup"`)
+ *   import { registerDom } from "../../../test/dom-setup.js";
  * BEFORE importing "@testing-library/react" guarantees the document exists by
  * the time RTL's module code runs.
  */

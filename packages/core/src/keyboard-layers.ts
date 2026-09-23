@@ -1,18 +1,17 @@
 /**
- * The layer stack for the keyboard driver (keyboard.ts): LIFO layers of
- * bindings, plus which node each `registerShortcuts` binding runs. Owns no
- * chord state and does no dispatch - `keyboard-dispatch.ts` reads `layers`
- * (and `nodesFor`) to decide what a keystroke does.
+ * The layer stack for the keyboard driver (keyboard.ts): the ordered layers of bindings, plus
+ * which node each binding runs when it came from a node list. Owns no chord state and does no
+ * dispatch - `keyboard-dispatch.ts` reads `layers` (and `nodesFor`) to decide what a keystroke
+ * does. The ORDER is the whole contract, and docs/keyboard.md states it as laws L1-L3.
  */
 
-import { normalizeShortcut } from "./keyboard-normalize.js";
+import { canonicalBinding } from "./keyboard-normalize.js";
 import type {
   KeyBindings,
   KeyLayer,
   KeyLayerOptions,
   ShortcutDriverOptions,
 } from "./keyboard-types.js";
-import { parseShortcut } from "./shortcut.js";
 import type { CommandNode } from "./types.js";
 
 /** Whether a layer takes part right now: not disabled, and live if it asks (`active`). */
@@ -21,8 +20,14 @@ export function isLive(layer: KeyLayer): boolean {
   return layer.options.active?.() ?? true;
 }
 
+/** Whether `binding` (canonical) crosses `layer`'s barrier: it is not modal, or lets it pass. */
+export function crosses(layer: KeyLayer, binding: string): boolean {
+  if (layer.options.modal !== true) return true;
+  return (layer.options.passThrough ?? []).some((p) => canonicalBinding(p) === binding);
+}
+
 export interface LayerStack {
-  /** the live stack, base layers first - mutated in place, so this reference stays valid */
+  /** the live stack, bottom first - re-sorted in place, so this reference stays valid */
   readonly layers: readonly KeyLayer[];
   pushLayer(bindings: KeyBindings, options?: KeyLayerOptions): KeyLayer;
   popLayer(layer: KeyLayer): void;
@@ -34,87 +39,132 @@ export interface LayerStack {
     options: KeyLayerOptions,
     nodes: Map<string, CommandNode>,
   ): KeyLayer;
-  /** which node a `registerShortcuts` layer's binding runs, or undefined for a plain `pushLayer` */
+  /** which node a binding of `layer` runs, or undefined for a plain `pushLayer` */
   nodesFor(layer: KeyLayer): Map<string, CommandNode> | undefined;
   isBindingRegistered(pattern: string, excludeLayerId?: string): boolean;
+  subscribe(fn: () => void): () => void;
+}
+
+/** `bindings` with every key canonical (law L10); the same object when they already were. */
+function canonical(bindings: KeyBindings): KeyBindings {
+  const keys = Object.keys(bindings);
+  if (keys.every((k) => canonicalBinding(k) === k)) return bindings;
+  const out: KeyBindings = {};
+  for (const k of keys) {
+    const handler = bindings[k];
+    if (handler) out[canonicalBinding(k)] = handler;
+  }
+  return out;
+}
+
+/** Lexicographic, a prefix first: an owner sorts below everything it owns. */
+function comparePaths(a: readonly number[], b: readonly number[]): number {
+  for (let i = 0; i < Math.min(a.length, b.length); i++) {
+    const d = (a[i] ?? 0) - (b[i] ?? 0);
+    if (d !== 0) return d;
+  }
+  return a.length - b.length;
 }
 
 export function createLayerStack(): LayerStack {
   const layers: KeyLayer[] = [];
   /**
-   * Which node each binding of a `registerShortcuts` layer runs.
-   *
-   * A WeakMap keyed by the layer, so it cannot outlive a popped layer and there is nothing to
-   * clean up in `popLayer` -- the alternative is a second registry that has to be kept in step
-   * with `layers` by hand, and forgetting one line there is a leak nobody sees.
+   * Which node each binding of a node layer runs. A WeakMap keyed by the layer, so it cannot
+   * outlive a popped layer and there is nothing to clean up in `popLayer`.
    */
   const layerNodes = new WeakMap<KeyLayer, Map<string, CommandNode>>();
+  /** push order: the tie-break between siblings, and the default id */
+  const seqOf = new WeakMap<KeyLayer, number>();
+  let seq = 0;
+  const listeners = new Set<() => void>();
+
+  /**
+   * Put the stack in law order: base layers first (L2), then each layer by the push order of its
+   * owner chain, root first (L3). Computed from ownership at every change rather than kept by
+   * inserting in the right place, so the order a host happened to push in never matters.
+   */
+  function order(): void {
+    const byId = new Map(layers.map((l) => [l.id, l]));
+    const pathOf = (layer: KeyLayer, seen: Set<KeyLayer>): number[] => {
+      const own = seqOf.get(layer) ?? 0;
+      const owner = layer.options.parent === undefined ? undefined : byId.get(layer.options.parent);
+      if (owner === undefined || seen.has(owner)) return [own];
+      seen.add(layer);
+      return [...pathOf(owner, seen), own];
+    };
+    const paths = new Map(layers.map((l) => [l, pathOf(l, new Set())]));
+    layers.sort((a, b) => {
+      const tier = Number(a.options.base !== true) - Number(b.options.base !== true);
+      return tier !== 0 ? tier : comparePaths(paths.get(a) ?? [], paths.get(b) ?? []);
+    });
+  }
+
+  function changed(): void {
+    for (const fn of listeners) fn();
+  }
 
   function pushLayer(bindings: KeyBindings, layerOptions: KeyLayerOptions = {}): KeyLayer {
+    const n = seq++;
     const layer: KeyLayer = {
-      id: layerOptions.id ?? `layer-${layers.length}`,
-      bindings,
+      id: layerOptions.id ?? `layer-${n}`,
+      bindings: canonical(bindings),
       options: layerOptions,
     };
-    if (layerOptions.base) {
-      const firstNonBase = layers.findIndex((l) => !l.options.base);
-      if (firstNonBase === -1) layers.push(layer);
-      else layers.splice(firstNonBase, 0, layer);
-    } else {
-      layers.push(layer);
-    }
+    seqOf.set(layer, n);
+    layers.push(layer);
+    order();
+    changed();
+    return layer;
+  }
+
+  function pushNodeLayer(
+    bindings: KeyBindings,
+    layerOptions: KeyLayerOptions,
+    nodes: Map<string, CommandNode>,
+  ): KeyLayer {
+    const layer = pushLayer(bindings, layerOptions);
+    layerNodes.set(layer, new Map([...nodes].map(([k, node]) => [canonicalBinding(k), node])));
     return layer;
   }
 
   return {
     layers,
     pushLayer,
+    pushNodeLayer,
     popLayer(layer) {
       const i = layers.indexOf(layer);
-      if (i !== -1) layers.splice(i, 1);
+      if (i === -1) return;
+      layers.splice(i, 1);
+      changed();
     },
     registerShortcuts(nodes, driverOptions) {
+      // The node is kept BESIDE the binding, not inside the closure: a handler is opaque once
+      // registered, and `chordCompletions` has to report what each key runs.
       const bindings: KeyBindings = {};
-      // The node is kept BESIDE the binding, not inside the closure. A `KeyHandler` is an opaque
-      // function once registered, so a layer built here could say which keys it owned but never
-      // what any of them ran -- which is the whole thing `chordCompletions` has to report.
-      const byShortcut = new Map<string, CommandNode>();
       for (const [shortcut, node] of nodes) {
-        const normalized = normalizeShortcut(parseShortcut(shortcut));
-        bindings[normalized] = () => driverOptions.onActivate(node);
-        byShortcut.set(normalized, node);
+        bindings[canonicalBinding(shortcut)] = () => driverOptions.onActivate(node);
       }
-      const layer = pushLayer(bindings, { base: true, id: "kernel-shortcuts" });
-      layerNodes.set(layer, byShortcut);
-      return layer;
-    },
-    pushNodeLayer(bindings, layerOptions, nodes) {
-      const layer = pushLayer(bindings, layerOptions);
-      layerNodes.set(layer, nodes);
-      return layer;
+      return pushNodeLayer(bindings, { base: true, id: "kernel-shortcuts" }, nodes);
     },
     nodesFor(layer) {
       return layerNodes.get(layer);
     },
     isBindingRegistered(pattern, excludeLayerId) {
-      // Compare in the dispatcher's own dialect, so `cmd+k`, `mod+k` and (off a
-      // Mac) `ctrl+k` are recognised as the one physical chord they are. A chord
-      // pattern is normalized segment by segment.
-      const canonical = (p: string) =>
-        p
-          .trim()
-          .split(/\s+/)
-          .map((seg) => normalizeShortcut(parseShortcut(seg)))
-          .join(" ");
-      const wanted = canonical(pattern);
-      for (const layer of layers) {
-        if (!isLive(layer)) continue;
-        if (excludeLayerId !== undefined && layer.id === excludeLayerId) continue;
-        for (const key of Object.keys(layer.bindings)) {
-          if (canonical(key) === wanted) return true;
-        }
-      }
-      return false;
+      // compared in the dispatcher's own dialect, so `cmd+k`, `mod+k` and (off a Mac) `ctrl+k`
+      // are the one physical chord they are
+      const wanted = canonicalBinding(pattern);
+      return layers.some(
+        (layer) =>
+          isLive(layer) &&
+          layer.id !== excludeLayerId &&
+          Object.keys(layer.bindings).some((k) => canonicalBinding(k) === wanted),
+      );
+    },
+    subscribe(fn) {
+      listeners.add(fn);
+      return () => {
+        listeners.delete(fn);
+      };
     },
   };
 }

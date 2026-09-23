@@ -1,12 +1,12 @@
 // happy-dom must be installed BEFORE @testing-library/react evaluates - this
 // side-effecting import (first, before RTL) guarantees it. See dom-setup.ts.
-import "./dom-setup.js";
+import "../../../test/dom-setup.js";
 import { afterAll, afterEach, describe, expect, it } from "bun:test";
 import type { CommandNode, CommandResult, Ctx } from "@command-kernel/core";
 import { createKernel, missingArgs } from "@command-kernel/core";
 import { act, cleanup, fireEvent, render, renderHook } from "@testing-library/react";
+import { unregisterDom } from "../../../test/dom-setup.js";
 import { CommandPalette } from "./CommandPalette.js";
-import { unregisterDom } from "./dom-setup.js";
 import { usePalette } from "./usePalette.js";
 
 // React 19 wants this flag set before act() is used.

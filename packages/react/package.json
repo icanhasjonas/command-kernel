@@ -1,0 +1,42 @@
+{
+  "name": "@command-kernel/react",
+  "version": "0.1.0",
+  "description": "The keyboard layer stack of @command-kernel/core, bound to the React tree: one listener, and layers that push and pop with the components that own them. No dependencies but React.",
+  "type": "module",
+  "license": "MIT",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "publishConfig": {
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      }
+    }
+  },
+  "files": [
+    "dist",
+    "src",
+    "!src/**/*.test.ts",
+    "!src/**/*.test.tsx"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json"
+  },
+  "peerDependencies": {
+    "@command-kernel/core": "workspace:*",
+    "react": "^19.0.0"
+  },
+  "devDependencies": {
+    "@command-kernel/core": "workspace:*",
+    "@testing-library/react": "^16.3.2",
+    "@types/react": "^19.2.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  }
+}

@@ -11,9 +11,24 @@ export type KeyHandler = (e: KernelKeyEvent) => unknown;
 export type KeyBindings = Record<string, KeyHandler>;
 
 export interface KeyLayerOptions {
+  /** sits below every non-base layer, whenever pushed: the app's own keys (law L2) */
   base?: boolean;
+  /** unique among live layers; the default (`layer-N`) never repeats */
   id?: string;
   enabled?: boolean;
+  /**
+   * The id of the layer this one belongs to: a popover's dialog, a list's editor. It sits above
+   * that layer and beside its other children, whatever order the two were pushed in (law L3), so
+   * a host whose children mount before their parents (React) still stacks them right.
+   */
+  parent?: string;
+  /**
+   * A barrier (law L5): a key this layer does not take stops here, unprevented, instead of
+   * reaching the layers below. What a dialog, a menu or a sheet is.
+   */
+  modal?: boolean;
+  /** keys that cross this layer's barrier anyway, in any spelling: `mod+k` for the palette (L6) */
+  passThrough?: readonly string[];
   /**
    * Asked at every press: whether the layer is live right now. For a layer whose relevance is a
    * fact about the host (a dialog is open, a thread is open) rather than something to push and
@@ -28,6 +43,11 @@ export interface ScopeBindingOptions {
   nodes: readonly CommandNode[];
   /** every scope, LOWEST precedence first: a live later scope wins a key from an earlier one */
   scopes: readonly string[];
+  /**
+   * Scopes that are live because something is OPEN rather than because of a fact: a dialog, a
+   * suggestion list. They get no layer here; `ScopeBinding.mount` pushes one while it is open.
+   */
+  mounted?: readonly string[];
   /** the ctx at the moment of the press (built fresh: facts, focus) */
   ctx: () => Ctx;
   /** which scopes are live under that ctx */
@@ -43,10 +63,44 @@ export interface ScopeBindingOptions {
   onDisabled?: (node: CommandNode, reason: string, ctx: Ctx) => void;
 }
 
-/** The layers `bindScopes` pushed. `dispose` pops them all. */
+/** How a mounted scope's layer sits: everything a layer takes except its bindings. */
+export type MountOptions = Omit<KeyLayerOptions, "base" | "active">;
+
+/** The layers `bindScopes` pushed. `dispose` pops them all, mounted ones included. */
 export interface ScopeBinding {
   readonly layers: readonly KeyLayer[];
+  /**
+   * Push one of the `mounted` scopes as a layer (law L13): its nodes run, decline and say why
+   * exactly as a facts scope's do. Pop it with `keyboard.popLayer` when the thing closes.
+   */
+  mount(scope: string, options?: MountOptions): KeyLayer;
   dispose(): void;
+}
+
+/** One layer as `describeStack` reports it. */
+export interface LayerInfo {
+  id: string;
+  parent?: string;
+  base: boolean;
+  modal: boolean;
+  /** enabled, and `active()` (if any) says yes right now */
+  live: boolean;
+  /** its bindings, canonical */
+  keys: string[];
+}
+
+/** A key a press would reach right now, and the layer (and node, if known) that has it. */
+export interface ReachableKey {
+  binding: string;
+  layerId: string;
+  node?: CommandNode;
+}
+
+export interface StackDescription {
+  /** top first */
+  layers: LayerInfo[];
+  /** first owner wins, barriers respected; a node may still decline (`when`, `disabled`) */
+  reachable: ReachableKey[];
 }
 
 export interface KeyLayer {
@@ -118,6 +172,10 @@ export interface Keyboard {
   isBindingRegistered(pattern: string, excludeLayerId?: string): boolean;
   /** the armed chord prefix, or null when not in chord mode */
   readonly chordPrefix: string | null;
+  /** the live stack as data: for key hints, a help sheet, and a test that asserts it (L14) */
+  describeStack(): StackDescription;
+  /** told after every push and pop (L16); returns the unsubscribe */
+  subscribeStack(fn: () => void): () => void;
   /**
    * Every second key that would complete `prefix`, and the node each one runs.
    *

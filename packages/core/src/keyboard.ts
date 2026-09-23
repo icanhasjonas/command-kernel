@@ -1,33 +1,35 @@
 /**
- * Framework-agnostic keyboard driver for the command kernel.
- *
- * Ported from remote-claude's key-layers system (battle-tested). Stripped of
- * React and terminal-specific concerns -- the kernel owns the state machine,
- * the HOST owns the DOM listener and React hooks:
+ * Framework-agnostic keyboard driver for the command kernel: ONE stack of layers per app that
+ * every key goes through, ordered by the laws in docs/keyboard.md ("Layers").
  *
  *   const kb = createKeyboard();
- *   window.addEventListener("keydown", kb.handleKeydown, { capture: true });
+ *   window.addEventListener("keydown", kb.handleKeydown); // BUBBLE: widgets first (L7)
  *
+ * (`@command-kernel/react` does that line for a React host: `attachKeyboard`, law L15.)
  * Core never touches window/document/KeyboardEvent - events arrive as the
  * structural `KernelKeyEvent`, which any real browser event satisfies. State
  * is INSTANCE-scoped (like every other seam): two kernels on one page get two
- * independent layer stacks, never shared chord state.
+ * independent layer stacks, never shared chord state. React hosts use
+ * `@command-kernel/react`, which pushes and pops layers with the component tree.
  *
  * Features:
- * - Layer stacking (LIFO, base vs modal)
+ * - Layer stacking: base, owned (`parent`), modal barriers with `passThrough`
  * - Chord sequences (leader key -> timeout -> fire)
  * - Platform-agnostic key normalization (mod = Cmd on Mac, Ctrl elsewhere)
- * - Context layers: `bindScopes` puts a node list on one layer per scope
- * - Conflict detection
+ * - Context layers: `bindScopes` puts a node list on one layer per scope,
+ *   live by facts or mounted while something is open
+ * - The stack as data (`describeStack`), and conflict detection
  *
- * Split by responsibility across five files, this one composing the rest:
- * `keyboard-normalize.ts` (key normalization, pure), `keyboard-types.ts` (the
- * public shapes), `keyboard-layers.ts` (the layer stack), `keyboard-chord.ts`
- * (chord-mode state), `keyboard-dispatch.ts` (turning a keydown into a call),
- * and `keyboard-conflicts.ts` (static `validateShortcuts`).
+ * Split by responsibility, this file composing the rest: `keyboard-normalize.ts`
+ * (key normalization, pure), `keyboard-types.ts` (the public shapes),
+ * `keyboard-layers.ts` (the ordered stack), `keyboard-chord.ts` (chord-mode
+ * state), `keyboard-dispatch.ts` (turning a keydown into a call),
+ * `keyboard-scopes.ts` (node lists by context), `keyboard-describe.ts` (the
+ * stack as data) and `keyboard-conflicts.ts` (static `validateShortcuts`).
  */
 
 import { createChordState } from "./keyboard-chord.js";
+import { describeStack } from "./keyboard-describe.js";
 import { createDispatch } from "./keyboard-dispatch.js";
 import { createLayerStack } from "./keyboard-layers.js";
 import { isEditableTarget } from "./keyboard-normalize.js";
@@ -65,14 +67,20 @@ export function createKeyboard(options: KeyboardOptions = {}): Keyboard {
     get chordPrefix() {
       return chord.chordPrefix;
     },
+    describeStack: () => describeStack(stack),
+    subscribeStack: stack.subscribe,
   };
 }
 
 export type { ShortcutConflict } from "./keyboard-conflicts.js";
 export { validateShortcuts } from "./keyboard-conflicts.js";
 export type { KernelKeyEvent } from "./keyboard-normalize.js";
-export { isEditableTarget, normalizeEvent, normalizeShortcut } from "./keyboard-normalize.js";
-export { canonicalBinding } from "./keyboard-scopes.js";
+export {
+  canonicalBinding,
+  isEditableTarget,
+  normalizeEvent,
+  normalizeShortcut,
+} from "./keyboard-normalize.js";
 export type {
   ChordCompletion,
   ChordListener,
@@ -83,7 +91,11 @@ export type {
   KeyHandler,
   KeyLayer,
   KeyLayerOptions,
+  LayerInfo,
+  MountOptions,
+  ReachableKey,
   ScopeBinding,
   ScopeBindingOptions,
   ShortcutDriverOptions,
+  StackDescription,
 } from "./keyboard-types.js";

@@ -32,6 +32,7 @@ const FRAMEWORK = [
   "solid-js",
   "preact",
   "@command-kernel/ui",
+  "@command-kernel/react",
 ];
 
 function isFramework(spec: string): boolean {
@@ -59,7 +60,7 @@ function importSpecifiers(file: string): string[] {
   return specs;
 }
 
-function pkg(name: "core" | "agent" | "ui" | "wire"): Record<string, unknown> {
+function pkg(name: "core" | "agent" | "ui" | "wire" | "react"): Record<string, unknown> {
   return JSON.parse(readFileSync(join(ROOT, "packages", name, "package.json"), "utf8"));
 }
 
@@ -131,10 +132,14 @@ describe("kernel purity (core + agent + wire are headless)", () => {
       expect(depNames(pkg(name))).toEqual(["@command-kernel/core"]);
     });
   }
+
+  it("react depends on core and React, nothing else (no radix, no motion, no styling)", () => {
+    expect(depNames(pkg("react")).sort()).toEqual(["@command-kernel/core", "react"]);
+  });
 });
 
 describe("sealed exports (deep imports are physically unresolvable)", () => {
-  for (const name of ["core", "agent", "ui", "wire"] as const) {
+  for (const name of ["core", "agent", "ui", "wire", "react"] as const) {
     it(`@command-kernel/${name} exposes no deep code subpath`, () => {
       // ui also ships its CSS token sheet — an intentional public asset, not a
       // reachable internal. Code stays sealed behind "." everywhere.
@@ -151,5 +156,6 @@ describe("sealed exports (deep imports are physically unresolvable)", () => {
   it("the dependency arrow points one way: ui -> core, never core -> ui", () => {
     expect(depNames(pkg("ui"))).toContain("@command-kernel/core");
     expect(depNames(pkg("core"))).not.toContain("@command-kernel/ui");
+    expect(depNames(pkg("core"))).not.toContain("@command-kernel/react");
   });
 });

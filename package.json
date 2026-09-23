@@ -11,7 +11,7 @@
   "scripts": {
     "dev": "bun run --filter '@command-kernel/playground' dev",
     "build": "bun run --filter '@command-kernel/playground' build",
-    "build:packages": "bun run --filter '@command-kernel/core' build && bun run --filter '@command-kernel/agent' build && bun run --filter '@command-kernel/ui' build && bun run --filter '@command-kernel/wire' build",
+    "build:packages": "bun run --filter '@command-kernel/core' build && bun run --filter '@command-kernel/agent' build && bun run --filter '@command-kernel/ui' build && bun run --filter '@command-kernel/wire' build && bun run --filter '@command-kernel/react' build",
     "deploy": "bun run --filter '@command-kernel/playground' deploy",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.nodom.json",
     "lint": "biome check .",
@@ -32,6 +32,7 @@
     "@types/node": "^24.0.0",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
+    "happy-dom": "^20.10.6",
     "publint": "^0.3.21",
     "typescript": "^6.0.0"
   }

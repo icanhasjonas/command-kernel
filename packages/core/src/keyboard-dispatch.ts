@@ -8,14 +8,15 @@
 
 import type { ChordState } from "./keyboard-chord.js";
 import type { LayerStack } from "./keyboard-layers.js";
-import { isLive } from "./keyboard-layers.js";
+import { crosses, isLive } from "./keyboard-layers.js";
 import type { KernelKeyEvent } from "./keyboard-normalize.js";
-import { hasModifier, IGNORE, normalizeEvent } from "./keyboard-normalize.js";
+import { hasModifier, IGNORE, isComposing, normalizeEvent } from "./keyboard-normalize.js";
 import type {
   ChordCompletion,
   DeclinedListener,
   KeyBindings,
   KeyHandler,
+  KeyLayer,
 } from "./keyboard-types.js";
 
 export interface DispatchDeps {
@@ -62,12 +63,15 @@ export function createDispatch({
     const head = `${armed} `;
     const seen = new Map<string, ChordCompletion>();
 
+    // below a barrier, only what every barrier above lets through (law L11)
+    const barriers: KeyLayer[] = [];
     for (let i = stack.layers.length - 1; i >= 0; i--) {
       const layer = stack.layers[i];
       if (!layer || !isLive(layer)) continue;
       const nodes = stack.nodesFor(layer);
       for (const shortcut of Object.keys(layer.bindings)) {
         if (!shortcut.startsWith(head)) continue;
+        if (!barriers.every((b) => crosses(b, shortcut))) continue;
         const key = shortcut.slice(head.length);
         // A chord is exactly two presses here; anything with a further space is a deeper
         // sequence and is not a completion OF THIS prefix.
@@ -76,6 +80,7 @@ export function createDispatch({
         const node = nodes?.get(shortcut);
         seen.set(key, node === undefined ? { key, shortcut } : { key, shortcut, node });
       }
+      if (layer.options.modal === true) barriers.push(layer);
     }
 
     return [...seen.values()];
@@ -98,13 +103,17 @@ export function createDispatch({
       const layer = stack.layers[i];
       if (!layer || !isLive(layer)) continue;
       const handler = findBinding(layer.bindings, binding);
-      if (!handler) continue;
-      offered = true;
-      before?.();
-      if (handler(e) === false) continue;
-      e.preventDefault();
-      e.stopPropagation();
-      return true;
+      if (handler) {
+        offered = true;
+        before?.();
+        if (handler(e) !== false) {
+          e.preventDefault();
+          e.stopPropagation();
+          return true;
+        }
+      }
+      // a modal layer is a barrier: what it did not take stops here, unprevented (law L5)
+      if (!crosses(layer, binding)) break;
     }
     if (offered) for (const fn of declinedListeners) fn(binding, e);
     return false;
@@ -116,8 +125,10 @@ export function createDispatch({
     presses++;
     if (isSuspended()) return;
     if (IGNORE.has(e.key)) return;
-    // a widget nearer the focus already used this key: its own key beats an app shortcut
+    // a widget nearer the focus already used this key: its own key beats an app shortcut (L7)
     if (e.defaultPrevented === true) return;
+    // an input method is composing: its Enter picks a candidate, its Escape cancels it (L9)
+    if (isComposing(e)) return;
     const normalized = normalizeEvent(e);
 
     const armed = chord.chordPrefix;

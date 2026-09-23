@@ -97,7 +97,8 @@ export {
   searchNodes,
 } from "./kernel.js";
 // keyboard driver - instance-scoped layer stack + chord state machine.
-// The HOST attaches `keyboard.handleKeydown` to its key source; core stays DOM-free.
+// The HOST feeds keys in (bubble phase; `@command-kernel/react` has `attachKeyboard`); core
+// stays DOM-free.
 export {
   type ChordCompletion,
   type ChordListener,
@@ -112,12 +113,16 @@ export {
   type KeyHandler,
   type KeyLayer,
   type KeyLayerOptions,
+  type LayerInfo,
+  type MountOptions,
   normalizeEvent,
   normalizeShortcut,
+  type ReachableKey,
   type ScopeBinding,
   type ScopeBindingOptions,
   type ShortcutConflict,
   type ShortcutDriverOptions,
+  type StackDescription,
   validateShortcuts,
 } from "./keyboard.js";
 // chord / shortcut / frecency lookups a driver builds over a node list

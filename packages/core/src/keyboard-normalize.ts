@@ -11,6 +11,7 @@ import {
   isShiftedSymbol,
   type KeyEventLike,
   type ParsedShortcut,
+  parseShortcut,
 } from "./shortcut.js";
 
 // ── Key normalization (pure, module-level) ──────────────────────────────────
@@ -31,6 +32,13 @@ export interface KernelKeyEvent extends KeyEventLike {
    * beats an app shortcut on the same key. A browser event carries it; absent reads as false.
    */
   readonly defaultPrevented?: boolean;
+  /**
+   * An input method (Japanese, Chinese, Korean, dead keys) is mid-composition: the Enter or
+   * Escape belongs to it, not to a command. Safari leaves this false on the Enter that ends a
+   * composition and says `keyCode` 229 instead, so both are read.
+   */
+  readonly isComposing?: boolean;
+  readonly keyCode?: number;
   preventDefault(): void;
   stopPropagation(): void;
 }
@@ -165,4 +173,18 @@ export function normalizeShortcut(parsed: ParsedShortcut): string {
   if (parsed.shift && !(!parsed.alt && isShiftedSymbol(key))) parts.push("shift");
   parts.push(key);
   return parts.join("+");
+}
+
+/** A shortcut in the dispatcher's own dialect, chord steps apart: `G i` -> `g i`. */
+export function canonicalBinding(shortcut: string): string {
+  return shortcut
+    .trim()
+    .split(/\s+/)
+    .map((step) => normalizeShortcut(parseShortcut(step)))
+    .join(" ");
+}
+
+/** Whether an input method is composing this press (see `KernelKeyEvent.isComposing`). */
+export function isComposing(e: KernelKeyEvent): boolean {
+  return e.isComposing === true || e.keyCode === 229;
 }

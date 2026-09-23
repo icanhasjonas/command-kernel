@@ -2,12 +2,12 @@ import { describe, expect, it } from "bun:test";
 import { createKernel } from "./create-kernel.js";
 import {
   createKeyboard,
-  type KernelKeyEvent,
   normalizeEvent,
   normalizeShortcut,
   validateShortcuts,
 } from "./keyboard.js";
-import { isMac, parseShortcut } from "./shortcut.js";
+import { key, modKey } from "./keyboard.test-util.js";
+import { parseShortcut } from "./shortcut.js";
 import type { CommandNode, Ctx } from "./types.js";
 
 const ctx: Ctx = {
@@ -29,32 +29,6 @@ function node(id: string, shortcut?: string): CommandNode {
     run: async () => ({ kind: "toast" as const, message: id }),
   };
 }
-
-function key(
-  k: string,
-  mods: Partial<KernelKeyEvent> = {},
-): KernelKeyEvent & {
-  prevented: boolean;
-} {
-  const e = {
-    key: k,
-    code: "",
-    metaKey: false,
-    ctrlKey: false,
-    shiftKey: false,
-    altKey: false,
-    prevented: false,
-    preventDefault() {
-      e.prevented = true;
-    },
-    stopPropagation() {},
-    ...mods,
-  };
-  return e;
-}
-
-/** a keydown carrying the platform's `mod` modifier (Cmd on Mac, Ctrl elsewhere) */
-const modKey = (k: string) => key(k, isMac ? { metaKey: true } : { ctrlKey: true });
 
 describe("layer stack", () => {
   it("the top layer wins; popping restores the one below", () => {

@@ -23,7 +23,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 const ROOT = resolve(import.meta.dir, "..");
-const PACKAGES = ["core", "agent", "ui"] as const;
+const PACKAGES = ["core", "agent", "ui", "react"] as const;
 
 const rootPkg = JSON.parse(readFileSync(resolve(ROOT, "package.json"), "utf8"));
 const version = rootPkg.version as string;

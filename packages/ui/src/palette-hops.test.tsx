@@ -1,10 +1,10 @@
 // happy-dom must be installed BEFORE @testing-library/react evaluates (see dom-setup.ts)
-import "./dom-setup.js";
+import "../../../test/dom-setup.js";
 import { afterAll, afterEach, beforeAll, expect, test } from "bun:test";
 import type { CommandNode, Ctx } from "@command-kernel/core";
 import { createKernel } from "@command-kernel/core";
 import { act, cleanup, renderHook } from "@testing-library/react";
-import { registerDom, unregisterDom } from "./dom-setup.js";
+import { registerDom, unregisterDom } from "../../../test/dom-setup.js";
 import { framesKey } from "./palette-key.js";
 import { usePalette } from "./usePalette.js";
 

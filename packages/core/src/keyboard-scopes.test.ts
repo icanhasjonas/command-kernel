@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
-import { createKeyboard, type KernelKeyEvent, validateShortcuts } from "./keyboard.js";
-import { isMac } from "./shortcut.js";
+import { createKeyboard, validateShortcuts } from "./keyboard.js";
+import { key, mod } from "./keyboard.test-util.js";
 import type { CommandNode, Ctx, Fact } from "./types.js";
 
 const ctxWith = (facts: Record<string, Fact> = {}): Ctx => ({
@@ -18,24 +18,6 @@ const node = (id: string, shortcut: string, extra: Partial<CommandNode> = {}): C
   ...extra,
 });
 
-function key(k: string, mods: Partial<KernelKeyEvent> = {}) {
-  const e = {
-    key: k,
-    code: "",
-    metaKey: false,
-    ctrlKey: false,
-    shiftKey: false,
-    altKey: false,
-    prevented: false,
-    preventDefault() {
-      e.prevented = true;
-    },
-    stopPropagation() {},
-    ...mods,
-  };
-  return e;
-}
-const mod = isMac ? { metaKey: true } : { ctrlKey: true };
 const field = { tagName: "TEXTAREA" };
 
 /** a keyboard with `nodes` bound over list < thread < composer, live per `facts.scopes` */

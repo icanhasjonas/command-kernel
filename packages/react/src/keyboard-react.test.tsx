@@ -1,0 +1,187 @@
+// happy-dom must be installed BEFORE @testing-library/react evaluates (see test/dom-setup.ts).
+// Keys are heard on `document`: under happy-dom `window` is Bun's own globalThis, which a
+// keydown fired on an element never bubbles to. In a browser the default (`window`) is right.
+import "../../../test/dom-setup.js";
+import { afterAll, afterEach, beforeAll, describe, expect, it } from "bun:test";
+import { type CommandNode, type Ctx, createKeyboard, type Keyboard } from "@command-kernel/core";
+import { act, cleanup, fireEvent, render } from "@testing-library/react";
+import { type ReactNode, StrictMode, useState } from "react";
+import { createPortal } from "react-dom";
+import { registerDom, unregisterDom } from "../../../test/dom-setup.js";
+import { attachKeyboard, type KeySource } from "./attach-keyboard.js";
+import { KeyboardLayer } from "./KeyboardLayer.js";
+import { KeyboardProvider } from "./KeyboardProvider.js";
+import { KeyboardScope } from "./KeyboardScope.js";
+import { useKeyboardStack } from "./use-keyboard-stack.js";
+
+(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+// the setup module is shared and cached: another file's afterAll may have unregistered it
+beforeAll(() => registerDom());
+afterEach(() => cleanup());
+afterAll(() => unregisterDom());
+
+const press = (key: string) => fireEvent.keyDown(document.body, { key });
+
+/** a keyboard, a log, and `on(name)` handlers that write to it */
+function rig() {
+  const keyboard = createKeyboard();
+  const hits: string[] = [];
+  const on = (name: string) => () => {
+    hits.push(name);
+  };
+  const app = (children: ReactNode) => (
+    <KeyboardProvider keyboard={keyboard} source={document}>
+      {children}
+    </KeyboardProvider>
+  );
+  return { keyboard, hits, on, app };
+}
+
+const layerIds = (kb: Keyboard) => kb.describeStack().layers.map((l) => l.id);
+
+describe("L15 attachKeyboard is the one listener, in the bubble phase", () => {
+  it("adds one keydown listener without capture, and removes it", () => {
+    const { keyboard, hits, on } = rig();
+    keyboard.pushLayer({ x: on("x") });
+    const calls: string[] = [];
+    let heard: Parameters<KeySource["addEventListener"]>[1] | undefined;
+    const source: KeySource = {
+      addEventListener(type, fn, ...rest: unknown[]) {
+        calls.push(`add ${type} ${rest.length}`);
+        heard = fn;
+      },
+      removeEventListener(type, fn) {
+        calls.push(`remove ${type} ${fn === heard}`);
+      },
+    };
+    const detach = attachKeyboard(keyboard, source);
+    heard?.(new KeyboardEvent("keydown", { key: "x" }));
+    detach();
+    expect(hits).toEqual(["x"]);
+    expect(calls).toEqual(["add keydown 0", "remove keydown true"]);
+  });
+
+  it("a browser window is a KeySource as it is", () => {
+    const source: KeySource = window;
+    expect(typeof source.addEventListener).toBe("function");
+  });
+});
+
+describe("KeyboardProvider", () => {
+  it("hears keys on its source, and stops on unmount", () => {
+    const { hits, on, app } = rig();
+    const view = render(app(<KeyboardLayer bindings={{ Escape: on("close") }} />));
+    press("Escape");
+    view.unmount();
+    press("Escape");
+    expect(hits).toEqual(["close"]);
+  });
+});
+
+/** a screen, a modal dialog in it, and a popover in the dialog rendered through a portal */
+function Nested({ on, popover }: { on: (n: string) => () => void; popover: boolean }) {
+  return (
+    <KeyboardLayer bindings={{ Escape: on("back"), j: on("next") }}>
+      <KeyboardLayer bindings={{ Escape: on("close dialog") }} modal passThrough={["mod+k"]}>
+        {popover &&
+          createPortal(<KeyboardLayer bindings={{ Escape: on("close popover") }} />, document.body)}
+      </KeyboardLayer>
+    </KeyboardLayer>
+  );
+}
+
+describe("L3 in React: the tree is the stack, whatever order effects run in", () => {
+  for (const strict of [false, true]) {
+    it(`screen < dialog < popover, mounted in one render${strict ? " (StrictMode)" : ""}`, () => {
+      const { keyboard, hits, on, app } = rig();
+      const tree = (popover: boolean) => {
+        const el = app(<Nested on={on} popover={popover} />);
+        return strict ? <StrictMode>{el}</StrictMode> : el;
+      };
+      const view = render(tree(true));
+      expect(layerIds(keyboard)).toHaveLength(3);
+      press("Escape");
+      view.rerender(tree(false));
+      press("Escape");
+      press("j"); // the dialog is modal: the screen's j never fires
+      expect(hits).toEqual(["close popover", "close dialog"]);
+    });
+  }
+});
+
+describe("a layer keeps its place and its keys across renders", () => {
+  it("a new handler runs without a re-push", () => {
+    const { keyboard, hits, app } = rig();
+    function Counter() {
+      const [n, setN] = useState(0);
+      return <KeyboardLayer bindings={{ "+": () => hits.push(`at ${n}`) && setN(n + 1) }} />;
+    }
+    render(app(<Counter />));
+    let changes = 0;
+    keyboard.subscribeStack(() => changes++);
+    act(() => void press("+"));
+    act(() => void press("+"));
+    expect(hits).toEqual(["at 0", "at 1"]);
+    expect(changes).toBe(0);
+  });
+});
+
+describe("L13 in React: KeyboardScope mounts a scope's commands", () => {
+  const ctx: Ctx = {
+    location: { module: "mail" },
+    user: { id: "u", name: "U", role: "admin", brand: "b" },
+    now: 0,
+    frecency: {},
+  };
+  const nodes: CommandNode[] = [
+    { id: "back", title: "Back", shortcut: "Escape", scope: "thread" },
+    { id: "discard", title: "Discard", shortcut: "Escape", scope: "editor" },
+  ];
+
+  it("the scope's keys win while it is mounted, and are gone after", () => {
+    const keyboard = createKeyboard();
+    const hits: string[] = [];
+    const scopes = keyboard.bindScopes({
+      nodes,
+      scopes: ["thread"],
+      mounted: ["editor"],
+      ctx: () => ctx,
+      activeScopes: () => ["thread"],
+      onActivate: (n) => hits.push(n.id),
+    });
+    const tree = (open: boolean) => (
+      <KeyboardProvider keyboard={keyboard} scopes={scopes} source={document}>
+        {open && <KeyboardScope scope="editor" modal />}
+      </KeyboardProvider>
+    );
+    const view = render(tree(true));
+    press("Escape");
+    view.rerender(tree(false));
+    press("Escape");
+    expect(hits).toEqual(["discard", "back"]);
+  });
+});
+
+describe("L14 in React: useKeyboardStack re-renders on push and pop", () => {
+  it("shows the dialog's keys while it is open", () => {
+    const { on, app } = rig();
+    function Hints() {
+      const { reachable } = useKeyboardStack();
+      return <p>{reachable.map((r) => r.binding).join(" ")}</p>;
+    }
+    const tree = (open: boolean) =>
+      app(
+        <>
+          <KeyboardLayer bindings={{ j: on("next"), "mod+k": on("palette") }} />
+          {open && (
+            <KeyboardLayer bindings={{ Escape: on("close") }} modal passThrough={["mod+k"]} />
+          )}
+          <Hints />
+        </>,
+      );
+    const view = render(tree(false));
+    expect(view.container.textContent).toBe("j mod+k");
+    view.rerender(tree(true));
+    expect(view.container.textContent).toBe("Escape mod+k");
+  });
+});
