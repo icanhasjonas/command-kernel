@@ -1,9 +1,9 @@
 import { describe, expect, it } from "bun:test";
 import { ctx } from "./fixtures.test-util.js";
 import { frameId } from "./frame-id.js";
-import { server } from "./review.fixtures.test-util.js";
+import { server } from "./harness.test-util.js";
 
-/** K2-D4: an oversized frame's id is read only from the top-level object. */
+/** An oversized frame's id is read only from the top-level object. */
 
 const pad = "x".repeat(200);
 

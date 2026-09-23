@@ -1,7 +1,16 @@
 import type { WireError } from "./protocol.js";
 
 /** Codes where the SAME call may simply be retried (it may or may not have run). */
-const RETRYABLE = new Set(["timeout", "disconnected", "unavailable", "rateLimited"]);
+const RETRYABLE = new Set(["unavailable", "rateLimited"]);
+/**
+ * Retryable only when the CLIENT saw them (status 0). A server never sends these; one
+ * arriving with an HTTP status came from something else (an old or foreign server
+ * passing on a run()'s own error) and says nothing about whether a retry would help.
+ */
+const RETRYABLE_CLIENT_SIDE = new Set(["timeout", "disconnected"]);
+
+const retryable = (e: WireError) =>
+  RETRYABLE.has(e.code) || (e.status === 0 && RETRYABLE_CLIENT_SIDE.has(e.code));
 
 /** Every failure a client call can end in, from the server or from the client itself. */
 export class WireCallError extends Error {
@@ -23,7 +32,7 @@ export class WireCallError extends Error {
     this.missing = error.missing ?? [];
     this.errors = error.errors ?? [];
     this.checks = error.checks ?? [];
-    this.retryable = RETRYABLE.has(error.code);
+    this.retryable = retryable(error);
   }
 }
 

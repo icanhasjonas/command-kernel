@@ -7,12 +7,44 @@ import { RESULT_KIND_HEADER, serverStatus, type WireError } from "./protocol.js"
 
 const PROBLEM = "application/problem+json; charset=utf-8";
 
-/** An RFC 7807 problem response for a WireError. */
+/** RFC 7807 `title`: one fixed phrase per problem type, never the occurrence's message. */
+const TITLES: Readonly<Record<string, string>> = {
+  badRequest: "Bad request",
+  invalidArguments: "Invalid arguments",
+  unauthorized: "Unauthorized",
+  forbidden: "Forbidden",
+  notFound: "Not found",
+  unknownCommand: "Unknown command",
+  methodNotAllowed: "Method not allowed",
+  confirmRequired: "Confirmation required",
+  conflict: "Conflict",
+  stateMismatch: "State mismatch",
+  tooLarge: "Too large",
+  unsupportedMediaType: "Unsupported media type",
+  ambiguous: "Ambiguous argument",
+  rateLimited: "Too many requests",
+  serverFail: "Server error",
+  unavailable: "Unavailable",
+};
+
+/** A built-in code's title; a run()'s own code is its own stable title. */
+const titleOf = (code: string) => (Object.hasOwn(TITLES, code) ? (TITLES[code] as string) : code);
+
+/**
+ * An RFC 7807 problem response for a WireError: `title` is fixed per code, `detail`
+ * says what happened this time (`message` carries the same, for existing clients).
+ * Never cached: a GET route marked immutable must not keep a failure for a year.
+ */
 export function problem(error: WireError, headers: Record<string, string> = {}): Response {
-  const body = { type: `urn:command-kernel:error:${error.code}`, title: error.message, ...error };
+  const body = {
+    type: `urn:command-kernel:error:${error.code}`,
+    title: titleOf(error.code),
+    detail: error.message,
+    ...error,
+  };
   return new Response(JSON.stringify(body), {
     status: error.status,
-    headers: { "content-type": PROBLEM, ...headers },
+    headers: { "content-type": PROBLEM, "cache-control": "no-store", ...headers },
   });
 }
 

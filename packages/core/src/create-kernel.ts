@@ -13,6 +13,7 @@ import {
 } from "./kernel.js";
 import { type ShortcutConflict, validateShortcuts } from "./keyboard.js";
 import { collectChords, collectShortcuts, shortcutNodes } from "./node-lookups.js";
+import { observe } from "./observe.js";
 import { createMemoryPolicyStore, type PolicyStore } from "./policy.js";
 import { type Ranker, rank } from "./rank.js";
 import type { Registry } from "./registry.js";
@@ -59,7 +60,11 @@ export interface KernelConfig {
   entities?: EntityRegistry | EntityType[];
   /** opt-in fallback when the primary search yields no results */
   fallback?: FallbackSearch;
-  /** observability hook — fires after every successful run (audit / telemetry / undo) */
+  /**
+   * observability hook - fires after every successful run (audit / telemetry / undo).
+   * The command already ran: a hook that throws or rejects is swallowed and the caller
+   * still gets the result, so catch and report inside the hook if you need to know.
+   */
   onExecute?: (record: CommandRecord, response: CommandResponse) => void;
   /**
    * Who a grant belongs to (default: `ctx.user.id`). A grant minted for one
@@ -164,7 +169,7 @@ export function createKernel(config: KernelConfig = {}): Kernel {
   return {
     command: async (req, ctx, r) => {
       const res = await command(r ?? roots(ctx), req, ctx, deps);
-      if (res.kind === "result" && onExecute) onExecute(toRecord(req, ctx), res);
+      if (res.kind === "result" && onExecute) observe(() => onExecute(toRecord(req, ctx), res));
       return res;
     },
     search: (nodes, query, ctx) => searchNodes(nodes, query, ctx, ranker),

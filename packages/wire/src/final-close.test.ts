@@ -12,7 +12,7 @@ import { FakeSocket } from "./fixtures.test-util.js";
 function setup(extra: Partial<WireClientOptions> = {}) {
   const made: FakeSocket[] = [];
   const c = createWireClient({
-    http: "/api",
+    http: "https://x/api",
     ws: "wss://x",
     socket: (u) => {
       const s = new FakeSocket(u);
@@ -24,7 +24,7 @@ function setup(extra: Partial<WireClientOptions> = {}) {
     ...extra,
   });
   const seen: [ConnectionStatus, CloseInfo | null][] = [];
-  c.onStatus((s, info) => seen.push([s, info]));
+  c.onStatus((s, change) => seen.push([s, change.closedBy]));
   c.connect();
   made[0]?.open();
   return { c, made, seen };
@@ -47,7 +47,7 @@ describe("application close codes end the connection", () => {
     const { c, made } = setup();
     made[0]?.serverClose(4003, "not a member");
     const late: [ConnectionStatus, CloseInfo | null][] = [];
-    c.onStatus((s, info) => late.push([s, info]));
+    c.onStatus((s, change) => late.push([s, change.closedBy]));
     expect(late).toEqual([["closed", { code: 4003, reason: "not a member" }]]);
   });
 

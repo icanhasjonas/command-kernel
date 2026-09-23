@@ -62,6 +62,7 @@ socket.send(wire.event(boxChanged.name, { boxId, seq }));
 
 ```ts
 // client (browser, native via a custom socket factory, or a script)
+// "/api" resolves against the page; outside one, pass a full URL or your own `fetch`
 const client = createWireClient({ http: "/api", ws: "wss://app.example/ws" });
 client.connect();
 const { seq } = await client.call(setSeen, { threadId: "t1", seen: true }); // socket if open, else HTTP
@@ -83,7 +84,12 @@ Errors carry the same `WireError` on both transports: `code`, `message`, `status
 relevant `missing` / `errors` (args) or `checks` (the gate). Built-in codes and statuses are
 in `ERROR_STATUS`; a `run()` throws `CommandError(code, message, details)` for its own. An
 unexpected exception, a result JSON cannot hold, or a `CommandError` whose `details` JSON
-cannot hold (a `BigInt`, a cycle) is a `serverFail` that never includes the exception. An arg
+cannot hold (a `BigInt`, a cycle) is a `serverFail` that never includes the exception. So
+is a `CommandError` with a client-only code (`timeout`, `disconnected`, `aborted`,
+`badResponse`: status 0 in `ERROR_STATUS`), reported to `onError`: only the client itself
+may say a call timed out, and `retryable` on those two codes needs status 0. A client set
+up wrong is never `retryable`: a `headers()` that throws is `misconfigured`, and a relative
+`http` base with no page to resolve it (and no `fetch` of your own) throws at creation. An arg
 the command does not declare is `400 invalidArguments` naming it; a `multiple` arg sent as
 `[]` is no value, so `run()` sees the same absent arg over a socket and a GET route.
 
@@ -101,9 +107,23 @@ call is the current status. `client.onStatus(fn)` calls `fn` with the current st
 
 A server that closes with an application code (4000-4999: "signed out", "not a member") has
 said something a reconnect cannot fix, so the client does not retry: the status goes to
-`closed` and listeners get the code and reason as a second argument, `fn(status, closedBy)`
-(also `client.closedBy`). A later `connect()` starts over. `finalClose: (code) => boolean`
+`closed` and listeners get the code and reason as `change.closedBy` (also
+`client.closedBy`). A later `connect()` starts over. `finalClose: (code) => boolean`
 chooses which codes are final; `() => false` reconnects on everything.
+
+Events pushed while the socket is down are lost. There is no resume or replay: a push goes
+to the sockets open at that moment. So a client MUST resync when it comes back, and the
+status listener says when: `change.reconnected` is `true` on an `open` that follows an
+earlier open (after a drop, or a `close()` and `connect()`), and `false` on the first open,
+even one that took several attempts.
+
+```ts
+client.onStatus((status, { reconnected, closedBy }) => {
+  showConnection(status);
+  if (closedBy) tellThePerson(closedBy.reason); // final: no reconnect follows
+  if (reconnected) refetchEverythingShown(); // what changed while we were away is unknown
+});
+```
 
 `handleFrame` answers `ping` with `pong`, so any host works out of the box. A Durable
 Object can answer it without waking at all:
@@ -118,8 +138,15 @@ fine), body or not; anything else is `415 unsupportedMediaType`. That keeps a cr
 command. The client always sends a JSON body (`{}` when there are no args). A body over
 `maxBytes` is `413 tooLarge`; one whose stream fails mid-read is `400 badRequest`.
 
-`OPTIONS` answers `204` with `Allow`, as does every `405` (CORS stays the host's job). `HEAD`
-is `GET` on a declared route, with no body on any answer.
+A problem body's `title` is a fixed phrase per code ("Invalid arguments"; a `run()`'s own
+code is its own title) and `detail` says what happened this time; `message` carries the
+same text as `detail`. A problem is always `cache-control: no-store`, so a failed GET on an
+`immutable` route is never kept.
+
+`OPTIONS` answers `204` with `Allow` on a command's path or a declared route, and `404
+unknownCommand` anywhere else; it never reads `command-evidence`. Every `405` carries
+`Allow` too (CORS stays the host's job). `HEAD` is `GET` on a declared route, with no body
+on any answer.
 
 ## Limits
 
@@ -134,6 +161,10 @@ route param that is not a declared arg; and a GET route on a node that does not 
 `effect: "pure"` itself. A GET **fails closed**: it is cached, prefetched, and sent
 cross-site by a link or an `<img>` with the user's cookies, so a node with no `effect` is
 never assumed pure, gate or not. A write is always a POST.
+
+A route param whose value is `""`, `.` or `..` is `400 invalidArguments` on every transport
+(GET, POST and socket alike), and the client refuses it before sending: the URL parser
+folds those segments away, so `/boxes/../messages/m1` would reach `/messages/m1`.
 
 The host MUST check `Origin` on the WebSocket upgrade. A browser opens a cross-origin
 socket without any preflight and sends the user's cookies with it, so a socket that trusts
@@ -158,7 +189,8 @@ await client.call(deleteBox, { boxId }, { evidence: grant }); // now it runs
 ```
 
 Without a `confirm` policy the wire carries grants but cannot mint them: a client that could
-approve itself is not a gate.
+approve itself is not a gate. The policy sees the args the grant is signed over, after
+`prefill` and coercion, never the raw ones the client sent.
 
 Confirming never runs anything: args and the gate are checked in a dry run, bad args answer
 `400 invalidArguments` as the call would, and a command that owes no confirm answers `409
@@ -166,6 +198,13 @@ conflict`. A grant is bound to the caller who confirmed (`principalOf`, by defau
 `ctx.user.id`); another caller presenting it gets `confirmRequired`. The `confirmRequired` answer names the command (`details: { command,
 title }`) and never echoes the args, which after `prefill` can hold server-side values. A
 confirm policy, gate or prefill that throws answers `serverFail`, never the exception.
+
+A prefilled arg is the server's value: a call that sends one of the keys `prefill(ctx)` set
+is `400 invalidArguments` naming it, on every transport and on confirm, whatever the value
+(accepting an equal one would let a caller guess it one try at a time). The kernel itself
+merges `{ ...prefill, ...args }`, which is right for a palette's editable default; the wire
+is where a caller must not replace it. A prefill of `undefined` or `""` set nothing, and a
+prefilled arg cannot be a GET route param (every such call would be refused).
 
 A grant is an HMAC-SHA256 signature over the caller, the command, its args, a nonce and an
 expiry, so it cannot be forged or reworked into another call. It **expires** 5 minutes
@@ -196,10 +235,31 @@ one 32-byte environment secret. The default key is per store, right for one proc
 `handleHttp(request, ctx)` and `handleFrame(message, ctx)` take the context the host built:
 authenticate once (per request, or on the upgrade), put the caller in `ctx`, let the gate decide.
 
+## Subprotocols
+
+To version the socket, the client offers a subprotocol and the upgrade handler picks it:
+
+```ts
+// client: the default socket factory passes these to `new WebSocket(url, protocols)`
+createWireClient({ http: "/api", ws: "wss://app.example/ws", protocols: ["mail.v1"] });
+
+// server, in the upgrade handler
+const sub = negotiateSubprotocol(request, "mail.v1");
+if (!sub.ok) return sub.response; // 400 naming mail.v1: the client offered only others
+return new Response(null, { status: 101, webSocket: client, headers: sub.headers });
+```
+
+A browser that offers protocols fails the connection when the server echoes none, so a
+server must echo the one it speaks; `negotiateSubprotocol` does that. Offered nothing (a
+native client, a script): ok, nothing to echo. Offered it among others: ok, and `headers`
+echo it. Offered only others: a `400` problem to return instead of upgrading. A custom
+`socket` factory ignores `protocols`; pass them to your own constructor.
+
 ## Reference docs
 
 ```ts
 renderCommandDocs("My API", specs, events); // deterministic Markdown: every command, arg, route, error, event
+renderCommandDocs("My API", specs, events, { base: "/api/v1" }); // paths as served: POST /api/v1/thread.list
 commandManifest(specs, events);             // the same as JSON, for codegen (e.g. a Swift client)
 ```
 

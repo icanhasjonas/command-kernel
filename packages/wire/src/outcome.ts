@@ -7,7 +7,7 @@ import {
   isCommandError,
   type Kernel,
 } from "@command-kernel/core";
-import { serverStatus, type WireError } from "./protocol.js";
+import { serverStatus, statusOf, type WireError } from "./protocol.js";
 
 /**
  * One call through the kernel, reduced to "it ran, here is the result" or "it
@@ -18,9 +18,12 @@ import { serverStatus, type WireError } from "./protocol.js";
 export type Outcome = { ok: true; result: CommandResult } | { ok: false; error: WireError };
 
 export interface CallOptions {
-  /** status for a CommandError code the built-in table does not know */
+  /** status for a CommandError code the built-in table does not know; one that throws is a 500 */
   statusFor?: (code: string) => number | undefined;
-  /** called with anything a run(), gate, prefill or confirm policy threw that was not a CommandError */
+  /**
+   * Called with anything a run(), gate, prefill or confirm policy threw that was not a
+   * CommandError. One that throws is swallowed: the caller still gets its serverFail.
+   */
   onError?: (err: unknown, name: string) => void;
   /**
    * Make grants single-use. Called once a grant has verified, just before the command
@@ -50,12 +53,15 @@ function sendable(v: unknown): boolean {
  * What a call that threw answers: a CommandError keeps its code, anything else is a
  * `serverFail` that never echoes the exception (it can carry internals). So is a
  * CommandError whose `details` JSON cannot carry (a BigInt, a cycle): an answer that
- * cannot be written would make the transport itself throw.
+ * cannot be written would make the transport itself throw. So is a CommandError with
+ * a client-only code (status 0 in ERROR_STATUS): only a client may say `timeout`.
  */
 export function thrown(err: unknown, name: string, opts: CallOptions): Outcome {
   if (isCommandError(err) && !sendable(err.details))
     return fail("serverFail", "Something went wrong sending this command's error");
-  if (isCommandError(err)) {
+  // a client-only code (timeout, disconnected...) from a run() would read as the CLIENT's
+  // own and be retried: it is a server bug, reported and answered like one
+  if (isCommandError(err) && statusOf(err.code, 400) !== 0) {
     const status = serverStatus(err.code, opts.statusFor);
     return {
       ok: false,
@@ -67,8 +73,17 @@ export function thrown(err: unknown, name: string, opts: CallOptions): Outcome {
       },
     };
   }
-  opts.onError?.(err, name);
+  report(opts, err, name);
   return fail("serverFail", "Something went wrong running this command");
+}
+
+/** Tell the host's `onError`; one that throws is swallowed, so the caller still gets its answer. */
+function report(opts: CallOptions, err: unknown, name: string): void {
+  try {
+    opts.onError?.(err, name);
+  } catch {
+    // the reporter itself failed; there is nobody left to tell
+  }
 }
 
 export async function runCall(

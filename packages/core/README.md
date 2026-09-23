@@ -171,7 +171,8 @@ createKernel({
 
 A seventh, observability seam: `createKernel({ onExecute })` fires a serializable
 `CommandRecord` after every successful run — wire audit, telemetry, or an undo
-stack in one line. Typed entities (seam 6) let an arg reference a registered
+stack in one line. The command has already run when it fires, so a hook that throws
+or rejects is swallowed and the caller still gets the result. Typed entities (seam 6) let an arg reference a registered
 catalog — `entity: { type: "person", constraint: "with-email-address" }` — which
 becomes its completion source and an agent-queryable noun; see
 [`docs/entities.md`](../../docs/entities.md).

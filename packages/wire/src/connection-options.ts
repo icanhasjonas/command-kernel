@@ -75,7 +75,11 @@ export interface ConnectionOptions {
    * with on purpose ("signed out", "not a member"). `() => false` reconnects on anything.
    */
   finalClose?: (code: number) => boolean;
-  /** WebSocket subprotocols for the default socket factory */
+  /**
+   * WebSocket subprotocols the default socket factory offers. A browser fails the
+   * connection when the server echoes none of them: answer the upgrade through
+   * `negotiateSubprotocol`. A custom `socket` factory ignores this.
+   */
   protocols?: string[];
   /** 0..1, for tests */
   random?: () => number;

@@ -101,6 +101,7 @@ export const ERROR_STATUS: Readonly<Record<string, number>> = {
   disconnected: 0,
   aborted: 0, // the caller cancelled
   badResponse: 0, // the answer was not ours (e.g. an auth proxy's HTML login page)
+  misconfigured: 0, // the client is set up wrong (its headers() threw): a retry cannot help
 };
 
 /** The built-in status for a code, else `fallback`. May be 0 for a client-only code. */
@@ -113,6 +114,7 @@ export function statusOf(code: string, fallback = 400): number {
  * The HTTP status a SERVER answers with for a code: the built-in table, then the
  * host's `statusFor`, then 400; anything outside 400-599 (a client-only code thrown
  * by a run(), a host mapping of 600) becomes 500, because a Response cannot carry it.
+ * A `statusFor` that throws is a 500 too: a broken mapper must not lose the answer.
  */
 export function serverStatus(
   code: string,
@@ -120,13 +122,25 @@ export function serverStatus(
 ): number {
   const s = Object.hasOwn(ERROR_STATUS, code)
     ? (ERROR_STATUS[code] as number)
-    : (statusFor?.(code) ?? 400);
+    : hostStatus(code, statusFor);
   return Number.isInteger(s) && s >= 400 && s <= 599 ? s : 500;
+}
+
+function hostStatus(code: string, statusFor?: (code: string) => number | undefined): number {
+  try {
+    return statusFor?.(code) ?? 400;
+  } catch {
+    return 500;
+  }
 }
 
 /** HTTP carries a grant (for a confirm-gated command) in this header as `nonce.expiresAt.sig`. */
 export const EVIDENCE_HEADER = "command-evidence";
-/** HTTP says what kind of result the body is: `data` (the body IS the payload) or another kind. */
+/**
+ * HTTP says what kind of result the body is: `data` (the body IS the payload) or another
+ * kind (the body is `{ kind, message, payload }`). The client refuses a body that does not
+ * match (`badResponse`); no header at all is read as `data`.
+ */
 export const RESULT_KIND_HEADER = "command-result-kind";
 
 /** Encode any server frame for a socket. */

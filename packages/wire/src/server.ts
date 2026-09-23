@@ -1,4 +1,6 @@
 import type { ArgValues, Ctx, Grant, Kernel } from "@command-kernel/core";
+import { argGuards } from "./arg-guards.js";
+import { isBag } from "./bag.js";
 import { overLimit, readGrant } from "./body.js";
 import { frameId } from "./frame-id.js";
 import { httpHandler } from "./http-handler.js";
@@ -23,6 +25,7 @@ export interface WireServerOptions extends CallOptions {
    * a host checks that a person is at the other end (a step-up, a fresh sign-in, an
    * operator's approval), because a client that could approve itself is not a gate.
    * A grant it mints is bound to the confirming caller (the kernel's `principalOf`).
+   * `args` are the ones the grant is signed over: prefilled and coerced, not as sent.
    */
   confirm?: (call: { name: string; args: ArgValues; ctx: Ctx }) => boolean | Promise<boolean>;
   /**
@@ -64,9 +67,6 @@ export interface WireServer {
   event(name: string, data?: unknown): string;
 }
 
-const isBag = (v: unknown): v is ArgValues =>
-  typeof v === "object" && v !== null && !Array.isArray(v);
-
 export function createWireServer(opts: WireServerOptions): WireServer {
   checkSpecs(opts.specs);
   const base = (opts.base ?? "/api").replace(/\/+$/, "");
@@ -79,10 +79,18 @@ export function createWireServer(opts: WireServerOptions): WireServer {
   // an undeclared command answers word for word as one that does not exist
   const unknown = (name: string) => refusal("unknownCommand", `No command ${name}`);
 
-  const call = (name: string, args: ArgValues, ctx: Ctx, evidence?: Grant) =>
-    commandIds.has(name)
-      ? runCall(opts.kernel, name, args, ctx, evidence, opts)
-      : Promise.resolve(unknown(name));
+  const guards = argGuards(opts.kernel, opts.specs);
+
+  const call = async (name: string, args: ArgValues, ctx: Ctx, evidence?: Grant) => {
+    if (!commandIds.has(name)) return unknown(name);
+    let refusedArgs: Outcome | null;
+    try {
+      refusedArgs = guards.check(name, args, ctx);
+    } catch (err) {
+      return thrown(err, name, opts); // a throwing prefill, as a throwing run()
+    }
+    return refusedArgs ?? runCall(opts.kernel, name, args, ctx, evidence, opts);
+  };
 
   /** The gate's verdict for a call (a dry run: never executed), turned into a grant when the host allows it. */
   async function approve(
@@ -102,7 +110,8 @@ export function createWireServer(opts: WireServerOptions): WireServer {
     if (!res.verdict.allowed) return refusal("forbidden", `Not allowed: ${res.node.title}`);
     if (!res.verdict.needsConfirm)
       return refusal("conflict", `${name} is not waiting for a confirmation`);
-    if (!(await confirm({ name, args, ctx })))
+    // the policy decides on exactly what the grant signs: after prefill and coercion
+    if (!(await confirm({ name, args: res.args, ctx })))
       return refusal("forbidden", `${res.node.title} was not confirmed`);
     const grant = opts.kernel.grantFor(res);
     return { ok: true, result: { kind: "data", message: "confirmed", payload: { grant } } };
@@ -112,7 +121,7 @@ export function createWireServer(opts: WireServerOptions): WireServer {
     if (!commandIds.has(name)) return unknown(name);
     if (!opts.confirm) return refusal("forbidden", "Confirmations are not enabled here");
     try {
-      return await approve(opts.confirm, name, args, ctx);
+      return guards.check(name, args, ctx) ?? (await approve(opts.confirm, name, args, ctx));
     } catch (err) {
       // a throwing policy, gate or prefill answers as a throwing run() does
       return thrown(err, name, opts);

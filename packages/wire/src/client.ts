@@ -1,6 +1,6 @@
 import type { ArgValues, Grant } from "@command-kernel/core";
 import { failure } from "./client-error.js";
-import { createListeners, type StatusListener } from "./client-listeners.js";
+import { createListeners, type StatusChange, type StatusListener } from "./client-listeners.js";
 import {
   type CloseInfo,
   type ConnectionOptions,
@@ -8,7 +8,7 @@ import {
   createConnection,
 } from "./connection.js";
 import type { EventSpec, HttpRoute, WireSpec } from "./define.js";
-import { type FetchLike, httpCall } from "./http.js";
+import { assertUsableBase, type FetchLike, httpCall } from "./http.js";
 import type { CallFrame, ServerFrame } from "./protocol.js";
 import { createSocketCalls } from "./socket-calls.js";
 
@@ -22,7 +22,11 @@ import { createSocketCalls } from "./socket-calls.js";
  */
 
 export interface WireClientOptions extends Omit<ConnectionOptions, "url"> {
-  /** HTTP base, e.g. "https://app.example/api" or "/api" */
+  /**
+   * HTTP base, e.g. "https://app.example/api", or "/api" in a browser page. Outside a
+   * page (a Worker, Bun, a native app) a relative base throws at creation unless you
+   * pass your own `fetch`.
+   */
   http: string;
   /** socket URL, e.g. "wss://app.example/ws"; omit for HTTP only */
   ws?: string;
@@ -61,8 +65,12 @@ export interface WireClient {
   callName(name: string, args?: ArgValues, opts?: CallOpts): Promise<unknown>;
   on<D>(event: EventSpec<D>, handler: (data: D) => void): () => void;
   /**
-   * Called with the current status at once, then on every change. `closedBy` is the
-   * server's close code and reason when it ended the connection for good (`finalClose`).
+   * Called with the current status at once, then on every change.
+   * - `change.reconnected` is true on an "open" that follows an earlier open: events
+   *   pushed while the socket was down are LOST (there is no resume), so refetch what
+   *   you show when it is.
+   * - `change.closedBy` is the server's close code and reason when it ended the
+   *   connection for good (`finalClose`): no reconnect follows; tell the person.
    */
   onStatus(listener: StatusListener): () => void;
   readonly status: ConnectionStatus;
@@ -75,6 +83,7 @@ export interface WireClient {
 }
 
 export function createWireClient(opts: WireClientOptions): WireClient {
+  if (!opts.fetch) assertUsableBase(opts.http);
   const http = {
     base: opts.http.replace(/\/+$/, ""),
     fetch: opts.fetch ?? ((url: string, init?: RequestInit) => fetch(url, init)),
@@ -101,9 +110,21 @@ export function createWireClient(opts: WireClientOptions): WireClient {
     calls.answer(frame);
   }
 
+  // whether an "open" follows an earlier one: events in between are lost, so resync
+  let everOpen = false;
+  let reopened = false;
+  const change = (s: ConnectionStatus, closedBy: CloseInfo | null): StatusChange => ({
+    reconnected: s === "open" && reopened,
+    closedBy: s === "closed" ? closedBy : null,
+  });
+
   function onConnStatus(s: ConnectionStatus, closedBy: CloseInfo | null) {
     if (s !== "open") calls.dropAll();
-    listeners.status(s, closedBy);
+    else {
+      reopened = everOpen;
+      everOpen = true;
+    }
+    listeners.status(s, change(s, closedBy));
   }
 
   const conn = opts.ws
@@ -156,7 +177,10 @@ export function createWireClient(opts: WireClientOptions): WireClient {
     // the handler takes the event's declared payload type
     on: <D>(event: EventSpec<D>, handler: (data: D) => void) =>
       listeners.on(event.name, handler as (data: unknown) => void),
-    onStatus: (fn) => listeners.onStatus(fn, conn?.status ?? "idle", conn?.closedBy ?? null),
+    onStatus: (fn) => {
+      const now = conn?.status ?? "idle";
+      return listeners.onStatus(fn, now, change(now, conn?.closedBy ?? null));
+    },
     get status() {
       return conn?.status ?? "idle";
     },

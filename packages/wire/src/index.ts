@@ -15,7 +15,7 @@ export {
   type WireClientOptions,
 } from "./client.js";
 export { WireCallError } from "./client-error.js";
-export type { StatusListener } from "./client-listeners.js";
+export type { StatusChange, StatusListener } from "./client-listeners.js";
 export type { CloseInfo, ConnectionStatus, WebSocketLike } from "./connection.js";
 export { APPLICATION_CLOSE } from "./connection-options.js";
 export {
@@ -30,6 +30,7 @@ export {
 } from "./define.js";
 export {
   commandManifest,
+  type DocOptions,
   type DocSpec,
   type Manifest,
   type ManifestCommand,
@@ -51,3 +52,4 @@ export {
 } from "./protocol.js";
 export { fillRoute, matchRoute } from "./route.js";
 export { createWireServer, type WireServer, type WireServerOptions } from "./server.js";
+export { negotiateSubprotocol, type SubprotocolAnswer } from "./subprotocol.js";

@@ -1,4 +1,5 @@
 import type { ArgValues, Grant } from "@command-kernel/core";
+import { isBag } from "./bag.js";
 import { grantHeader } from "./body.js";
 import { failure, fromProblem, WireCallError } from "./client-error.js";
 import type { HttpRoute } from "./define.js";
@@ -9,8 +10,9 @@ import { fillRoute } from "./route.js";
  * The client's HTTP transport: POST {base}/{command}, or GET on a declared route.
  * Every failure comes back as a WireCallError with a code a caller can act on:
  * the server's own code, `timeout`, `aborted`, `unavailable` (no answer),
- * `badResponse` (an answer that is not ours), or `invalidArguments` (a route that
- * cannot be filled from the args -- a programming error, never retryable).
+ * `badResponse` (an answer that is not ours), `invalidArguments` (a route that
+ * cannot be filled from the args), or `misconfigured` (a `headers()` that threw).
+ * The last two are programming or setup errors, never retryable.
  */
 
 /** The part of fetch this needs; any runtime's fetch (or a test double) fits. */
@@ -30,13 +32,6 @@ export interface CallExtras {
   confirm?: boolean;
 }
 
-/** A non-data result, as both transports hand it to the caller. */
-export interface ResultEnvelope {
-  kind: string;
-  message: string;
-  payload?: unknown;
-}
-
 function target(o: HttpOptions, name: string, args: ArgValues, route?: HttpRoute): string {
   if (!route) return `${o.base}/${encodeURIComponent(name)}`;
   try {
@@ -47,6 +42,32 @@ function target(o: HttpOptions, name: string, args: ArgValues, route?: HttpRoute
       message: e instanceof Error ? e.message : "Cannot build the route",
       status: 0,
     });
+  }
+}
+
+/** The host's per-request headers; one that throws is a setup mistake, not an outage. */
+async function extraHeaders(o: HttpOptions): Promise<Record<string, string> | undefined> {
+  try {
+    return await o.headers?.();
+  } catch (e) {
+    const why = e instanceof Error ? e.message : String(e);
+    throw failure("misconfigured", `headers() failed: ${why}`);
+  }
+}
+
+/**
+ * Throw at creation when the runtime's own fetch cannot use `base`: a relative base
+ * ("/api") needs a page to resolve against, which a Worker, Bun or a native app lacks.
+ * A host that passes its own `fetch` decides that itself.
+ */
+export function assertUsableBase(base: string): void {
+  const page = (globalThis as unknown as { location?: { href?: string } }).location?.href;
+  try {
+    new URL(base, page);
+  } catch {
+    throw new Error(
+      `createWireClient: http "${base}" is not an absolute URL and there is no page to resolve it against; pass a full URL (https://...) or your own fetch`,
+    );
   }
 }
 
@@ -68,7 +89,7 @@ export async function httpCall(
     const headers: Record<string, string> = {
       accept: "application/json",
       ...(evidence && { [EVIDENCE_HEADER]: grantHeader(evidence) }),
-      ...(await o.headers?.()),
+      ...(await extraHeaders(o)),
     };
     const res = route
       ? await o.fetch(url, { headers, signal: ctrl.signal })
@@ -88,8 +109,12 @@ export async function httpCall(
       throw failure("badResponse", `${name}: expected JSON, got ${type} (HTTP ${res.status})`);
     }
     if (!res.ok) throw fromProblem(body, res.status);
+    // the header says what the body IS: `data` (or none) is the payload, any other kind
+    // is its `{ kind, message, payload }` envelope, held to that claim
     const kind = res.headers.get(RESULT_KIND_HEADER) ?? "data";
-    return kind === "data" ? body : (body as ResultEnvelope); // a non-data body IS the result
+    if (kind === "data") return body;
+    if (isBag(body) && body.kind === kind && typeof body.message === "string") return body;
+    throw failure("badResponse", `${name}: a ${kind} result came back without its envelope`);
   } catch (e) {
     if (e instanceof WireCallError) throw e;
     if (signal?.aborted) throw failure("aborted", `${name} was cancelled`);

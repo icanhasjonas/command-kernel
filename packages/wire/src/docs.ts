@@ -96,11 +96,21 @@ function argType(a: ArgSpec): string {
   return a.multiple ? `list of ${base}` : base;
 }
 
-function commandSection(c: ManifestCommand, spec: DocSpec): string[] {
+/** How a reference is rendered. */
+export interface DocOptions {
+  /**
+   * The server's `base` (e.g. "/api/v1"), so paths read as served: `POST /api/v1/thread.list`,
+   * `GET /api/v1/boxes/:boxId`. Without it, POST paths show a `/<base>` placeholder and
+   * GET paths are relative to the base.
+   */
+  base?: string;
+}
+
+function commandSection(c: ManifestCommand, spec: DocSpec, base: string | undefined): string[] {
   const lines = [`### \`${c.id}\``, "", `**${c.title}.**${c.summary ? ` ${c.summary}` : ""}`, ""];
   const how = c.http
-    ? `\`GET ${c.http.path}\`${c.http.cache === "immutable" ? " (cacheable forever)" : ""}, or any transport`
-    : `WebSocket or \`POST /<base>/${c.id}\``;
+    ? `\`GET ${base ?? ""}${c.http.path}\`${c.http.cache === "immutable" ? " (cacheable forever)" : ""}, or any transport`
+    : `WebSocket or \`POST ${base ?? "/<base>"}/${c.id}\``;
   lines.push(`- Call: ${how}`);
   lines.push(`- Effect: ${c.effect}`);
   if (c.gate)
@@ -126,7 +136,10 @@ export function renderCommandDocs(
   title: string,
   specs: ReadonlyArray<DocSpec>,
   events: ReadonlyArray<EventSpec<unknown>> = [],
+  options: DocOptions = {},
 ): string {
+  // the same normalisation the server applies to its own base
+  const base = options.base === undefined ? undefined : options.base.replace(/\/+$/, "");
   const manifest = commandManifest(specs, events);
   const specOf = new Map(specs.map((s) => [s.node.id, s]));
   const out = [
@@ -145,7 +158,7 @@ export function renderCommandDocs(
   ];
   for (const c of manifest.commands) {
     const spec = specOf.get(c.id);
-    if (spec) out.push(...commandSection(c, spec));
+    if (spec) out.push(...commandSection(c, spec, base));
   }
   if (manifest.events.length) {
     out.push("## Events (server push)", "", "| Event | When |", "|---|---|");
