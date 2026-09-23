@@ -87,6 +87,10 @@ export function checkShape(value: unknown, schema: JsonSchemaNode, path: string)
       if (typeof value !== "string") return [`${path} must be text`];
       if (schema.enum && !schema.enum.includes(value))
         return [`${path} must be one of: ${schema.enum.join(", ")}`];
+      if (schema.minLength !== undefined && value.length < schema.minLength)
+        return [`${path} must be at least ${schema.minLength} characters`];
+      if (schema.maxLength !== undefined && value.length > schema.maxLength)
+        return [`${path} must be at most ${schema.maxLength} characters`];
       return [];
     }
     case "number":
@@ -99,6 +103,11 @@ export function checkShape(value: unknown, schema: JsonSchemaNode, path: string)
       return typeof value === "boolean" ? [] : [`${path} must be true or false`];
     case "array": {
       if (!Array.isArray(value)) return [`${path} must be a list`];
+      // counted before the items: a 10 000-entry list is refused without walking it
+      if (schema.minItems !== undefined && value.length < schema.minItems)
+        return [`${path} must have at least ${schema.minItems}`];
+      if (schema.maxItems !== undefined && value.length > schema.maxItems)
+        return [`${path} must have at most ${schema.maxItems}`];
       const items = schema.items;
       return items ? value.flatMap((v, i) => checkShape(v, items, `${path}[${i}]`)) : [];
     }

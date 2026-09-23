@@ -7,7 +7,7 @@ import type { CommandNode, Ctx, Ranked } from "./types.js";
  * A `Ranker` turns a node list + query + context into scored, ordered results.
  * The default blend is:
  *
- *   final = fuzzyScore                       // how well the text matches
+ *   final = textScore                        // how well the text matches (see textMatch)
  *         + weight * W_WEIGHT                // static authoring priority
  *         + boost(ctx)                       // where-you-are relevance
  *         + frecency * W_FRECENCY            // learned recency*frequency
@@ -25,8 +25,56 @@ export interface RankWeights {
   frecency?: number;
 }
 
-function haystack(node: CommandNode): string {
-  return [node.title, node.category, ...(node.keywords ?? [])].filter(Boolean).join(" ");
+/**
+ * How well `query` sits in a node's words, before weight, boost and frecency:
+ *
+ *   the title holds it as typed (a word start scores more)      TITLE_EXACT (+ TITLE_WORD)
+ *   the title holds its letters, tightly or as word initials     the fuzzy score
+ *   a keyword or the category holds it as typed                  the fuzzy score - KEYWORD_COST
+ *
+ * Anything looser is no match. Letters picked one by one across several keywords ("marco" from
+ * "mail write compose") or strewn across a whole title are what a person typing a name did NOT
+ * mean, and they used to outrank the name itself.
+ */
+const TITLE_EXACT = 40;
+const TITLE_WORD = 20;
+const KEYWORD_COST = 24;
+
+/** A subsequence match is kept only while its gaps are no more than the letters it matched. */
+function tight(positions: number[]): boolean {
+  const first = positions[0] ?? 0;
+  const last = positions[positions.length - 1] ?? 0;
+  return last - first + 1 - positions.length <= positions.length;
+}
+
+/** Word initials: every matched letter starts a word ("mu" in "Mark unread"). */
+function initials(title: string, positions: number[]): boolean {
+  return positions.every((p) => p === 0 || /[\s\-_/.:▸·]/.test(title[p - 1] ?? ""));
+}
+
+function textMatch(
+  query: string,
+  node: CommandNode,
+): { score: number; positions: number[] } | null {
+  const onTitle = fuzzyMatch(query, node.title);
+  if (onTitle && query.length > 0) {
+    const at = node.title.toLowerCase().indexOf(query.toLowerCase());
+    if (at >= 0) {
+      const wordStart = at === 0 || /[\s\-_/.:▸·]/.test(node.title[at - 1] ?? "");
+      const positions = Array.from({ length: query.length }, (_, i) => at + i);
+      const bonus = TITLE_EXACT + (wordStart ? TITLE_WORD : 0);
+      return { score: onTitle.score + bonus, positions };
+    }
+    if (tight(onTitle.positions) || initials(node.title, onTitle.positions)) return onTitle;
+  }
+  if (query.length === 0) return { score: 0, positions: [] };
+  const q = query.toLowerCase();
+  const words = [node.category, ...(node.keywords ?? [])].filter((w): w is string => Boolean(w));
+  if (words.some((w) => w.toLowerCase().includes(q))) {
+    const onHay = fuzzyMatch(query, words.join(" "));
+    return { score: (onHay?.score ?? 0) - KEYWORD_COST, positions: [] };
+  }
+  return null;
 }
 
 /** Build a ranker with tuned weights. The default ranker is `createRanker()`. */
@@ -42,14 +90,9 @@ export function createRanker(weights: RankWeights = {}): Ranker {
       const hidden = typeof node.hide === "function" ? node.hide(ctx) : node.hide;
       if (hidden) continue;
 
-      // match the title first (so highlight offsets map to the title), then fall
-      // back to the broader haystack (keywords/category) for discovery only.
-      const onTitle = fuzzyMatch(query, node.title);
-      const onHay = onTitle ?? fuzzyMatch(query, haystack(node));
-      if (onHay === null) continue;
-
-      const fuzzyScore = onHay.score;
-      const positions = onTitle ? onTitle.positions : [];
+      const match = textMatch(query, node);
+      if (match === null) continue;
+      const { score: fuzzyScore, positions } = match;
 
       const weight = (node.weight ?? 0) * W_WEIGHT;
       const boost = node.boost ? node.boost(ctx) : 0;

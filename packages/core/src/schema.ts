@@ -30,7 +30,14 @@ function isText(v: ArgValue): boolean {
  * which legitimately need an object/array param).
  */
 export type JsonSchemaNode =
-  | { type: "string"; description?: string; enum?: string[]; format?: string }
+  | {
+      type: "string";
+      description?: string;
+      enum?: string[];
+      format?: string;
+      minLength?: number;
+      maxLength?: number;
+    }
   | { type: "number" | "integer" | "boolean"; description?: string }
   | {
       type: "object";
@@ -39,7 +46,13 @@ export type JsonSchemaNode =
       required?: string[];
       additionalProperties?: boolean;
     }
-  | { type: "array"; description?: string; items?: JsonSchemaNode };
+  | {
+      type: "array";
+      description?: string;
+      items?: JsonSchemaNode;
+      minItems?: number;
+      maxItems?: number;
+    };
 
 export interface JsonSchemaObject {
   type: "object";
