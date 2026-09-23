@@ -21,7 +21,6 @@ export function useKeyboardScope(scope: string, options: LayerOptions = {}): str
   return useLayerLifecycle(
     (id, parent) => {
       shape.current = `${options.modal === true}|${pass}`;
-      if (scopes === null) throw new Error("unreachable: no layer is pushed without a binding");
       return scopes.mount(scope, {
         id,
         ...liveOptions(options),
@@ -34,8 +33,7 @@ export function useKeyboardScope(scope: string, options: LayerOptions = {}): str
       shape.current = next;
       keyboard.updateLayer(layer, { options: liveOptions(options) });
     },
-    // `null` is a binding still being made (useScopeBinding's first effect): no layer until then
-    { ...options, enabled: options.enabled !== false && scopes !== null },
+    options,
     `scope:${scope}`,
     [scopes, scope],
   );

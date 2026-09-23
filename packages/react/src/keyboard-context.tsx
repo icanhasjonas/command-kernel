@@ -9,8 +9,8 @@ import { createContext, type ReactNode, useContext, useMemo } from "react";
  */
 export interface KeyboardContextValue {
   keyboard: Keyboard;
-  /** the app's scope binding; `null` while it is being made, `undefined` when there is none */
-  scopes: ScopeBinding | null | undefined;
+  /** the app's scope binding (`useScopeBinding`), or `undefined` when the app has none */
+  scopes: ScopeBinding | undefined;
   parent: string | undefined;
 }
 

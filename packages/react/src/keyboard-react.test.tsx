@@ -333,6 +333,50 @@ describe("L13 in React: useScopeBinding binds in an effect, never in render", ()
   });
 });
 
+describe("L3 in React: the first render stacks in tree order, scopes and layers alike", () => {
+  const ctx: Ctx = {
+    location: { module: "mail" },
+    user: { id: "u", name: "U", role: "admin", brand: "b" },
+    now: 0,
+    frecency: {},
+  };
+
+  it("an editor scope and a palette opened after it in the tree: the palette is on top", () => {
+    const keyboard = createKeyboard();
+    const hits: string[] = [];
+    let applied = 0;
+    function App({ nodes }: { nodes: CommandNode[] }) {
+      const scopes = useScopeBinding(keyboard, {
+        nodes,
+        scopes: [],
+        mounted: ["editor"],
+        ctx: () => ctx,
+        activeScopes: () => [],
+        onActivate: (n) => hits.push(n.id),
+      });
+      return (
+        <KeyboardProvider keyboard={keyboard} scopes={scopes} source={document}>
+          <KeyboardScope id="editor" scope="editor" modal />
+          <KeyboardLayer id="palette" bindings={{ Escape: () => hits.push("palette") }} modal />
+        </KeyboardProvider>
+      );
+    }
+    const nodes: CommandNode[] = [
+      { id: "discard", title: "", shortcut: "Escape", scope: "editor" },
+    ];
+    const view = render(<App nodes={nodes} />);
+    keyboard.subscribeStack(() => {
+      applied++;
+    });
+    view.rerender(<App nodes={nodes} />);
+    view.rerender(<App nodes={nodes} />);
+    press("Escape");
+    expect(hits).toEqual(["palette"]);
+    expect(layerIds(keyboard)).toEqual(["palette", "editor"]);
+    expect(applied).toBe(0);
+  });
+});
+
 describe("a layer inside a Suspense boundary that suspends again leaves the stack", () => {
   it("the fallback shows, and the hidden thread's keys are gone", async () => {
     const { keyboard, hits, on, app } = rig();

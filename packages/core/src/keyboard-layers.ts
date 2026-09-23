@@ -6,7 +6,14 @@
  */
 
 import { canonicalBinding } from "./keyboard-canonical.js";
-import { canonical, canonicalNodes, order, type Place, settle } from "./keyboard-order.js";
+import {
+  type Accepts,
+  canonical,
+  canonicalNodes,
+  order,
+  type Place,
+  settle,
+} from "./keyboard-order.js";
 import type {
   KeyBindings,
   KeyLayer,
@@ -27,13 +34,15 @@ export function crosses(layer: KeyLayer, binding: string): boolean {
   return layer.options.modal !== true || (layer.options.passThrough ?? []).includes(binding);
 }
 
-/** Whether a node layer would take `binding` right now, or decline it (`when`, `disabled`). */
-export type Accepts = (binding: string) => boolean;
+export type { Accepts };
 
 /** What a node layer carries besides its bindings. */
 export interface NodeLayerExtra {
   nodes: Map<string, CommandNode>;
+  /** would the command a key runs RUN now (not hidden by `when`, not `disabled`) */
   accepts?: Accepts;
+  /** would it SHOW now (not hidden by `when`): a chord of hidden commands does not arm (L1) */
+  visible?: Accepts;
 }
 
 export interface LayerStack {
@@ -56,7 +65,9 @@ export interface LayerStack {
   nodesFor(layer: KeyLayer): Map<string, CommandNode> | undefined;
   /** whether `layer` would take `binding` now; plain layers are assumed to (their handlers are opaque) */
   accepts(layer: KeyLayer, binding: string): boolean;
-  /** an id no layer on this stack has had: `${prefix}${n}` */
+  /** whether the command `binding` runs on `layer` is shown now; plain layers: yes */
+  visible(layer: KeyLayer, binding: string): boolean;
+  /** an id no live layer has, and none a host chose: `${prefix}${n}` */
   freshId(prefix: string): string;
   /** run `fn` as ONE change: one re-sort and one notification at the end, however many updates */
   batch(fn: () => void): void;
@@ -86,8 +97,11 @@ export function createLayerStack(): LayerStack {
     for (const fn of listeners) fn();
   }
 
+  /** THE id allocator: skips every id on the stack, so a generated id never collides (L3) */
   function freshId(prefix: string): string {
-    return `${prefix}${ids++}`;
+    let id = `${prefix}${ids++}`;
+    while (byIdTaken(id)) id = `${prefix}${ids++}`;
+    return id;
   }
 
   /** push, with everything about the layer settled BEFORE anyone is told (L16) */
@@ -96,21 +110,15 @@ export function createLayerStack(): LayerStack {
     layerOptions: KeyLayerOptions,
     extra: { tier?: number; node?: NodeLayerExtra } = {},
   ): KeyLayer {
-    const n = seq++;
-    let id = layerOptions.id;
-    // a default id skips any a host took by hand, so it can never collide
-    while (id === undefined || (layerOptions.id === undefined && byIdTaken(id))) {
-      id = `layer-${ids++}`;
-    }
+    const id = layerOptions.id ?? freshId("layer-");
     // an id names ONE layer: a child's `parent` must not be able to mean two
     if (byIdTaken(id)) throw new Error(`keyboard: a layer "${id}" is already on the stack`);
     const layer: KeyLayer = { id, bindings: canonical(bindings), options: settle(layerOptions) };
-    const own = extra.tier ?? (layerOptions.base === true ? 1 : 2);
-    const place: Place = { seq: n, own, tier: own, path: [] };
-    if (extra.node) {
-      place.nodes = canonicalNodes(extra.node.nodes);
-      if (extra.node.accepts) place.accepts = extra.node.accepts;
-    }
+    const n = seq++;
+    const own = extra.tier ?? tierOf(layerOptions);
+    const place: Place = { seq: n, own, tier: own, stamp: n, depth: 0, placed: false };
+    if (extra.tier !== undefined) place.fixed = true;
+    attachNodes(place, extra.node);
     places.set(layer, place);
     layers.push(layer);
     changed();
@@ -121,24 +129,39 @@ export function createLayerStack(): LayerStack {
     return layers.some((l) => l.id === id);
   }
 
+  const tierOf = (options: KeyLayerOptions) => (options.base === true ? 1 : 2);
+
+  /** what a node layer knows about its bindings; cleared when it has none (a plain layer) */
+  function attachNodes(place: Place, node: NodeLayerExtra | undefined): void {
+    delete place.nodes;
+    delete place.accepts;
+    delete place.visible;
+    if (!node) return;
+    place.nodes = canonicalNodes(node.nodes);
+    if (node.accepts) place.accepts = node.accepts;
+    if (node.visible) place.visible = node.visible;
+  }
+
   function updateLayer(layer: KeyLayer, update: LayerUpdate, node?: NodeLayerExtra): void {
     const place = places.get(layer);
     if (!place) return;
-    if (update.bindings) {
-      layer.bindings = canonical(update.bindings);
-      // new bindings are not the old nodes' any more, unless the caller says whose they are
-      delete place.nodes;
-      delete place.accepts;
-      if (node) {
-        place.nodes = canonicalNodes(node.nodes);
-        if (node.accepts) place.accepts = node.accepts;
-      }
-    }
+    // compute both first: an update that cannot apply (a bad key) changes nothing at all
+    const bindings = update.bindings ? canonical(update.bindings) : undefined;
+    let options: KeyLayerOptions | undefined;
     if (update.options) {
       const next: Record<string, unknown> = { ...layer.options, ...update.options, id: layer.id };
       // `undefined` clears an option (a layer that no longer has an owner)
       for (const k of Object.keys(next)) if (next[k] === undefined) delete next[k];
-      layer.options = settle(next as KeyLayerOptions);
+      options = settle(next as KeyLayerOptions);
+    }
+    if (bindings) {
+      layer.bindings = bindings;
+      // new bindings are not the old nodes' any more, unless the caller says whose they are
+      attachNodes(place, node);
+    }
+    if (options) {
+      layer.options = options;
+      if (!place.fixed) place.own = tierOf(options);
     }
     changed();
   }
@@ -172,6 +195,7 @@ export function createLayerStack(): LayerStack {
     },
     nodesFor: (layer) => places.get(layer)?.nodes,
     accepts: (layer, binding) => places.get(layer)?.accepts?.(binding) ?? true,
+    visible: (layer, binding) => places.get(layer)?.visible?.(binding) ?? true,
     freshId,
     batch(fn) {
       batching++;

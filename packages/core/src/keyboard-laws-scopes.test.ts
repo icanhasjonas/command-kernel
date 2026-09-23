@@ -118,6 +118,20 @@ describe("L12 facts scopes stay under overlays; setNodes rebinds in place", () =
     expect(hits).toEqual(["back"]);
     expect(kb.describeStack().reachable.map((r) => r.node?.id)).toEqual(["back"]);
   });
+
+  it("a host id that looks like a generated one never makes binding throw", () => {
+    const { kb } = rig();
+    for (let i = 0; i < 4; i++) kb.pushLayer({}, { id: `scope:thread:${i}` });
+    expect(() =>
+      kb.bindScopes({
+        nodes: [],
+        scopes: ["thread"],
+        ctx: () => testCtx,
+        activeScopes: () => [],
+        onActivate: () => {},
+      }),
+    ).not.toThrow();
+  });
 });
 
 describe("L13 a mounted scope puts its commands on the stack until popped", () => {
@@ -168,6 +182,31 @@ describe("L13 a mounted scope puts its commands on the stack until popped", () =
       onActivate: () => {},
     });
     expect(other.mount("dialog").id).not.toBe(binding.mount("dialog").id);
+  });
+
+  it("createScopes pushes nothing until attach; mount works before; detach takes the facts off", () => {
+    const { kb, hits, run } = rig();
+    const b = kb.createScopes({
+      nodes: [
+        cmd("back", "Escape", { scope: "thread" }),
+        cmd("discard", "Escape", { scope: "dialog" }),
+      ],
+      scopes: ["thread"],
+      mounted: ["dialog"],
+      ctx: () => testCtx,
+      activeScopes: () => ["thread"],
+      onActivate: run,
+    });
+    expect(kb.describeStack().layers).toEqual([]);
+    const dialog = b.mount("dialog");
+    b.attach();
+    b.attach();
+    kb.popLayer(dialog);
+    kb.handleKeydown(key("Escape"));
+    b.detach();
+    kb.handleKeydown(key("Escape"));
+    expect(hits).toEqual(["back"]);
+    expect(kb.describeStack().layers).toEqual([]);
   });
 });
 

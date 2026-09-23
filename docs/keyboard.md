@@ -117,24 +117,31 @@ while the editor is open. `mod+k` still opens the palette.
   chord below on the same key, a chord above beats a single key below, and in
   ONE layer a chord beats a single key. The same rule decides every step of a
   longer chord (`g i` against `g i x`). A key a layer declines (L4) goes on to
-  the next layer that knows it, which may arm a chord. Popping a layer hands its
+  the next layer that knows it, which may arm a chord. A chord whose every
+  command is hidden (`when`) is not there: it does not arm, and the key goes on
+  (a disabled one still arms, so its second key can say why). Popping a layer hands its
   keys back to the layers below. While a chord is armed, a key that completes
   nothing ends it and does nothing else: Escape cancels a pending chord.
 - **L2** Base layers (`base: true`) sit below every other layer, whenever they
   were pushed. Every facts scope is base, and `registerShortcuts`' flat map sits
   lower still, under the scopes.
-- **L3** A layer pushed with `parent: "<id>"` sits above that layer and beside
-  its other children, whatever order the two were pushed in. React runs a
-  child's effects before its parent's, so plain push order would put a popover
-  UNDER its own dialog; the stack re-sorts by ownership on every change instead.
-  Siblings stack in push order. Ownership beats base: a base layer owned by a
+- **L3** A layer pushed with `parent: "<id>"` sits above that layer, whatever
+  order the two were pushed in: React runs a child's effects before its
+  parent's, so plain push order would put a popover UNDER its own dialog.
+  Otherwise the layer OPENED LAST is on top: a modal editor opened inside an
+  older screen is above a toast that appeared before the editor did, and a menu
+  opened in a dialog is above a toast shown before the menu. (Each layer is
+  stamped with the later of its own push and its owner's stamp; the stack
+  re-sorts on every change.) Ownership beats base: a base layer owned by a
   dialog sits above the dialog. A layer whose owner is popped keeps the place and
   tier it had. Two live layers cannot share an id (the second push throws), so a
   parent id always names one layer; default ids, facts-scope ids and mount ids
   never repeat and never take an id a host chose.
 - **L4** A handler that returns exactly `false` declines: the key goes on down,
-  as if that binding were not there. The press walks the stack as it was when
-  the key went down; a layer a handler pops during the press does not run.
+  as if that binding were not there. Which layers the press visits is fixed
+  when the key goes down, and a layer a handler pops during the press does not
+  run; each layer's `modal`, `enabled` and `active` are read as the press
+  reaches it.
 - **L5** A live `modal: true` layer is a barrier. A key it does not take
   (unbound, or declined) stops there: nothing below runs, and the event is not
   cancelled, so the browser still has it. A dialog, a menu, a sheet.
@@ -176,7 +183,10 @@ while the editor is open. `mod+k` still opens the palette.
   `kb.popLayer(layer)`. Its commands run, decline and give a disabled reason
   exactly like a facts scope's. A scope not declared as mounted cannot be
   mounted; `dispose()` pops mounted layers too, and a disposed binding mounts
-  nothing (it throws).
+  nothing (it throws). `kb.createScopes(options)` makes the same binding
+  without touching the stack: `attach()` pushes its facts scopes, `detach()`
+  takes them off, and `mount` works either way (`bindScopes` is create +
+  attach).
 - **L14** `kb.describeStack()` reports what a press would reach: the layers top
   first, and each reachable key with its layer and node, decided step by step by
   the same walk a press makes (barriers, L1 at every step of a chord). A
@@ -185,9 +195,10 @@ while the editor is open. `mod+k` still opens the palette.
   is. A plain `pushLayer` handler is opaque, so it is assumed to run. The facts
   are read fresh, once per description, including a description made inside a
   handler. A suspended stack reaches nothing. `chordCompletions(prefix)` is the
-  same description, one step past the prefix (in any spelling). Draw hints from
-  it and they never offer a key a press would not reach; show a disabled
-  command's key from its node, with the reason.
+  same description, one step past the prefix (in any spelling). A description
+  has no focus: a single-letter key it lists will not fire while the user types
+  in a field (L8). Within that, hints drawn from it never offer a key a press
+  would not reach; show a disabled command's key from its node, with the reason.
 - **L15** A browser host listens ONCE, in the bubble phase:
   `attachKeyboard(kb, window)` from `@command-kernel/react` (what
   `KeyboardProvider` does). A capture listener runs before every widget and
@@ -255,10 +266,13 @@ function NewMail() {
 }
 ```
 
-- `useScopeBinding(kb, options)` owns the app's `bindScopes`. Never call
-  `bindScopes` in render (a `useMemo`): it pushes layers, and StrictMode's
-  second render pass would leave a binding nobody disposes. The hook returns
-  `null` until its first effect ran; `KeyboardScope` waits for it.
+- `useScopeBinding(kb, options)` owns the app's binding: it CREATES it during
+  render (`createScopes`, which pushes nothing) and ATTACHES it in a layout
+  effect, so it exists on the first render and every `KeyboardScope` mounts in
+  tree order. New `nodes` go through `setNodes` for you, only when the array is
+  a different one: memoize it. Never call `bindScopes` in render: it pushes
+  layers, and StrictMode's second render pass would leave a binding nobody
+  disposes.
 - `KeyboardScope` / `useKeyboardScope(scope, options)` mount a scope for as long
   as the component is mounted.
 - Layers are pushed and popped in LAYOUT effects: when a Suspense boundary that
@@ -271,10 +285,9 @@ function NewMail() {
   or `passThrough`, a new owner. A new `id` prop is a new layer.
 - `enabled={false}` takes the layer off the stack; layers rendered inside it
   attach to the next layer out, in place, without re-opening.
-- When the commands change, call `scopes.setNodes(nodes)` on the binding you
-  gave the provider (L12). Handing the provider a NEW binding (dispose the old
-  one first) re-mounts every `KeyboardScope` from it, and so does a new `scope`
-  prop: to the stack that is a close and an open, so they land on top.
+- A new set of `scopes` or `mounted` names makes `useScopeBinding` a new
+  binding, and a new `scope` prop re-mounts a `KeyboardScope`: to the stack that
+  is a close and an open, so they land on top. Changed commands never do that.
 - The `parent` of every layer is the nearest layer around it in the React tree,
   through portals too: a popover rendered into `document.body` from inside a
   dialog is still the dialog's child (L3). Nobody passes an id by hand.
@@ -288,23 +301,30 @@ function NewMail() {
 **A dialog, menu or popover from a headless library.** Wrap its content in a
 `KeyboardScope` (or `KeyboardLayer`) with `modal`, and let that layer own
 Escape. Then stop the library from also acting on Escape, or one press closes
-two things. With Base UI, cancel the `escape-key` reason in `onOpenChange` (read
-from Base UI 1.8's source: `useDismiss` calls `preventDefault` on the Escape
-only when the change was NOT cancelled):
+two things. With Base UI, in `onOpenChange`, for the `escape-key` reason call
+BOTH `details.cancel()` and `details.allowPropagation()`. Read from Base UI
+1.8's `useDismiss`: on Escape it calls `preventDefault` unless the change was
+cancelled, and `stopPropagation` unless propagation was allowed. With `cancel()`
+alone the key never reaches the kernel's listener, and Escape does nothing.
 
 ```tsx
 <Dialog.Root
   open={open}
   onOpenChange={(next, details) => {
-    if (!next && details.reason === "escape-key") return details.cancel();
+    if (!next && details.reason === "escape-key") {
+      details.cancel(); // Base UI does not close it...
+      details.allowPropagation(); // ...and lets the key reach the kernel
+      return;
+    }
     setOpen(next);
   }}
 >
 ```
 
-Base UI's dismiss hook then leaves the key unprevented, so it reaches the
-dialog's layer, which runs your close or discard command, and that command can
-ask first ("Discard this draft?").
+The key then reaches the dialog's layer unprevented, which runs your close or
+discard command, and that command can ask first ("Discard this draft?"). A host
+using this recipe should keep a browser test with the real library, since a
+library update can change it.
 
 **A widget of your own with keys** (a suggestion list, a tag picker). Declare
 its keys as commands in a mounted scope and mount it while the widget is open.

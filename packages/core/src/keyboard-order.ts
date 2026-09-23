@@ -4,7 +4,6 @@
  */
 
 import { canonicalBinding } from "./keyboard-canonical.js";
-import type { Accepts } from "./keyboard-layers.js";
 import type { KeyBindings, KeyLayer, KeyLayerOptions } from "./keyboard-types.js";
 import type { CommandNode } from "./types.js";
 
@@ -37,53 +36,81 @@ export function settle(options: KeyLayerOptions): KeyLayerOptions {
 export const canonicalNodes = (nodes: Map<string, CommandNode>) =>
   new Map([...nodes].map(([k, node]) => [canonicalBinding(k), node]));
 
-/** Lexicographic, a prefix first: an owner sorts below everything it owns. */
-function comparePaths(a: readonly number[], b: readonly number[]): number {
-  for (let i = 0; i < Math.min(a.length, b.length); i++) {
-    const d = (a[i] ?? 0) - (b[i] ?? 0);
-    if (d !== 0) return d;
-  }
-  return a.length - b.length;
-}
+/** Whether a node layer would take `binding` right now (or, for a chord, show it at all). */
+export type Accepts = (binding: string) => boolean;
 
 /** Everything the stack knows about one live layer. Deleted with it. */
 export interface Place {
   seq: number;
   /** 0 the registered shortcut map, 1 base layers (facts scopes among them), 2 everything else */
   own: number;
-  /** where it sorted last: its tier (at least its owner's) and its owner chain's push order */
+  /** where it sorted last: tier (at least its owner's), when its subtree last opened, depth */
   tier: number;
-  path: number[];
+  stamp: number;
+  depth: number;
+  /** false until the layer has sorted once */
+  placed: boolean;
+  /** its tier is set by the stack (the registered map), not by `base` */
+  fixed?: boolean;
   nodes?: Map<string, CommandNode>;
+  /** would its command RUN (not hidden, not disabled): a key a press lands on */
   accepts?: Accepts;
+  /** would its command SHOW (not hidden): a chord step that arms */
+  visible?: Accepts;
 }
 
 /**
- * Put the stack in law order: by tier (L2), then by the push order of each layer's owner chain,
- * root first (L3). A layer's tier is at least its owner's (ownership beats base). A layer whose
- * owner is gone keeps the tier and place it last had. Computed from ownership at every change,
- * so the order a host happened to push in never matters.
+ * Put the stack in law order (L2, L3):
+ * 1. by tier: the registered map, then base layers, then the rest; a layer's tier is at least its
+ *    owner's, so a base layer a dialog owns sits above that dialog (ownership beats base);
+ * 2. then the layer OPENED LAST is on top: each layer is stamped with the later of its own push
+ *    and its owner's stamp, so it is above its owner and above anything opened before it, even a
+ *    root toast that appeared after its owner did;
+ * 3. an owner and what it owns tie on the stamp when the child was pushed first (React runs child
+ *    effects before the parent's): the deeper one is on top; then push order.
+ * A layer whose owner is gone keeps the tier, stamp and depth it last had. Recomputed at every
+ * change, so the order a host happened to push in never matters.
  */
 export function order(layers: KeyLayer[], places: Map<KeyLayer, Place>): void {
   const byId = new Map(layers.map((l) => [l.id, l]));
-  const resolve = (layer: KeyLayer, seen: Set<KeyLayer>): { tier: number; path: number[] } => {
+  type Key = { tier: number; stamp: number; depth: number; seq: number };
+  const done = new Map<KeyLayer, Key>();
+  const resolve = (layer: KeyLayer, seen: Set<KeyLayer>): Key => {
+    const known = done.get(layer);
+    if (known) return known;
     const p = places.get(layer);
-    const own = p?.seq ?? 0;
+    const seq = p?.seq ?? 0;
+    const own = p?.own ?? 2;
     const id = layer.options.parent;
     const owner = id === undefined ? undefined : byId.get(id);
+    let key: Key;
     if (owner === undefined || seen.has(owner)) {
-      if (id !== undefined && p && p.path.length > 0) return { tier: p.tier, path: p.path };
-      return { tier: p?.own ?? 2, path: [own] };
+      key =
+        id !== undefined && p?.placed
+          ? { tier: p.tier, stamp: p.stamp, depth: p.depth, seq }
+          : { tier: own, stamp: seq, depth: 0, seq };
+    } else {
+      seen.add(layer);
+      const up = resolve(owner, seen);
+      key = {
+        tier: Math.max(up.tier, own),
+        stamp: Math.max(up.stamp, seq),
+        depth: up.depth + 1,
+        seq,
+      };
     }
-    seen.add(layer);
-    const up = resolve(owner, seen);
-    return { tier: Math.max(up.tier, p?.own ?? 2), path: [...up.path, own] };
+    done.set(layer, key);
+    return key;
   };
-  const at = new Map(layers.map((l) => [l, resolve(l, new Set())]));
-  for (const [l, where] of at) {
+  for (const l of layers) {
+    const k = resolve(l, new Set());
     const p = places.get(l);
-    if (p) Object.assign(p, where);
+    if (p) Object.assign(p, { tier: k.tier, stamp: k.stamp, depth: k.depth, placed: true });
   }
-  const key = (l: KeyLayer) => at.get(l) ?? { tier: 2, path: [] };
-  layers.sort((a, b) => key(a).tier - key(b).tier || comparePaths(key(a).path, key(b).path));
+  const key = (l: KeyLayer) => done.get(l) ?? { tier: 2, stamp: 0, depth: 0, seq: 0 };
+  layers.sort((a, b) => {
+    const x = key(a);
+    const y = key(b);
+    return x.tier - y.tier || x.stamp - y.stamp || x.depth - y.depth || x.seq - y.seq;
+  });
 }

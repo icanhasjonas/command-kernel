@@ -40,7 +40,7 @@ function Editor() {
 | Export | What it does |
 | --- | --- |
 | `KeyboardProvider` | attaches the one keydown listener (bubble phase) and hands the keyboard down |
-| `useScopeBinding` | `keyboard.bindScopes(...)` made in an effect (never in render); new nodes via `setNodes` |
+| `useScopeBinding` | the app's scope binding: created in render (pushes nothing), attached in a layout effect; new nodes via `setNodes` |
 | `KeyboardScope`, `useKeyboardScope` | mount one of the app's `mounted` scopes while mounted |
 | `KeyboardLayer`, `useKeyboardLayer` | push plain bindings while mounted |
 | `useKeyboardStack` | `describeStack()`, re-rendered on every push, pop and update |
@@ -50,5 +50,5 @@ function Editor() {
 A layer's parent is the nearest layer around it in the React tree, portals included, so a
 popover rendered into `document.body` from inside a dialog still sits above the dialog. A layer
 is pushed on mount and popped on unmount; new keys or options are applied in place, so it never
-jumps above a layer opened after it (a new `id`, a new scope binding or a new `scope` prop is a
-new layer). When your commands change, call `scopes.setNodes(nodes)`.
+jumps above a layer opened after it (a new `id`, a new set of scope names or a new `scope` prop is
+a new layer). `useScopeBinding` applies new `nodes` itself: memoize the array.

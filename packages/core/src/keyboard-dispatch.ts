@@ -63,7 +63,11 @@ export function* candidates(stack: LayerStack, binding: string): Generator<Candi
   const head = `${binding} `;
   for (const [layer, reaches] of walk(stack)) {
     const keys = Object.keys(layer.bindings);
-    if (keys.some((k) => k.startsWith(head) && k.length > head.length && reaches(k))) {
+    // a chord arms only if some way on from here is reachable and SHOWN: a chord of commands
+    // hidden by `when` is not there at all (a disabled one still arms, so its second key can say why)
+    const on = (k: string) =>
+      k.startsWith(head) && k.length > head.length && reaches(k) && stack.visible(layer, k);
+    if (keys.some(on)) {
       yield { layer, kind: "arm" };
       continue;
     }

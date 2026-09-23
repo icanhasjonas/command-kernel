@@ -87,6 +87,10 @@ export interface ScopeBinding {
    * exactly as a facts scope's do. Pop it with `keyboard.popLayer` when the thing closes.
    */
   mount(scope: string, options?: MountOptions): KeyLayer;
+  /** push the facts scopes and start saying why keys decline; a no-op when already attached */
+  attach(): void;
+  /** take the facts scopes off the stack (mounted layers stay: their owners pop them) */
+  detach(): void;
   /**
    * A new node list, applied IN PLACE to every layer this binding has up, mounted ones included
    * (L12, L17): no layer moves, so a dialog that was open stays under the palette opened after it.
@@ -140,6 +144,11 @@ export interface Keyboard {
    * binding again re-opens every mounted scope, which puts them above anything opened since.
    */
   bindScopes(options: ScopeBindingOptions): ScopeBinding;
+  /**
+   * `bindScopes` without the side effect: a binding that has pushed nothing until `attach()`.
+   * For a host that must create it during a render (React) and attach it in an effect.
+   */
+  createScopes(options: ScopeBindingOptions): ScopeBinding;
   /** observe chord-mode edges (prefix armed / cleared) for UI hints */
   subscribeChordMode(fn: ChordListener): () => void;
   /**
@@ -204,6 +213,6 @@ export interface ChordCompletion {
   key: string;
   /** the whole binding as registered -- `g p` */
   shortcut: string;
-  /** the node this activates, when the binding came in through `registerShortcuts` */
+  /** the node this runs, when the layer knows it (`registerShortcuts`, `bindScopes`) */
   node?: CommandNode;
 }

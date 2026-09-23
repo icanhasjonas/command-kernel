@@ -1,5 +1,5 @@
 import type { KeyBindings, KeyLayer, KeyLayerOptions } from "@command-kernel/core";
-import { useEffect, useId, useLayoutEffect, useRef } from "react";
+import { useId, useLayoutEffect, useRef } from "react";
 import { useKeyboardContext } from "./keyboard-context.js";
 
 /** How a layer sits on the stack. Its parent is not here: it is the nearest layer around it. */
@@ -57,8 +57,9 @@ export function useLayerLifecycle(
     };
   }, [keyboard, id, enabled, resetA, resetB]);
 
-  // every render: the current owner, keys and options, in place (a no-op when nothing changed)
-  useEffect(() => {
+  // every render: the current owner, keys and options, in place (a no-op when nothing changed).
+  // A layout effect too, so children never sit under a new barrier for a frame.
+  useLayoutEffect(() => {
     const current = layer.current;
     if (!current) return;
     if (current.options.parent !== parent) keyboard.updateLayer(current, { options: { parent } });

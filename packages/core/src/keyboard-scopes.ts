@@ -35,7 +35,7 @@ export interface PressSource {
 /** A scope's layer, built but not yet on the stack. */
 type Built = { bindings: KeyBindings; extra: NodeLayerExtra };
 
-export function bindScopes(
+export function createScopes(
   stack: LayerStack,
   options: ScopeBindingOptions,
   { current, onDeclined }: PressSource,
@@ -110,25 +110,21 @@ export function bindScopes(
       const c = ctx();
       return (byKey.get(key) ?? []).some((n) => runnable(n, c));
     };
-    return { bindings, extra: { nodes: first, accepts } };
+    const visible = (key: string) => {
+      const c = ctx();
+      return (byKey.get(key) ?? []).some((n) => !n.when || n.when(c));
+    };
+    return { bindings, extra: { nodes: first, accepts, visible } };
   }
 
-  // Build everything first, then push it all as ONE change: a node that cannot bind throws
-  // before anything is on the stack (L12). Facts scopes are BASE layers, and their ids are
-  // fresh per binding, so binding the same scopes twice never collides.
+  // Build everything now, so a node that cannot bind throws at creation, before anything is
+  // pushed (L12). Nothing touches the stack until `attach`: a binding can be made during a
+  // render (StrictMode may make two and keep one) and cost nothing.
   check(nodes);
-  const built = scopes.map((scope) => build(scope, nodes));
+  for (const scope of scopes) build(scope, nodes);
   const layers: KeyLayer[] = [];
-  stack.batch(() => {
-    scopes.forEach((scope, i) => {
-      const b = built[i];
-      if (!b) return;
-      const active = () => activeScopes(ctx()).includes(scope);
-      const id = stack.freshId(`scope:${scope}:`);
-      layers.push(stack.pushNodeLayer(b.bindings, { id, base: true, active }, b.extra));
-    });
-  });
   let disposed = false;
+  let unsubscribe: (() => void) | null = null;
 
   /** the mounted layers still up, and the scope each one is, popped on dispose */
   const open = new Map<KeyLayer, string>();
@@ -136,16 +132,43 @@ export function bindScopes(
     for (const layer of open.keys()) if (!stack.has(layer)) open.delete(layer);
   };
 
-  // nothing took the press: if one of ours said no, say why (once, the top-most reason)
-  const unsubscribe = onDeclined(() => {
-    const d = disabled;
-    if (d === null || d.press !== current() || !onDisabled) return;
-    disabled = null;
-    onDisabled(d.node, d.reason, ctx());
-  });
+  function attach(): void {
+    if (disposed) throw new Error("bindScopes: this binding is disposed");
+    if (unsubscribe !== null) return;
+    // the facts scopes, pushed as ONE change: BASE layers, ids fresh per binding
+    const built = scopes.map((scope) => build(scope, nodes));
+    stack.batch(() => {
+      scopes.forEach((scope, i) => {
+        const b = built[i];
+        if (!b) return;
+        const active = () => activeScopes(ctx()).includes(scope);
+        const id = stack.freshId(`scope:${scope}:`);
+        layers.push(stack.pushNodeLayer(b.bindings, { id, base: true, active }, b.extra));
+      });
+    });
+    // nothing took the press: if one of ours said no, say why (once, the top-most reason)
+    unsubscribe = onDeclined(() => {
+      const d = disabled;
+      if (d === null || d.press !== current() || !onDisabled) return;
+      disabled = null;
+      onDisabled(d.node, d.reason, ctx());
+    });
+  }
+
+  function detach(): void {
+    if (unsubscribe === null) return;
+    unsubscribe();
+    unsubscribe = null;
+    const up = layers.splice(0);
+    stack.batch(() => {
+      for (const layer of up) stack.popLayer(layer);
+    });
+  }
 
   return {
     layers,
+    attach,
+    detach,
     mount(scope, mountOptions = {}) {
       if (disposed) {
         throw new Error(`bindScopes: this binding is disposed; mount "${scope}" on the new one`);
@@ -179,10 +202,10 @@ export function bindScopes(
       });
     },
     dispose() {
+      detach();
       disposed = true;
-      unsubscribe();
       stack.batch(() => {
-        for (const layer of [...layers, ...open.keys()]) stack.popLayer(layer);
+        for (const layer of open.keys()) stack.popLayer(layer);
       });
       open.clear();
     },

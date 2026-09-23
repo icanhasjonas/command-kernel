@@ -13,7 +13,11 @@ One keyboard layer stack, ordered by numbered and tested laws (docs/keyboard.md,
   commands of every layer the binding has up, without moving any of them.
 - A press while an input method is composing is never a command.
 - New package `@command-kernel/react`: `KeyboardProvider` (the one listener, bubble phase),
-  `KeyboardLayer`, `KeyboardScope`, `useKeyboardStack`, `attachKeyboard`.
+  `KeyboardLayer` / `useKeyboardLayer`, `KeyboardScope` / `useKeyboardScope`,
+  `useScopeBinding`, `useKeyboardStack`, `useKeyboard`, `useKeyboardContext`, `OwnedBy`,
+  `attachKeyboard`.
+- `keyboard.createScopes(options)`: a binding that pushes nothing until `attach()`;
+  `bindScopes` is create + attach.
 
 BEHAVIOUR CHANGES for existing hosts (a 0.x minor):
 
@@ -59,3 +63,10 @@ BEHAVIOUR CHANGES for existing hosts (a 0.x minor):
   pending chord.
 - `@command-kernel/react`: `useScopeBinding` binds in an effect; layers are pushed in layout
   effects (a re-suspended Suspense boundary takes its layers off the stack).
+- Order: the layer OPENED LAST is on top (it stays above its owner). A layer opened inside
+  an older owner is above a root layer that appeared before it; before, a whole owner's
+  subtree sorted by the owner's push.
+- A chord whose every command is hidden by `when` does not arm.
+- `ScopeBinding` gained required members (`mount`, `setNodes`, `attach`, `detach`) and
+  `Keyboard` gained `createScopes`: a type break for code that implements or mocks them.
+- `updateLayer` applies all or nothing, and a change to `base` moves the layer to its tier.

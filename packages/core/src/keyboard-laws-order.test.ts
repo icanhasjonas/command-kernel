@@ -53,6 +53,28 @@ describe("L1 the nearest live layer that knows a key takes it", () => {
     for (const k of ["g", "i", "x"]) kb.handleKeydown(key(k));
     expect(hits).toEqual(["g i x"]);
   });
+
+  it("a chord whose every command is hidden (when) does not arm, so the key underneath runs", () => {
+    const { kb, hits, run } = rig();
+    kb.registerShortcuts(new Map([["g", cmd("base g", "g")]]), { onActivate: run });
+    const b = kb.bindScopes({
+      nodes: [
+        cmd("hidden inbox", "g i", { scope: "panel", when: () => false }),
+        cmd("own g", "h", { scope: "panel" }),
+        cmd("hidden help", "h i", { scope: "panel", when: () => false }),
+      ],
+      scopes: [],
+      mounted: ["panel"],
+      ctx: () => testCtx,
+      activeScopes: () => [],
+      onActivate: run,
+    });
+    b.mount("panel");
+    kb.handleKeydown(key("g"));
+    kb.handleKeydown(key("h"));
+    expect(hits).toEqual(["base g", "own g"]);
+    expect(kb.chordPrefix).toBeNull();
+  });
 });
 
 describe("L2 base layers sit below every other layer, whenever they were pushed", () => {
@@ -96,13 +118,25 @@ describe("L3 a layer sits above its owner, whatever order the two were pushed in
     expect(hits).toEqual(["popover"]);
   });
 
-  it("a subtree stays together: a later sibling of the parent is above all of it", () => {
+  it("otherwise the one opened last is on top: a menu opened in a dialog after a toast beats it", () => {
     const { kb, hits, on } = rig();
     kb.pushLayer({ x: on("dialog") }, { id: "dialog" });
-    kb.pushLayer({ x: on("toast") }, { id: "toast" });
+    const toast = kb.pushLayer({ x: on("toast") }, { id: "toast" });
     kb.pushLayer({ x: on("menu in dialog") }, { id: "menu", parent: "dialog" });
     kb.handleKeydown(key("x"));
-    expect(hits).toEqual(["toast"]);
+    kb.popLayer(toast);
+    kb.handleKeydown(key("x"));
+    expect(hits).toEqual(["menu in dialog", "menu in dialog"]);
+  });
+
+  it("a modal editor opened in an older screen is above a toast that appeared before it", () => {
+    const { kb, hits, on } = rig();
+    kb.pushLayer({}, { id: "screen" });
+    kb.pushLayer({ Escape: on("dismiss toast"), z: on("undo") }, { id: "toast" });
+    kb.pushLayer({ Escape: on("discard") }, { id: "editor", parent: "screen", modal: true });
+    kb.handleKeydown(key("Escape"));
+    kb.handleKeydown(key("z"));
+    expect(hits).toEqual(["discard"]);
   });
 
   it("siblings under one parent stack in push order", () => {
@@ -114,15 +148,16 @@ describe("L3 a layer sits above its owner, whatever order the two were pushed in
     expect(hits).toEqual(["second"]);
   });
 
-  it("a child whose owner was popped keeps its place: a later push does not lift it", () => {
-    const { kb, hits, on } = rig();
+  it("a child whose owner was popped keeps its place; only something opened later goes above it", () => {
+    const { kb } = rig();
+    const ids = () => kb.describeStack().layers.map((l) => l.id);
+    kb.pushLayer({}, { id: "toast" });
     const dialog = kb.pushLayer({}, { id: "dialog" });
-    kb.pushLayer({ x: on("toast") }, { id: "toast" });
-    kb.pushLayer({ x: on("popover") }, { id: "popover", parent: "dialog" });
+    kb.pushLayer({}, { id: "popover", parent: "dialog" });
+    kb.pushLayer({}, { id: "banner" });
     kb.popLayer(dialog);
-    kb.pushLayer({}, { base: true });
-    kb.handleKeydown(key("x"));
-    expect(hits).toEqual(["toast"]);
+    kb.pushLayer({}, { id: "app", base: true });
+    expect(ids()).toEqual(["banner", "popover", "toast", "app"]);
   });
 
   it("ownership beats base: a base layer owned by an overlay sits above that overlay", () => {
@@ -280,7 +315,12 @@ describe("L17 updating a layer keeps its place", () => {
     const child = kb.pushLayer({ x: on("child") }, { id: "child", parent: "b" });
     kb.pushLayer({ x: on("top") }, { id: "top" });
     kb.updateLayer(child, { options: { parent: "a" } });
-    expect(kb.describeStack().layers.map((l) => l.id)).toEqual(["top", "b", "child", "a"]);
+    expect(kb.describeStack().layers.map((l) => [l.id, l.parent])).toEqual([
+      ["top", undefined],
+      ["child", "a"],
+      ["b", undefined],
+      ["a", undefined],
+    ]);
     kb.updateLayer(child, { options: { parent: undefined } });
     expect(kb.describeStack().layers[0]?.id).toBe("top");
     kb.handleKeydown(key("x"));
@@ -292,5 +332,29 @@ describe("L17 updating a layer keeps its place", () => {
     const map = kb.registerShortcuts(new Map([["j", cmd("next", "j")]]), { onActivate: run });
     kb.updateLayer(map, { bindings: { j: () => {} } });
     expect(kb.describeStack().reachable[0]?.node).toBeUndefined();
+  });
+
+  it("an update that cannot apply changes nothing: bindings and options go in together or not at all", () => {
+    const { kb, on } = rig();
+    const layer = kb.pushLayer({ j: on("j") }, { modal: true });
+    const before = kb.stackVersion;
+    expect(() =>
+      kb.updateLayer(layer, {
+        bindings: { k: on("k") },
+        options: { passThrough: ["mediaplaypause"] },
+      }),
+    ).toThrow(/mediaplaypause/);
+    expect(Object.keys(layer.bindings)).toEqual(["j"]);
+    expect(kb.stackVersion).toBe(before);
+  });
+
+  it("an update to base moves the layer to its new tier", () => {
+    const { kb, hits, on } = rig();
+    kb.pushLayer({ x: on("overlay") });
+    const app = kb.pushLayer({ x: on("app") }, { base: true });
+    kb.handleKeydown(key("x"));
+    kb.updateLayer(app, { options: { base: undefined } });
+    kb.handleKeydown(key("x"));
+    expect(hits).toEqual(["overlay", "app"]);
   });
 });

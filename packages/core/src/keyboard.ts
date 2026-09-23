@@ -34,7 +34,7 @@ import { describeStack } from "./keyboard-describe.js";
 import { createDispatch } from "./keyboard-dispatch.js";
 import { createLayerStack } from "./keyboard-layers.js";
 import { isEditableTarget } from "./keyboard-normalize.js";
-import { bindScopes } from "./keyboard-scopes.js";
+import { createScopes } from "./keyboard-scopes.js";
 import type { Keyboard, KeyboardOptions } from "./keyboard-types.js";
 
 export function createKeyboard(options: KeyboardOptions = {}): Keyboard {
@@ -51,7 +51,12 @@ export function createKeyboard(options: KeyboardOptions = {}): Keyboard {
     pushLayer: stack.pushLayer,
     popLayer: stack.popLayer,
     registerShortcuts: stack.registerShortcuts,
-    bindScopes: (scopeOptions) => bindScopes(stack, scopeOptions, dispatch),
+    bindScopes: (scopeOptions) => {
+      const binding = createScopes(stack, scopeOptions, dispatch);
+      binding.attach();
+      return binding;
+    },
+    createScopes: (scopeOptions) => createScopes(stack, scopeOptions, dispatch),
     subscribeChordMode: chord.subscribeChordMode,
     onDeclined: dispatch.onDeclined,
     exitChordMode: chord.exitChordMode,

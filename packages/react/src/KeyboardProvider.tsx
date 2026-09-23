@@ -6,11 +6,8 @@ import { KeyboardContext } from "./keyboard-context.js";
 export interface KeyboardProviderProps {
   /** the app's ONE keyboard (`createKeyboard()`): every layer below goes on its stack */
   keyboard: Keyboard;
-  /**
-   * the app's scope binding, when layers mount scopes (`KeyboardScope`): from `useScopeBinding`,
-   * which is `null` until its first effect has run
-   */
-  scopes?: ScopeBinding | null;
+  /** the app's scope binding, when layers mount scopes (`KeyboardScope`): `useScopeBinding` */
+  scopes?: ScopeBinding;
   /** where keys are heard (default `window`); `null` when the host feeds `handleKeydown` itself */
   source?: KeySource | null;
   children?: ReactNode;
