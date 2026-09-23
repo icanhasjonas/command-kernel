@@ -1,0 +1,46 @@
+# @command-kernel/react
+
+The keyboard layer stack of `@command-kernel/core`, bound to the React tree. One listener for
+the whole app, and layers that push and pop with the components that own them: a dialog's keys
+while the dialog is open, a suggestion list's keys above the dialog's while it is showing.
+Depends on core and React, nothing else.
+
+The rules the stack keeps are numbered laws in [docs/keyboard.md](../../docs/keyboard.md#layers),
+each one a test.
+
+```tsx
+import { createKeyboard } from "@command-kernel/core";
+import { KeyboardProvider, KeyboardScope, useKeyboardStack } from "@command-kernel/react";
+
+const kb = createKeyboard();
+const scopes = kb.bindScopes({
+  nodes, // your commands; each declares its `shortcut` and `scope`
+  scopes: ["global", "list"], // live by facts
+  mounted: ["editor"], // live while mounted
+  ctx,
+  activeScopes,
+  onActivate,
+});
+
+<KeyboardProvider keyboard={kb} scopes={scopes}>
+  <App />
+</KeyboardProvider>;
+
+function Editor() {
+  // Escape and mod+Enter now mean whatever the "editor" commands say, and nothing below
+  // this layer hears a key except mod+k
+  return <KeyboardScope scope="editor" modal passThrough={["mod+k"]}>{/* ... */}</KeyboardScope>;
+}
+```
+
+| Export | What it does |
+| --- | --- |
+| `KeyboardProvider` | attaches the one keydown listener (bubble phase) and hands the keyboard down |
+| `KeyboardScope`, `useKeyboardScope` | mount one of the app's `mounted` scopes while mounted |
+| `KeyboardLayer`, `useKeyboardLayer` | push plain bindings while mounted |
+| `useKeyboardStack` | `describeStack()`, re-rendered on every push and pop |
+| `useKeyboard` | the keyboard itself (chord mode, suspend) |
+| `attachKeyboard` | the listener, for a host without React |
+
+A layer's parent is the nearest layer around it in the React tree, portals included, so a
+popover rendered into `document.body` from inside a dialog still sits above the dialog.

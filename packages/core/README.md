@@ -331,16 +331,26 @@ const send: CommandNode = {
 };
 
 const kb = createKeyboard();
-kb.bindScopes({
+const scopes = kb.bindScopes({
   nodes,
-  scopes: ["global", "list", "thread", "composer", "dialog"], // lowest precedence first
+  scopes: ["global", "list", "thread"], // live by facts, lowest precedence first
+  mounted: ["composer", "dialog"], // live while something OPEN mounts them
   ctx: () => ({ ...base, facts: currentFacts() }), // built once per press
-  activeScopes: (ctx) => (ctx.facts?.dialog ? ["dialog"] : ["global", "list", "thread"]),
+  activeScopes: (ctx) => ["global", "list", ...(ctx.facts?.threadOpen ? ["thread"] : [])],
   onActivate: (node, ctx) => void kernel.executeNode(node, {}, ctx),
   onDisabled: (node, reason) => toast(`${node.title}: ${reason}`), // a key never fails silently
 });
 window.addEventListener("keydown", kb.handleKeydown); // bubble: a widget's own keys go first
+
+// a dialog opens: its commands go on top, and nothing below gets a key except mod+k
+const layer = scopes.mount("dialog", { modal: true, passThrough: ["mod+k"] });
+kb.popLayer(layer); // it closes
 ```
+
+The stack's order is a set of numbered, tested laws (a child above its parent whatever order
+they mounted in, modal barriers, IME, chords): [docs/keyboard.md](../../docs/keyboard.md#layers).
+A React host uses `@command-kernel/react` (`KeyboardProvider`, `KeyboardScope`,
+`KeyboardLayer`, `useKeyboardStack`), which pushes and pops layers with the component tree.
 
 - A disabled node (or one hidden by `when`) declines the key: it falls through to the scopes
   below, then to the browser, never prevented for nothing. `executeNode` refuses it too, with
@@ -401,7 +411,8 @@ store), `createHmacEvidenceStore(key)` (one shared key across isolates),
 `enumerateMode(node)`, `effectMode(node)`. Types: `NodeDescriptor`,
 `ArgDescriptor`.
 
-**Keyboard** - `createKeyboard(opts?)` (layers, chords, `bindScopes`),
+**Keyboard** - `createKeyboard(opts?)` (layers with `parent` / `modal` / `passThrough`,
+chords, `bindScopes` with facts and `mounted` scopes, `describeStack`, `subscribeStack`),
 `validateShortcuts(nodes)`, `normalizeEvent`, `normalizeShortcut`, `canonicalBinding`,
 `canonicalKey`, `isEditableTarget`; display: `shortcutKeys`, `formatShortcut`,
 `ariaKeyShortcuts` (each takes a `Platform`, default the detected one). Availability:
