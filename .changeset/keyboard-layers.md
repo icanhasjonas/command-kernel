@@ -73,3 +73,5 @@ BEHAVIOUR CHANGES for existing hosts (a 0.x minor):
 - `updateLayer` applies all or nothing, and a change to `base` moves the layer to its tier.
 - `@command-kernel/react`: `enabled={false}` keeps the layer on the stack, not live (it used
   to pop it); `useScopeBinding` ignores a new array of the same nodes.
+- A layer switched off (`enabled: false`) switches off everything it owns (`stack.live`
+  checks the owner chain).

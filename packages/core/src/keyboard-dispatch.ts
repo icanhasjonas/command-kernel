@@ -8,7 +8,7 @@
 
 import type { ChordState } from "./keyboard-chord.js";
 import type { LayerStack } from "./keyboard-layers.js";
-import { crosses, isLive } from "./keyboard-layers.js";
+import { crosses } from "./keyboard-layers.js";
 import type { KernelKeyEvent } from "./keyboard-normalize.js";
 import { hasModifier, IGNORE, isComposing, normalizeEvent } from "./keyboard-normalize.js";
 import type { DeclinedListener, KeyHandler, KeyLayer } from "./keyboard-types.js";
@@ -44,7 +44,7 @@ export function* walk(stack: LayerStack): Generator<[KeyLayer, (binding: string)
   const layers = [...stack.layers];
   for (let i = layers.length - 1; i >= 0; i--) {
     const layer = layers[i];
-    if (!layer || !stack.has(layer) || !isLive(layer)) continue;
+    if (!layer || !stack.has(layer) || !stack.live(layer)) continue;
     yield [layer, reaches];
     if (layer.options.modal === true) barriers.push(layer);
   }

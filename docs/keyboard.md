@@ -139,7 +139,7 @@ while the editor is open. `mod+k` still opens the palette.
   above the dialog. A layer whose owner is popped keeps the place and tier it
   had. Two live layers cannot share an id (the second push throws), so a parent
   id always names one layer; default ids, facts-scope ids and mount ids never
-  repeat and never take an id a host chose.
+  repeat and never take the id of a layer that is up.
 - **L4** A handler that returns exactly `false` declines: the key goes on down,
   as if that binding were not there. Which layers the press visits is fixed
   when the key goes down, and a layer a handler pops during the press does not
@@ -147,7 +147,9 @@ while the editor is open. `mod+k` still opens the palette.
   reaches it.
 - **L5** A live `modal: true` layer is a barrier. A key it does not take
   (unbound, or declined) stops there: nothing below runs, and the event is not
-  cancelled, so the browser still has it. A dialog, a menu, a sheet.
+  cancelled, so the browser still has it. A dialog, a menu, a sheet. A layer
+  switched off (`enabled: false`) is no barrier and takes no key, and neither
+  does anything it owns: closing a dialog closes its suggestion list's keys too.
 - **L6** `passThrough: ["mod+k"]` lets the keys it names cross a barrier, in any
   spelling (`Mod+K`, `cmd+k`), checked when the layer is pushed. A chord
   crosses only when the WHOLE sequence is named: `"g i"`, not `"g"`.
@@ -272,8 +274,9 @@ function NewMail() {
 - `useScopeBinding(kb, options)` owns the app's binding: it CREATES it during
   render (`createScopes`, which pushes nothing) and ATTACHES it in a layout
   effect, so it exists on the first render and every `KeyboardScope` mounts in
-  tree order. New `nodes` go through `setNodes` for you, only when the array is
-  a different one: memoize it. Never call `bindScopes` in render: it pushes
+  tree order. New `nodes` go through `setNodes` for you, only when they are
+  different node objects (a new array of the same nodes is no change): build
+  the nodes once, or memoize them. Never call `bindScopes` in render: it pushes
   layers, and StrictMode's second render pass would leave a binding nobody
   disposes.
 - `KeyboardScope` / `useKeyboardScope(scope, options)` mount a scope for as long
@@ -286,12 +289,19 @@ function NewMail() {
   and popped when it unmounts. Everything else is applied in place (L17): new
   handlers, a new set of keys, a new `modal` or `passThrough`, a new owner,
   `enabled`. A new `id` prop is a new layer.
-- `enabled={false}` keeps the layer on the stack but not live: it takes no key
-  and is no barrier, and the layers inside it stay its children. Switching it
-  back on is not an open, so it does not jump above a palette opened meanwhile.
+- OPEN AND CLOSE ARE MOUNT AND UNMOUNT. Render the layer when the thing opens
+  and stop rendering it when it closes; that is when it takes its place on the
+  stack (L3). `enabled` is only for switching an open layer off for a while (a
+  dialog playing its exit animation, a field with no results): it keeps the
+  layer and its children on the stack, not live, and switching it back on is
+  not an open, so it does not jump above a palette opened meanwhile. Never use
+  `enabled` as the open state of a popup that stays mounted (`keepMounted`): it
+  would keep the place it had when it was FIRST mounted, under whatever opened
+  since. Render its layer only while it is open instead.
 - A new set of `scopes` or `mounted` names makes `useScopeBinding` a new
-  binding, and a new `scope` prop re-mounts a `KeyboardScope`: to the stack that
-  is a close and an open, so they land on top. Changed commands never do that.
+  binding, and a new `scope` or `id` prop re-mounts a layer: to the stack that is
+  a close and an open, so it lands on top, and so do the layers inside it.
+  Declare scope names and layer ids statically. Changed commands never do that.
 - The `parent` of every layer is the nearest layer around it in the React tree,
   through portals too: a popover rendered into `document.body` from inside a
   dialog is still the dialog's child (L3). Nobody passes an id by hand.
@@ -323,7 +333,21 @@ alone the key never reaches the kernel's listener, and Escape does nothing.
     setOpen(next);
   }}
 >
+  <Dialog.Popup>
+    {/* mounted with the popup; switched off while it animates closed */}
+    <KeyboardScope scope="editor" modal passThrough={["mod+k"]} enabled={open}>
+      ...
+    </KeyboardScope>
+  </Dialog.Popup>
+</Dialog.Root>
 ```
+
+Base UI keeps a closing popup mounted until its exit animation ends, so the
+layer inside it is still up for that long: `enabled={open}` switches it (and
+everything it holds) off the moment the dialog starts closing, and a second
+Escape reaches what is underneath. For a popup that stays mounted while closed
+(`keepMounted`), render the layer only while it is open (`{open && ...}`)
+instead: see "open and close are mount and unmount".
 
 The key then reaches the dialog's layer unprevented, which runs your close or
 discard command, and that command can ask first ("Discard this draft?"). Base

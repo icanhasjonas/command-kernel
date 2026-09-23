@@ -291,6 +291,21 @@ describe("L5 a live modal layer is a barrier: what it does not take stops there"
     kb.handleKeydown(key("j"));
     expect(hits).toEqual(["suggestion", "screen"]);
   });
+
+  it("switching an owner off switches off what it holds: a closing editor's suggestions take nothing", () => {
+    const { kb, hits, on } = rig();
+    kb.pushLayer({ Escape: on("back") }, { id: "screen" });
+    const editor = kb.pushLayer({ Escape: on("discard") }, { id: "editor", modal: true });
+    kb.pushLayer(
+      { Enter: on("pick suggestion"), Escape: on("close suggestions") },
+      { parent: "editor" },
+    );
+    kb.updateLayer(editor, { options: { enabled: false } });
+    kb.handleKeydown(key("Enter"));
+    kb.handleKeydown(key("Escape"));
+    expect(hits).toEqual(["back"]);
+    expect(kb.describeStack().reachable.map((r) => r.binding)).toEqual(["Escape"]);
+  });
 });
 
 describe("L6 passThrough keys cross a modal barrier", () => {

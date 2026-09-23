@@ -51,6 +51,12 @@ export interface LayerStack {
   /** counts every push, pop and update (L16) */
   readonly version: number;
   has(layer: KeyLayer): boolean;
+  /**
+   * Whether `layer` takes part in a press now: it is live (`isLive`), and so is every owner up
+   * its chain that is switched off (`enabled: false`). Closing a dialog switches off what it
+   * holds - its suggestion list must not outlive it by an exit animation.
+   */
+  live(layer: KeyLayer): boolean;
   pushLayer(bindings: KeyBindings, options?: KeyLayerOptions): KeyLayer;
   popLayer(layer: KeyLayer): void;
   /** new bindings and/or options for a live layer, in place: it keeps its position (L17) */
@@ -172,6 +178,19 @@ export function createLayerStack(): LayerStack {
       return version;
     },
     has: (layer) => places.has(layer),
+    live(layer) {
+      if (!isLive(layer)) return false;
+      const seen = new Set<KeyLayer>([layer]);
+      let id = layer.options.parent;
+      while (id !== undefined) {
+        const owner = layers.find((l) => l.id === id);
+        if (!owner || seen.has(owner)) return true;
+        if (owner.options.enabled === false) return false;
+        seen.add(owner);
+        id = owner.options.parent;
+      }
+      return true;
+    },
     pushLayer: (bindings, layerOptions = {}) => insert(bindings, layerOptions),
     pushNodeLayer: (bindings, layerOptions, node) => insert(bindings, layerOptions, { node }),
     updateLayer: (layer, update) => updateLayer(layer, update),
