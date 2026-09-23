@@ -314,6 +314,43 @@ the palette does it with frames + arg chips in `@command-kernel/ui`. A driver
 that tried to skip the gate physically can't - `run` only fires inside
 `executeNode`, after the gate.
 
+## Keys by context
+
+One key can mean the right thing in each part of an app: `Escape` discards the draft in an
+editor and goes back to the list from a thread; `j` is "next thread" in the list and nothing
+while a dialog is open. Declare it on the node, and let the host say which contexts are live:
+
+```ts
+const send: CommandNode = {
+  id: "mail.send",
+  title: "Send",
+  shortcut: "mod+enter",
+  scope: "composer", // or a list; omitted = "global"
+  disabled: (ctx) => (ctx.facts?.draftFilled ? undefined : "Write something to send"),
+  run,
+};
+
+const kb = createKeyboard();
+kb.bindScopes({
+  nodes,
+  scopes: ["global", "list", "thread", "composer", "dialog"], // lowest precedence first
+  ctx: () => ({ ...base, facts: currentFacts() }), // built once per press
+  activeScopes: (ctx) => (ctx.facts?.dialog ? ["dialog"] : ["global", "list", "thread"]),
+  onActivate: (node, ctx) => void kernel.executeNode(node, {}, ctx),
+});
+window.addEventListener("keydown", kb.handleKeydown); // bubble: a widget's own keys go first
+```
+
+- A disabled node (or one hidden by `when`) declines the key: it falls through to the scopes
+  below, then to the browser, never prevented for nothing. `executeNode` refuses it too, with
+  the reason as the failing check; a palette shows the same reason on the greyed row.
+- A printable key aimed at a text field is typing, never a shortcut. `mod` is ⌘ on a Mac and
+  Ctrl elsewhere. Named keys (`enter`, `esc`, `down`) and shifted symbols (`?`) match the press.
+- A key a widget already handled (`defaultPrevented`) is left alone.
+- `shortcutKeys(shortcut)` gives the caps a `<kbd>` hint draws (`[["⌘", "Enter"]]`,
+  `[["G"], ["I"]]` for a chord), `formatShortcut` one line, `ariaKeyShortcuts` the attribute.
+- `validateShortcuts(nodes)` reports one key bound twice in the SAME scope.
+
 ## API reference
 
 **Factory** - `createKernel(config?) => Kernel`. `Kernel` methods: `command`,
@@ -361,9 +398,15 @@ store), `createHmacEvidenceStore(key)` (one shared key across isolates),
 `enumerateMode(node)`, `effectMode(node)`. Types: `NodeDescriptor`,
 `ArgDescriptor`.
 
+**Keyboard** - `createKeyboard(opts?)` (layers, chords, `bindScopes`),
+`validateShortcuts(nodes)`, `normalizeEvent`, `normalizeShortcut`, `canonicalBinding`,
+`canonicalKey`, `isEditableTarget`; display: `shortcutKeys`, `formatShortcut`,
+`ariaKeyShortcuts` (each takes a `Platform`, default the detected one). Availability:
+`disabledReason(node, ctx)`, `nodeScopes(node)`, `GLOBAL_SCOPE`.
+
 **Data model** - `CommandNode`, `ArgSpec`, `ArgOption`, `ArgKind`, `ArgValues`,
 `Gate`, `GateVerdict`, `GateCheck`, `Grant`, `PathSegment`, `CommandResult`,
-`ResultKind`, `Ctx`, `Role`, `Ranked`, `EnumerateMode`, `EffectMode`.
+`ResultKind`, `Ctx`, `Fact`, `Role`, `Ranked`, `EnumerateMode`, `EffectMode`.
 
 ## License
 

@@ -1,4 +1,5 @@
 import type { ArgValues } from "./args.js";
+import { disabledReason } from "./availability.js";
 import { coerceArgs } from "./coerce.js";
 import { bindingKey, type EvidenceStore } from "./evidence.js";
 import type { GatePolicy } from "./gate.js";
@@ -123,6 +124,17 @@ export async function executeNode(
   confirmation: Confirmation = {},
   mode: ExecuteMode = {},
 ): Promise<ExecuteOutcome> {
+  // AVAILABLE first - a node that says it cannot run now does not ask for args, a gate, or run.
+  // Every driver goes through here, so a stale palette row or a replayed record is refused too.
+  const unavailable = disabledReason(node, ctx);
+  if (unavailable !== null) {
+    return stopped({
+      allowed: false,
+      needsConfirm: false,
+      checks: [{ label: unavailable, ok: false }],
+    });
+  }
+
   // typed args sent as text (palette, URL) become their declared type; a no-op otherwise
   const args = coerceArgs(node, input);
 

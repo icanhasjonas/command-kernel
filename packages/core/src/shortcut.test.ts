@@ -1,5 +1,6 @@
 import { describe, expect, it } from "bun:test";
-import { formatShortcut, parseShortcut } from "./shortcut.js";
+import { parseShortcut } from "./shortcut.js";
+import { formatShortcut } from "./shortcut-display.js";
 
 describe("parseShortcut", () => {
   it("parses mod+key", () => {
@@ -27,6 +28,17 @@ describe("parseShortcut", () => {
     expect(parseShortcut("option+d").alt).toBe(true);
   });
 
+  it("reads the plus key alone or after a modifier", () => {
+    expect(parseShortcut("+").key).toBe("+");
+    expect(parseShortcut("mod++")).toEqual({
+      key: "+",
+      mod: true,
+      shift: false,
+      alt: false,
+      ctrl: false,
+    });
+  });
+
   it("is case-insensitive", () => {
     expect(parseShortcut("Shift+Mod+D")).toEqual(parseShortcut("shift+mod+d"));
   });
@@ -39,8 +51,8 @@ describe("formatShortcut", () => {
     expect(formatted.toUpperCase()).toContain("D");
   });
 
-  it("formats a bare key", () => {
-    const formatted = formatShortcut("Escape");
-    expect(formatted).toBe("ESCAPE");
+  it("formats a bare named key by its cap", () => {
+    expect(formatShortcut("Escape", "mac")).toBe("Esc");
+    expect(formatShortcut("Escape", "other")).toBe("Esc");
   });
 });

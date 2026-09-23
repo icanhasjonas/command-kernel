@@ -122,6 +122,19 @@ export interface CommandNode {
   /** global keyboard shortcut, e.g. "shift+mod+d". Platform-agnostic: `mod`
    *  maps to Cmd on Mac, Ctrl elsewhere. Parsed by `parseShortcut()`. */
   shortcut?: string;
+  /**
+   * The keyboard context(s) its `shortcut` lives in - "list", "thread", "composer" - so one key
+   * can mean the right thing in each. The host names its scopes and says which are live for a
+   * ctx (`keyboard.bindScopes`); omitted, the node is in `"global"`. A list puts the node in each.
+   */
+  scope?: string | readonly string[];
+  /**
+   * Why this node cannot run right now, in words ("Open a thread first"), or undefined when it
+   * can. Unlike `when` (which hides the node), a disabled node stays listed, so a palette can say
+   * the reason instead of the command silently vanishing. Its shortcut does not fire (the key
+   * falls through to whatever is below), and `executeNode` refuses it.
+   */
+  disabled?: (ctx: Ctx) => string | undefined;
   /** hide from palette search results (the node is still reachable via
    *  shortcut, agent, deeplink, or programmatic access). */
   hide?: boolean | ((ctx: Ctx) => boolean);
@@ -149,7 +162,17 @@ export interface Ctx {
   now: number;
   /** commandId -> learned recency*frequency score */
   frecency: Record<string, number>;
+  /**
+   * What is true about where the user is right now, as plain values the host fills in:
+   * `{ threadOpen: true, draftFilled: false, dialog: "help" }`. `when`, `disabled` and the
+   * keyboard's active scopes read it, so they stay pure functions of the ctx instead of reaching
+   * into the host's state.
+   */
+  facts?: Readonly<Record<string, Fact>>;
 }
+
+/** One value in `Ctx.facts`. */
+export type Fact = string | number | boolean | null;
 
 /** A node after fuzzy match, carrying score + the matched character offsets. */
 export interface Ranked {

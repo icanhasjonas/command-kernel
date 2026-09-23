@@ -36,9 +36,70 @@ export interface ParsedShortcut {
   ctrl: boolean;
 }
 
+/** The platform a shortcut is shown for. Defaults to the one detected (`isMac`). */
+export type Platform = "mac" | "other";
+
+export const currentPlatform: Platform = isMac ? "mac" : "other";
+
+/**
+ * A named key as a shortcut string spells it (lower case, any alias) -> the `KeyboardEvent.key`
+ * a real press reports. Without this, `mod+enter` normalized to `mod+enter` while the press was
+ * `mod+Enter`, and a node bound to Enter, Escape or an arrow never fired.
+ */
+const KEY_NAMES: Record<string, string> = {
+  enter: "Enter",
+  return: "Enter",
+  escape: "Escape",
+  esc: "Escape",
+  tab: "Tab",
+  space: "Space",
+  backspace: "Backspace",
+  delete: "Delete",
+  del: "Delete",
+  arrowup: "ArrowUp",
+  up: "ArrowUp",
+  arrowdown: "ArrowDown",
+  down: "ArrowDown",
+  arrowleft: "ArrowLeft",
+  left: "ArrowLeft",
+  arrowright: "ArrowRight",
+  right: "ArrowRight",
+  home: "Home",
+  end: "End",
+  pageup: "PageUp",
+  pagedown: "PageDown",
+  plus: "+",
+};
+
+/**
+ * One key, spelled the way the dispatcher compares it: a named key as `KeyboardEvent.key` spells
+ * it (`Enter`, `ArrowDown`, `Space`, `F5`), a printable one in lower case (`k`, `?`).
+ */
+export function canonicalKey(key: string): string {
+  if (key === " ") return "Space";
+  if (key.length === 1) return key.toLowerCase();
+  const lower = key.toLowerCase();
+  const named = KEY_NAMES[lower];
+  if (named !== undefined) return named;
+  if (/^f\d{1,2}$/.test(lower)) return lower.toUpperCase();
+  return key;
+}
+
+/**
+ * Whether a printable key is a symbol whose Shift is already in the character: `?` is Shift+/
+ * on one layout and a key of its own on another, so `?` is the binding and the Shift is not.
+ * Letters keep theirs (`shift+j` is not `j`).
+ */
+export function isShiftedSymbol(key: string): boolean {
+  return key.length === 1 && key !== " " && key.toLowerCase() === key.toUpperCase();
+}
+
 export function parseShortcut(shortcut: string): ParsedShortcut {
-  const parts = shortcut.toLowerCase().split("+");
-  const key = parts.pop() ?? "";
+  const lower = shortcut.toLowerCase();
+  // `+` separates modifiers, so the plus KEY is `+` alone or a trailing `++` (`mod++`)
+  const plusKey = lower === "+" || lower.endsWith("++");
+  const parts = (plusKey ? lower.slice(0, -1) : lower).split("+");
+  const key = plusKey ? "+" : (parts.pop() ?? "");
   return {
     key,
     mod: parts.includes("mod") || parts.includes("cmd") || parts.includes("meta"),
@@ -59,15 +120,4 @@ export function matchesEvent(parsed: ParsedShortcut, e: KeyEventLike): boolean {
   if (e.shiftKey !== parsed.shift) return false;
   if (e.altKey !== parsed.alt) return false;
   return true;
-}
-
-export function formatShortcut(shortcut: string): string {
-  const p = parseShortcut(shortcut);
-  const parts: string[] = [];
-  if (p.mod) parts.push(isMac ? "⌘" : "Ctrl");
-  if (p.ctrl && isMac) parts.push("⌃");
-  if (p.shift) parts.push(isMac ? "⇧" : "Shift");
-  if (p.alt) parts.push(isMac ? "⌥" : "Alt");
-  parts.push(p.key.toUpperCase());
-  return parts.join(isMac ? "" : "+");
 }

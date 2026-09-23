@@ -1,5 +1,6 @@
 /** Static shortcut-conflict detection for the keyboard driver (keyboard.ts). */
 
+import { GLOBAL_SCOPE, nodeScopes } from "./availability.js";
 import { normalizeShortcut } from "./keyboard-normalize.js";
 import { parseShortcut } from "./shortcut.js";
 import type { CommandNode } from "./types.js";
@@ -7,6 +8,8 @@ import type { CommandNode } from "./types.js";
 export interface ShortcutConflict {
   shortcut: string;
   nodeIds: string[];
+  /** the scope both nodes are in; absent for the global one */
+  scope?: string;
 }
 
 /**
@@ -25,17 +28,27 @@ export function validateShortcuts(
     nodes instanceof Map
       ? [...nodes]
       : [...nodes].flatMap((n) => (n.shortcut ? [[n.shortcut, n] as [string, CommandNode]] : []));
-  const byKey = new Map<string, string[]>();
+  // scope -> binding -> node ids: one key in two SCOPES is the point of scopes, not a conflict
+  const byScope = new Map<string, Map<string, string[]>>();
   for (const [shortcut, node] of pairs) {
-    const parsed = parseShortcut(shortcut);
     // the SAME canonical form the dispatcher registers under, so two spellings
     // of one physical chord (mod+k / cmd+k, and ctrl+k off a Mac) collide here
-    const key = normalizeShortcut(parsed);
-    const existing = byKey.get(key) ?? [];
-    existing.push(node.id);
-    byKey.set(key, existing);
+    const key = shortcut
+      .trim()
+      .split(/\s+/)
+      .map((step) => normalizeShortcut(parseShortcut(step)))
+      .join(" ");
+    for (const scope of nodeScopes(node)) {
+      const keys = byScope.get(scope) ?? new Map<string, string[]>();
+      keys.set(key, [...(keys.get(key) ?? []), node.id]);
+      byScope.set(scope, keys);
+    }
   }
-  return [...byKey.entries()]
-    .filter(([, ids]) => ids.length > 1)
-    .map(([shortcut, nodeIds]) => ({ shortcut, nodeIds }));
+  return [...byScope.entries()].flatMap(([scope, keys]) =>
+    [...keys.entries()]
+      .filter(([, ids]) => ids.length > 1)
+      .map(([shortcut, nodeIds]) =>
+        scope === GLOBAL_SCOPE ? { shortcut, nodeIds } : { shortcut, nodeIds, scope },
+      ),
+  );
 }

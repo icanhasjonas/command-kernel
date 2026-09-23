@@ -28,6 +28,8 @@ export type {
 } from "./args.js";
 // audit + replay - a serializable command record and a replay verb
 export { type CommandRecord, replay, toRecord } from "./audit.js";
+// availability: why a node cannot run now, and the keyboard scopes it lives in
+export { disabledReason, GLOBAL_SCOPE, nodeScopes } from "./availability.js";
 // typed args: text from a palette or URL parsed to the declared number/boolean/json
 export { coerceArgs } from "./coerce.js";
 // the one verb + its request/response shapes (usually reached via kernel.command)
@@ -99,6 +101,7 @@ export {
 export {
   type ChordCompletion,
   type ChordListener,
+  canonicalBinding,
   createKeyboard,
   isEditableTarget,
   type KernelKeyEvent,
@@ -110,6 +113,8 @@ export {
   type KeyLayerOptions,
   normalizeEvent,
   normalizeShortcut,
+  type ScopeBinding,
+  type ScopeBindingOptions,
   type ShortcutConflict,
   type ShortcutDriverOptions,
   validateShortcuts,
@@ -139,12 +144,16 @@ export {
 } from "./schema.js";
 // shortcut string parsing, matching, and formatting
 export {
-  formatShortcut,
+  canonicalKey,
+  currentPlatform,
   type KeyEventLike,
   matchesEvent,
   type ParsedShortcut,
+  type Platform,
   parseShortcut,
 } from "./shortcut.js";
+// how a shortcut is shown: key caps for <kbd>, one line of text, aria-keyshortcuts
+export { ariaKeyShortcuts, formatShortcut, shortcutKeys } from "./shortcut-display.js";
 // the canonical form a grant is signed and verified over (sign with this, never raw args)
 export { canonicalJson, signingArgs } from "./signing.js";
 // the data model
@@ -154,6 +163,7 @@ export type {
   Ctx,
   EffectMode,
   EnumerateMode,
+  Fact,
   FallbackSearch,
   Gate,
   GateCheck,

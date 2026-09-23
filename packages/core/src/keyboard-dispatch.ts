@@ -8,6 +8,7 @@
 
 import type { ChordState } from "./keyboard-chord.js";
 import type { LayerStack } from "./keyboard-layers.js";
+import { isLive } from "./keyboard-layers.js";
 import type { KernelKeyEvent } from "./keyboard-normalize.js";
 import { hasModifier, IGNORE, normalizeEvent } from "./keyboard-normalize.js";
 import type { ChordCompletion, KeyBindings, KeyHandler } from "./keyboard-types.js";
@@ -22,6 +23,8 @@ export interface DispatchDeps {
 export interface Dispatch {
   handleKeydown: (e: KernelKeyEvent) => void;
   chordCompletions(prefix?: string): ChordCompletion[];
+  /** how many keydowns this dispatcher has seen: a press's identity, for per-press caches */
+  press(): number;
 }
 
 // ── Binding lookup (pure) ───────────────────────────────────────────────────
@@ -55,7 +58,7 @@ export function createDispatch({
 
     for (let i = stack.layers.length - 1; i >= 0; i--) {
       const layer = stack.layers[i];
-      if (!layer || layer.options.enabled === false) continue;
+      if (!layer || !isLive(layer)) continue;
       const nodes = stack.nodesFor(layer);
       for (const shortcut of Object.keys(layer.bindings)) {
         if (!shortcut.startsWith(head)) continue;
@@ -76,26 +79,42 @@ export function createDispatch({
     return chordCompletions(normalized).length > 0;
   }
 
+  /**
+   * Offer `binding` to the live layers, top first, until one takes it. A handler that returns
+   * `false` declined (its node is disabled here, say), and the next layer down gets its turn.
+   * Consumed only when taken: a key nobody takes is left to the browser, unprevented.
+   */
+  function fire(binding: string, e: KernelKeyEvent, before?: () => void): boolean {
+    for (let i = stack.layers.length - 1; i >= 0; i--) {
+      const layer = stack.layers[i];
+      if (!layer || !isLive(layer)) continue;
+      const handler = findBinding(layer.bindings, binding);
+      if (!handler) continue;
+      before?.();
+      if (handler(e) === false) continue;
+      e.preventDefault();
+      e.stopPropagation();
+      return true;
+    }
+    return false;
+  }
+
+  let presses = 0;
+
   function handleKeydown(e: KernelKeyEvent): void {
+    presses++;
     if (isSuspended()) return;
     if (IGNORE.has(e.key)) return;
+    // a widget nearer the focus already used this key: its own key beats an app shortcut
+    if (e.defaultPrevented === true) return;
     const normalized = normalizeEvent(e);
 
     const armed = chord.chordPrefix;
     if (armed !== null) {
       const full = `${armed} ${normalized}`;
-      for (let i = stack.layers.length - 1; i >= 0; i--) {
-        const layer = stack.layers[i];
-        if (!layer || layer.options.enabled === false) continue;
-        const handler = findBinding(layer.bindings, full);
-        if (handler) {
-          e.preventDefault();
-          e.stopPropagation();
-          chord.exitChordMode();
-          handler(e);
-          return;
-        }
-      }
+      // the chord is over whether or not the second key is taken; leave it before running, so a
+      // handler that opens something starts from a clean slate
+      if (fire(full, e, () => chord.exitChordMode())) return;
       if (isChordPrefix(full)) {
         e.preventDefault();
         chord.enterChordMode(full);
@@ -120,18 +139,8 @@ export function createDispatch({
       return;
     }
 
-    for (let i = stack.layers.length - 1; i >= 0; i--) {
-      const layer = stack.layers[i];
-      if (!layer || layer.options.enabled === false) continue;
-      const handler = findBinding(layer.bindings, normalized);
-      if (handler) {
-        e.preventDefault();
-        e.stopPropagation();
-        handler(e);
-        return;
-      }
-    }
+    fire(normalized, e);
   }
 
-  return { handleKeydown, chordCompletions };
+  return { handleKeydown, chordCompletions, press: () => presses };
 }

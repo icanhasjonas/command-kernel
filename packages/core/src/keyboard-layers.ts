@@ -15,6 +15,12 @@ import type {
 import { parseShortcut } from "./shortcut.js";
 import type { CommandNode } from "./types.js";
 
+/** Whether a layer takes part right now: not disabled, and live if it asks (`active`). */
+export function isLive(layer: KeyLayer): boolean {
+  if (layer.options.enabled === false) return false;
+  return layer.options.active?.() ?? true;
+}
+
 export interface LayerStack {
   /** the live stack, base layers first - mutated in place, so this reference stays valid */
   readonly layers: readonly KeyLayer[];
@@ -22,6 +28,12 @@ export interface LayerStack {
   popLayer(layer: KeyLayer): void;
   /** bind a Map of shortcut strings -> nodes as one base layer */
   registerShortcuts(nodes: Map<string, CommandNode>, options: ShortcutDriverOptions): KeyLayer;
+  /** push a layer whose bindings each run a known node (recorded for `chordCompletions`) */
+  pushNodeLayer(
+    bindings: KeyBindings,
+    options: KeyLayerOptions,
+    nodes: Map<string, CommandNode>,
+  ): KeyLayer;
   /** which node a `registerShortcuts` layer's binding runs, or undefined for a plain `pushLayer` */
   nodesFor(layer: KeyLayer): Map<string, CommandNode> | undefined;
   isBindingRegistered(pattern: string, excludeLayerId?: string): boolean;
@@ -76,6 +88,11 @@ export function createLayerStack(): LayerStack {
       layerNodes.set(layer, byShortcut);
       return layer;
     },
+    pushNodeLayer(bindings, layerOptions, nodes) {
+      const layer = pushLayer(bindings, layerOptions);
+      layerNodes.set(layer, nodes);
+      return layer;
+    },
     nodesFor(layer) {
       return layerNodes.get(layer);
     },
@@ -91,7 +108,7 @@ export function createLayerStack(): LayerStack {
           .join(" ");
       const wanted = canonical(pattern);
       for (const layer of layers) {
-        if (layer.options.enabled === false) continue;
+        if (!isLive(layer)) continue;
         if (excludeLayerId !== undefined && layer.id === excludeLayerId) continue;
         for (const key of Object.keys(layer.bindings)) {
           if (canonical(key) === wanted) return true;

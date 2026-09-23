@@ -5,7 +5,13 @@
  * module-level - no layer stack, no chord state.
  */
 
-import { isMac, type KeyEventLike, type ParsedShortcut } from "./shortcut.js";
+import {
+  canonicalKey,
+  isMac,
+  isShiftedSymbol,
+  type KeyEventLike,
+  type ParsedShortcut,
+} from "./shortcut.js";
 
 // ── Key normalization (pure, module-level) ──────────────────────────────────
 
@@ -19,6 +25,12 @@ export interface KernelKeyEvent extends KeyEventLike {
    * whole interface exists to make possible.
    */
   readonly target?: unknown;
+  /**
+   * Something nearer the focus already handled this key (a combobox took the ArrowDown, a
+   * field's Escape closed its suggestions). The dispatcher leaves it alone: a widget's own key
+   * beats an app shortcut on the same key. A browser event carries it; absent reads as false.
+   */
+  readonly defaultPrevented?: boolean;
   preventDefault(): void;
   stopPropagation(): void;
 }
@@ -127,29 +139,30 @@ export function normalizeEvent(e: KeyEventLike): string {
   if (isMac ? e.metaKey : e.ctrlKey) parts.push("mod");
   if (isMac && e.ctrlKey) parts.push("ctrl");
   if (e.altKey) parts.push("alt");
-  if (e.shiftKey) parts.push("shift");
-  if (!IGNORE.has(e.key)) {
-    const altKey = e.altKey ? altCodeToKey(e.code) : null;
-    const key =
-      altKey ?? (e.key === " " ? "Space" : e.key.length === 1 ? e.key.toLowerCase() : e.key);
-    parts.push(key);
+  const altKey = e.altKey && !IGNORE.has(e.key) ? altCodeToKey(e.code) : null;
+  const key = IGNORE.has(e.key) ? null : (altKey ?? canonicalKey(e.key));
+  // `?` arrives with Shift held; the character already says so (see `isShiftedSymbol`)
+  if (e.shiftKey && !(key !== null && altKey === null && isShiftedSymbol(key))) {
+    parts.push("shift");
   }
+  if (key !== null) parts.push(key);
   return parts.join("+");
 }
 
 /**
  * Normalize a parsed shortcut string to the same canonical form
  * `normalizeEvent` yields for the matching keydown - the pure counterpart, so
- * registering a shortcut never has to construct a DOM event.
+ * registering a shortcut never has to construct a DOM event. Named keys are
+ * spelled as the event spells them (`enter` -> `Enter`), and a shifted symbol
+ * drops its Shift (`shift+?` and `?` are one binding), exactly as a press does.
  */
 export function normalizeShortcut(parsed: ParsedShortcut): string {
   const parts: string[] = [];
   if (isMac ? parsed.mod : parsed.mod || parsed.ctrl) parts.push("mod");
   if (isMac && parsed.ctrl) parts.push("ctrl");
   if (parsed.alt) parts.push("alt");
-  if (parsed.shift) parts.push("shift");
-  parts.push(
-    parsed.key === " " ? "Space" : parsed.key.length === 1 ? parsed.key.toLowerCase() : parsed.key,
-  );
+  const key = canonicalKey(parsed.key);
+  if (parsed.shift && !(!parsed.alt && isShiftedSymbol(key))) parts.push("shift");
+  parts.push(key);
   return parts.join("+");
 }

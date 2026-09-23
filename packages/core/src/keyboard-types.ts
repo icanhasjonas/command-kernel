@@ -1,15 +1,45 @@
 /** Public types for the keyboard driver (keyboard.ts): layers, chords, and the instance shape. */
 
 import type { KernelKeyEvent } from "./keyboard-normalize.js";
-import type { CommandNode } from "./types.js";
+import type { CommandNode, Ctx } from "./types.js";
 
-export type KeyHandler = (e: KernelKeyEvent) => void;
+/**
+ * Runs a bound key. Returning `false` (exactly) DECLINES it: the press is not consumed, and the
+ * layers below get their turn, as if this binding were not there. Anything else consumes it.
+ */
+export type KeyHandler = (e: KernelKeyEvent) => unknown;
 export type KeyBindings = Record<string, KeyHandler>;
 
 export interface KeyLayerOptions {
   base?: boolean;
   id?: string;
   enabled?: boolean;
+  /**
+   * Asked at every press: whether the layer is live right now. For a layer whose relevance is a
+   * fact about the host (a dialog is open, a thread is open) rather than something to push and
+   * pop in step with it. A dead layer neither fires nor arms a chord.
+   */
+  active?: () => boolean;
+}
+
+/** What `bindScopes` needs to put a node list on the keyboard, one layer per scope. */
+export interface ScopeBindingOptions {
+  /** the nodes; those without a `shortcut` are left out */
+  nodes: readonly CommandNode[];
+  /** every scope, LOWEST precedence first: a live later scope wins a key from an earlier one */
+  scopes: readonly string[];
+  /** the ctx at the moment of the press (built fresh: facts, focus) */
+  ctx: () => Ctx;
+  /** which scopes are live under that ctx */
+  activeScopes: (ctx: Ctx) => readonly string[];
+  /** run it: the host calls `kernel.executeNode` (or its own runner) */
+  onActivate: (node: CommandNode, ctx: Ctx) => void;
+}
+
+/** The layers `bindScopes` pushed. `dispose` pops them all. */
+export interface ScopeBinding {
+  readonly layers: readonly KeyLayer[];
+  dispose(): void;
 }
 
 export interface KeyLayer {
@@ -43,6 +73,15 @@ export interface Keyboard {
   popLayer(layer: KeyLayer): void;
   /** bind a Map of shortcut strings -> nodes as one base layer */
   registerShortcuts(nodes: Map<string, CommandNode>, options: ShortcutDriverOptions): KeyLayer;
+  /**
+   * Bind nodes by CONTEXT: one layer per scope, live while `activeScopes(ctx())` names it, so `j`
+   * can be "next thread" in the list and nothing at all while a dialog is open, and `Escape` can
+   * be "discard" in the editor and "back" in the thread. At each press the key's nodes in the
+   * top live scope are tried in order; one hidden by `when` or `disabled` for that ctx declines,
+   * and the key falls through to the scopes below (and then to the browser). Rebind by
+   * disposing and binding again when the node list changes.
+   */
+  bindScopes(options: ScopeBindingOptions): ScopeBinding;
   /** observe chord-mode edges (prefix armed / cleared) for UI hints */
   subscribeChordMode(fn: ChordListener): () => void;
   exitChordMode(): void;

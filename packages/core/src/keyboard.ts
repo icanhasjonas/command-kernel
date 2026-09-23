@@ -17,6 +17,7 @@
  * - Layer stacking (LIFO, base vs modal)
  * - Chord sequences (leader key -> timeout -> fire)
  * - Platform-agnostic key normalization (mod = Cmd on Mac, Ctrl elsewhere)
+ * - Context layers: `bindScopes` puts a node list on one layer per scope
  * - Conflict detection
  *
  * Split by responsibility across five files, this one composing the rest:
@@ -30,6 +31,7 @@ import { createChordState } from "./keyboard-chord.js";
 import { createDispatch } from "./keyboard-dispatch.js";
 import { createLayerStack } from "./keyboard-layers.js";
 import { isEditableTarget } from "./keyboard-normalize.js";
+import { bindScopes } from "./keyboard-scopes.js";
 import type { Keyboard, KeyboardOptions } from "./keyboard-types.js";
 
 export function createKeyboard(options: KeyboardOptions = {}): Keyboard {
@@ -44,6 +46,7 @@ export function createKeyboard(options: KeyboardOptions = {}): Keyboard {
     pushLayer: stack.pushLayer,
     popLayer: stack.popLayer,
     registerShortcuts: stack.registerShortcuts,
+    bindScopes: (scopeOptions) => bindScopes(stack, scopeOptions, dispatch.press),
     subscribeChordMode: chord.subscribeChordMode,
     exitChordMode: chord.exitChordMode,
     setChordTimeout: chord.setChordTimeout,
@@ -68,6 +71,7 @@ export type { ShortcutConflict } from "./keyboard-conflicts.js";
 export { validateShortcuts } from "./keyboard-conflicts.js";
 export type { KernelKeyEvent } from "./keyboard-normalize.js";
 export { isEditableTarget, normalizeEvent, normalizeShortcut } from "./keyboard-normalize.js";
+export { canonicalBinding } from "./keyboard-scopes.js";
 export type {
   ChordCompletion,
   ChordListener,
@@ -77,5 +81,7 @@ export type {
   KeyHandler,
   KeyLayer,
   KeyLayerOptions,
+  ScopeBinding,
+  ScopeBindingOptions,
   ShortcutDriverOptions,
 } from "./keyboard-types.js";
