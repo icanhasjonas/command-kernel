@@ -6,7 +6,10 @@ import { KeyboardContext } from "./keyboard-context.js";
 export interface KeyboardProviderProps {
   /** the app's ONE keyboard (`createKeyboard()`): every layer below goes on its stack */
   keyboard: Keyboard;
-  /** the app's `keyboard.bindScopes(...)`, when layers mount scopes (`KeyboardScope`) */
+  /**
+   * the app's scope binding, when layers mount scopes (`KeyboardScope`): from `useScopeBinding`,
+   * which is `null` until its first effect has run
+   */
   scopes?: ScopeBinding | null;
   /** where keys are heard (default `window`); `null` when the host feeds `handleKeydown` itself */
   source?: KeySource | null;
@@ -17,12 +20,7 @@ export interface KeyboardProviderProps {
  * The root of the keyboard: attaches the one listener (bubble phase, law L15) and hands the
  * keyboard to every `KeyboardLayer` and `KeyboardScope` below.
  */
-export function KeyboardProvider({
-  keyboard,
-  scopes = null,
-  source,
-  children,
-}: KeyboardProviderProps) {
+export function KeyboardProvider({ keyboard, scopes, source, children }: KeyboardProviderProps) {
   useEffect(() => {
     const target = source === undefined ? window : source;
     if (target === null) return;

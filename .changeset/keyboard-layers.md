@@ -44,3 +44,18 @@ BEHAVIOUR CHANGES for existing hosts (a 0.x minor):
   object, so mutate options through it.
 - `registerShortcuts`' layer sits below every base layer, including ones pushed after it.
 - `keyboard.describeStack()` and `useKeyboardStack` build the facts once per description.
+- `validateShortcuts` reports a shortcut that cannot bind (a new optional `problem` on
+  `ShortcutConflict`) instead of throwing; `isBindingRegistered` throws on a pattern that
+  cannot bind.
+- `Keyboard` gained required members (`describeStack`, `subscribeStack`, `stackVersion`,
+  `updateLayer`): a type break for code that implements or mocks the interface.
+- A chord crosses a modal barrier only when `passThrough` names the whole sequence
+  (`"g i"`, not `"g"`). `passThrough` is checked when the layer is pushed.
+- `describeStack` foresees a scope command that would decline (`when`, `disabled`) and
+  reports what the press reaches instead; a suspended stack reaches nothing, and
+  `setSuspended` notifies stack subscribers. `chordCompletions` is the same description one
+  step past its prefix (in any spelling).
+- A press that a widget already handled, or that an input method is composing, ends a
+  pending chord.
+- `@command-kernel/react`: `useScopeBinding` binds in an effect; layers are pushed in layout
+  effects (a re-suspended Suspense boundary takes its layers off the stack).

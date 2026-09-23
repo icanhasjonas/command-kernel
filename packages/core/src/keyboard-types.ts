@@ -1,5 +1,6 @@
 /** Public types for the keyboard driver (keyboard.ts): layers, chords, and the instance shape. */
 
+import type { StackDescription } from "./keyboard-describe.js";
 import type { KernelKeyEvent } from "./keyboard-normalize.js";
 import type { CommandNode, Ctx } from "./types.js";
 
@@ -93,32 +94,6 @@ export interface ScopeBinding {
    */
   setNodes(nodes: readonly CommandNode[]): void;
   dispose(): void;
-}
-
-/** One layer as `describeStack` reports it. */
-export interface LayerInfo {
-  id: string;
-  parent?: string;
-  base: boolean;
-  modal: boolean;
-  /** enabled, and `active()` (if any) says yes right now */
-  live: boolean;
-  /** its bindings, canonical */
-  keys: string[];
-}
-
-/** A key a press would reach right now, and the layer (and node, if known) that has it. */
-export interface ReachableKey {
-  binding: string;
-  layerId: string;
-  node?: CommandNode;
-}
-
-export interface StackDescription {
-  /** top first */
-  layers: LayerInfo[];
-  /** first owner wins, barriers respected; a node may still decline (`when`, `disabled`) */
-  reachable: ReachableKey[];
 }
 
 export interface KeyLayer {

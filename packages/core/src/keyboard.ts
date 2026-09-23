@@ -28,6 +28,7 @@
  * stack as data) and `keyboard-conflicts.ts` (static `validateShortcuts`).
  */
 
+import { canonicalBinding } from "./keyboard-canonical.js";
 import { createChordState } from "./keyboard-chord.js";
 import { describeStack } from "./keyboard-describe.js";
 import { createDispatch } from "./keyboard-dispatch.js";
@@ -42,6 +43,8 @@ export function createKeyboard(options: KeyboardOptions = {}): Keyboard {
   const editableTarget = options.isEditableTarget ?? isEditableTarget;
   let suspended = false;
   const dispatch = createDispatch({ stack, chord, editableTarget, isSuspended: () => suspended });
+  // one token for the whole description: the facts are read once, and fresh (L14)
+  const describe = () => dispatch.within(() => describeStack(stack, suspended));
 
   return {
     handleKeydown: dispatch.handleKeydown,
@@ -54,21 +57,33 @@ export function createKeyboard(options: KeyboardOptions = {}): Keyboard {
     exitChordMode: chord.exitChordMode,
     setChordTimeout: chord.setChordTimeout,
     setSuspended(value) {
+      if (value === suspended) return;
       suspended = value;
       // A prefix armed before the mute would still be sitting there when the
       // stack wakes up, and would then eat the next unrelated keystroke.
       if (value) chord.exitChordMode();
+      // what a press reaches just changed (nothing, or everything again): hints must redraw
+      stack.touch();
     },
     get suspended() {
       return suspended;
     },
-    chordCompletions: dispatch.chordCompletions,
+    chordCompletions: (prefix) => {
+      const armed = prefix === undefined ? chord.chordPrefix : canonicalBinding(prefix);
+      if (armed === null) return [];
+      const head = `${armed} `;
+      // what the description says a press reaches, one step past the prefix: the same decision
+      return describe().reachable.flatMap(({ binding, node }) => {
+        const key = binding.slice(head.length);
+        if (!binding.startsWith(head) || key.includes(" ")) return [];
+        return [node === undefined ? { key, shortcut: binding } : { key, shortcut: binding, node }];
+      });
+    },
     isBindingRegistered: stack.isBindingRegistered,
     get chordPrefix() {
       return chord.chordPrefix;
     },
-    // one snapshot: the facts are read once for the whole description (L14)
-    describeStack: () => dispatch.snapshot(() => describeStack(stack)),
+    describeStack: describe,
     subscribeStack: stack.subscribe,
     get stackVersion() {
       return stack.version;
@@ -77,11 +92,12 @@ export function createKeyboard(options: KeyboardOptions = {}): Keyboard {
   };
 }
 
+export { canonicalBinding } from "./keyboard-canonical.js";
 export type { ShortcutConflict } from "./keyboard-conflicts.js";
 export { validateShortcuts } from "./keyboard-conflicts.js";
+export type { LayerInfo, ReachableKey, StackDescription } from "./keyboard-describe.js";
 export type { KernelKeyEvent } from "./keyboard-normalize.js";
 export {
-  canonicalBinding,
   isEditableTarget,
   normalizeEvent,
   normalizeShortcut,
@@ -96,12 +112,9 @@ export type {
   KeyHandler,
   KeyLayer,
   KeyLayerOptions,
-  LayerInfo,
   LayerUpdate,
   MountOptions,
-  ReachableKey,
   ScopeBinding,
   ScopeBindingOptions,
   ShortcutDriverOptions,
-  StackDescription,
 } from "./keyboard-types.js";

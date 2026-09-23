@@ -4,6 +4,7 @@
  */
 
 import { describe, expect, it } from "bun:test";
+import { validateShortcuts } from "./keyboard.js";
 import { cmd, key, modKey, rig } from "./keyboard.test-util.js";
 
 describe("L7 a widget comes first: a press it already handled is never offered", () => {
@@ -13,6 +14,16 @@ describe("L7 a widget comes first: a press it already handled is never offered",
     kb.handleKeydown(key("ArrowDown", { defaultPrevented: true }));
     kb.handleKeydown(key("ArrowDown"));
     expect(hits).toEqual(["next thread"]);
+  });
+
+  it("a press a widget handled ends a pending chord", () => {
+    const { kb, hits, on } = rig();
+    kb.pushLayer({ "g i": on("inbox") });
+    kb.handleKeydown(key("g"));
+    kb.handleKeydown(key("ArrowDown", { defaultPrevented: true }));
+    kb.handleKeydown(key("i"));
+    expect(hits).toEqual([]);
+    expect(kb.chordPrefix).toBeNull();
   });
 });
 
@@ -37,6 +48,15 @@ describe("L9 a key pressed while an IME is composing is never a command", () => 
     kb.handleKeydown(key("Escape", { keyCode: 229 }));
     kb.handleKeydown(key("Enter"));
     expect(hits).toEqual(["send"]);
+  });
+
+  it("a composing key ends a pending chord too", () => {
+    const { kb, hits, on } = rig();
+    kb.pushLayer({ "g i": on("inbox") });
+    kb.handleKeydown(key("g"));
+    kb.handleKeydown(key("x", { isComposing: true }));
+    kb.handleKeydown(key("i"));
+    expect(hits).toEqual([]);
   });
 });
 
@@ -72,6 +92,20 @@ describe("L10 a layer's keys are canonical: one key, one binding, however it is 
     ]);
     expect(() => kb.registerShortcuts(map, { onActivate: run })).toThrow(/Escape.*twice/);
   });
+
+  it("any single character binds, emoji included", () => {
+    const { kb, hits, on } = rig();
+    kb.pushLayer({ "👍": on("like") });
+    kb.handleKeydown(key("👍"));
+    expect(hits).toEqual(["like"]);
+  });
+
+  it("validateShortcuts reports a key that cannot bind instead of throwing", () => {
+    const report = validateShortcuts([cmd("down", "pgdn")]);
+    expect(report).toEqual([
+      { shortcut: "pgdn", nodeIds: ["down"], problem: expect.stringContaining("pgdn") },
+    ]);
+  });
 });
 
 describe("L11 chords obey the barrier", () => {
@@ -95,5 +129,11 @@ describe("L11 chords obey the barrier", () => {
     expect(kb.chordCompletions().map((c) => c.shortcut)).toEqual(["g x"]);
     kb.handleKeydown(key("i"));
     expect(hits).toEqual([]);
+  });
+
+  it("chordCompletions reads its prefix in any spelling", () => {
+    const { kb, on } = rig();
+    kb.pushLayer({ "mod+k p": on("people") });
+    expect(kb.chordCompletions("Mod+K").map((c) => c.shortcut)).toEqual(["mod+k p"]);
   });
 });

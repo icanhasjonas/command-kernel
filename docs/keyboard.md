@@ -116,9 +116,10 @@ while the editor is open. `mod+k` still opens the palette.
   runs, as the start of a chord it arms the chord. A single key above beats a
   chord below on the same key, a chord above beats a single key below, and in
   ONE layer a chord beats a single key. The same rule decides every step of a
-  longer chord (`g i` against `g i x`). Popping a layer hands its keys back to
-  the layers below. While a chord is armed, a key that completes nothing ends
-  it and does nothing else: Escape cancels a pending chord.
+  longer chord (`g i` against `g i x`). A key a layer declines (L4) goes on to
+  the next layer that knows it, which may arm a chord. Popping a layer hands its
+  keys back to the layers below. While a chord is armed, a key that completes
+  nothing ends it and does nothing else: Escape cancels a pending chord.
 - **L2** Base layers (`base: true`) sit below every other layer, whenever they
   were pushed. Every facts scope is base, and `registerShortcuts`' flat map sits
   lower still, under the scopes.
@@ -127,24 +128,28 @@ while the editor is open. `mod+k` still opens the palette.
   child's effects before its parent's, so plain push order would put a popover
   UNDER its own dialog; the stack re-sorts by ownership on every change instead.
   Siblings stack in push order. Ownership beats base: a base layer owned by a
-  dialog sits above the dialog. A layer whose owner is popped keeps the place it
-  had. Two live layers cannot share an id (the second push throws), so a parent
-  id always names one layer; default ids, facts-scope ids and mount ids never
-  repeat.
+  dialog sits above the dialog. A layer whose owner is popped keeps the place and
+  tier it had. Two live layers cannot share an id (the second push throws), so a
+  parent id always names one layer; default ids, facts-scope ids and mount ids
+  never repeat and never take an id a host chose.
 - **L4** A handler that returns exactly `false` declines: the key goes on down,
-  as if that binding were not there.
+  as if that binding were not there. The press walks the stack as it was when
+  the key went down; a layer a handler pops during the press does not run.
 - **L5** A live `modal: true` layer is a barrier. A key it does not take
   (unbound, or declined) stops there: nothing below runs, and the event is not
   cancelled, so the browser still has it. A dialog, a menu, a sheet.
 - **L6** `passThrough: ["mod+k"]` lets the keys it names cross a barrier, in any
-  spelling (`Mod+K`, `cmd+k` on a Mac).
+  spelling (`Mod+K`, `cmd+k`), checked when the layer is pushed. A chord
+  crosses only when the WHOLE sequence is named: `"g i"`, not `"g"`.
 - **L7** A key the focused widget already handled (`defaultPrevented`) is never
-  offered to the stack. This is how a third-party widget keeps its own arrows,
-  typeahead and Escape, and why L15 insists on the bubble phase.
+  offered to the stack, and it ends a pending chord. This is how a third-party
+  widget keeps its own arrows, typeahead and Escape, and why L15 insists on the
+  bubble phase.
 - **L8** Typing beats commanding (above), on every layer, modal or not.
 - **L9** A key pressed while an input method is composing (`isComposing`, or
   Safari's `keyCode` 229 on the Enter that ends a composition) is never a
-  command: that Enter picks a candidate, that Escape cancels it.
+  command: that Enter picks a candidate, that Escape cancels it. It ends a
+  pending chord too.
 - **L10** A layer's keys are canonical: `mod+enter`, `Mod+Enter` and `G I` bind
   the presses `mod+Enter` and `g` then `i`. Named keys in the alias table match
   in any case (`esc`, `ENTER`, `insert`, `printscreen`); any other named key is
@@ -154,14 +159,17 @@ while the editor is open. `mod+k` still opens the palette.
   spellings of one key (`Escape` and `esc`) in one layer, or in one
   `registerShortcuts` map, throw instead of one silently winning. `shift+` in
   front of a symbol means the symbol itself (`shift++` is `+`): write the
-  character the press makes, `?`, never `shift+/`.
+  character the press makes, `?`, never `shift+/`. Any single character binds,
+  an emoji included. `validateShortcuts` reports a shortcut that cannot bind
+  (its `problem`) instead of throwing.
 - **L11** Chords obey barriers: a prefix bound only below a modal layer neither
   arms nor completes, and `chordCompletions` does not offer it.
 - **L12** Facts scopes (`bindScopes`) are base layers, so they never land above
   an open overlay. When the commands change, `binding.setNodes(nodes)` swaps them
   on every layer the binding has up, mounted ones included, as ONE change, and
   nothing moves. A second binding of the same scopes is allowed (each gets its
-  own layer ids).
+  own layer ids). Binding and `setNodes` are all or nothing: a node that cannot
+  bind throws before anything is pushed or changed.
 - **L13** A mounted scope puts the commands declared in it on the stack while
   something is open: `bindScopes({ ..., mounted: ["editor"] })`, then
   `binding.mount("editor", { modal: true, parent })`, popped with
@@ -171,17 +179,22 @@ while the editor is open. `mod+k` still opens the palette.
   nothing (it throws).
 - **L14** `kb.describeStack()` reports what a press would reach: the layers top
   first, and each reachable key with its layer and node, decided step by step by
-  the same rule a press uses (barriers, L1 at every step of a chord). It reads
-  the facts fresh, once per description. Draw key hints and a help sheet from
-  it, and they can never offer a key that something above would take first. A
-  node can still decline when pressed (`when`, `disabled`); the palette shows
-  why. `chordCompletions()` lists the next keys that would RUN something.
+  the same walk a press makes (barriers, L1 at every step of a chord). A
+  command that would decline (`when` hides it, `disabled` stops it) is foreseen:
+  its key is not reachable there, and whatever the press would reach instead
+  is. A plain `pushLayer` handler is opaque, so it is assumed to run. The facts
+  are read fresh, once per description, including a description made inside a
+  handler. A suspended stack reaches nothing. `chordCompletions(prefix)` is the
+  same description, one step past the prefix (in any spelling). Draw hints from
+  it and they never offer a key a press would not reach; show a disabled
+  command's key from its node, with the reason.
 - **L15** A browser host listens ONCE, in the bubble phase:
   `attachKeyboard(kb, window)` from `@command-kernel/react` (what
   `KeyboardProvider` does). A capture listener runs before every widget and
   breaks L7.
 - **L16** `kb.subscribeStack(fn)` is told after every push, pop and update,
-  with the layer already in its final place, and `kb.stackVersion` counts them.
+  with the layer already in its final place, and when the stack is suspended or
+  resumed; `kb.stackVersion` counts them.
 - **L17** `kb.updateLayer(layer, { bindings, options })` changes a live layer in
   place: it keeps its position, still under a layer pushed after it. A layer's
   keys changing is not the layer opening again. A new `parent` moves it into
@@ -211,20 +224,25 @@ mounted scope in the wrong place.
 dependencies are core and React.
 
 ```tsx
-const kb = createKeyboard();
-const scopes = kb.bindScopes({
-  nodes,
-  scopes: ["global", "list", "thread"],
-  mounted: ["editor", "suggestions"],
-  ctx,
-  activeScopes,
-  onActivate,
-  onDisabled,
-});
+const kb = createKeyboard(); // module scope: one per app
 
-<KeyboardProvider keyboard={kb} scopes={scopes}>  {/* the one listener (L15) */}
-  <App />
-</KeyboardProvider>;
+function Root() {
+  // binds in an effect, never in render; new nodes go through setNodes (L12)
+  const scopes = useScopeBinding(kb, {
+    nodes,
+    scopes: ["global", "list", "thread"],
+    mounted: ["editor", "suggestions"],
+    ctx,
+    activeScopes,
+    onActivate,
+    onDisabled,
+  });
+  return (
+    <KeyboardProvider keyboard={kb} scopes={scopes}> {/* the one listener (L15) */}
+      <App />
+    </KeyboardProvider>
+  );
+}
 
 function NewMail() {
   return (
@@ -237,8 +255,15 @@ function NewMail() {
 }
 ```
 
+- `useScopeBinding(kb, options)` owns the app's `bindScopes`. Never call
+  `bindScopes` in render (a `useMemo`): it pushes layers, and StrictMode's
+  second render pass would leave a binding nobody disposes. The hook returns
+  `null` until its first effect ran; `KeyboardScope` waits for it.
 - `KeyboardScope` / `useKeyboardScope(scope, options)` mount a scope for as long
   as the component is mounted.
+- Layers are pushed and popped in LAYOUT effects: when a Suspense boundary that
+  was showing suspends again, React hides its content and tears those down, so
+  a hidden screen's keys leave the stack with it.
 - `KeyboardLayer` / `useKeyboardLayer(bindings, options)` push plain bindings,
   for keys that are not commands. A layer is pushed when the component mounts
   (or `enabled` turns on) and popped when it unmounts (or turns off). Everything

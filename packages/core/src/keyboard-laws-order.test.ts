@@ -143,6 +143,22 @@ describe("L3 a layer sits above its owner, whatever order the two were pushed in
     kb.popLayer(a);
     expect(kb.pushLayer({}).id).not.toBe(a.id);
   });
+
+  it("an orphan keeps its tier with its place: an owned base layer stays above the screen", () => {
+    const { kb, hits, on } = rig();
+    kb.pushLayer({ x: on("screen") }, { id: "screen" });
+    const dialog = kb.pushLayer({}, { id: "dialog" });
+    kb.pushLayer({ x: on("owned") }, { parent: "dialog", base: true });
+    kb.popLayer(dialog);
+    kb.handleKeydown(key("x"));
+    expect(hits).toEqual(["owned"]);
+  });
+
+  it("an explicit id that looks like a default one never makes a later default push throw", () => {
+    const { kb } = rig();
+    for (let i = 0; i < 4; i++) kb.pushLayer({}, { id: `layer-${i}` });
+    expect(() => kb.pushLayer({})).not.toThrow();
+  });
 });
 
 describe("L4 a handler that returns false declines, and the key goes on down", () => {
@@ -166,6 +182,20 @@ describe("L4 a handler that returns false declines, and the key goes on down", (
     });
     kb.handleKeydown(key("x"));
     expect(hits).toEqual(["mid"]);
+  });
+
+  it("a layer popped by a handler during the press does not run", () => {
+    const { kb, hits, on } = rig();
+    kb.pushLayer({ x: on("bottom") });
+    const mid = kb.pushLayer({ x: on("mid (popped)") });
+    kb.pushLayer({
+      x: () => {
+        kb.popLayer(mid);
+        return false;
+      },
+    });
+    kb.handleKeydown(key("x"));
+    expect(hits).toEqual(["bottom"]);
   });
 });
 
@@ -211,6 +241,21 @@ describe("L6 passThrough keys cross a modal barrier", () => {
       expect(hits).toEqual(["palette"]);
     });
   }
+
+  it("passThrough is checked when the layer is pushed: an unknown key name throws there", () => {
+    const { kb } = rig();
+    expect(() => kb.pushLayer({}, { modal: true, passThrough: ["mediaplaypause"] })).toThrow(
+      /mediaplaypause/,
+    );
+  });
+
+  it("a chord crosses a barrier only when passThrough names the whole sequence", () => {
+    const { kb, hits, on } = rig();
+    kb.pushLayer({ "g i": on("inbox"), "g s": on("sent") });
+    kb.pushLayer({}, { modal: true, passThrough: ["g i"] });
+    for (const k of ["g", "s", "g", "i"]) kb.handleKeydown(key(k));
+    expect(hits).toEqual(["inbox"]);
+  });
 });
 
 describe("L17 updating a layer keeps its place", () => {
@@ -240,5 +285,12 @@ describe("L17 updating a layer keeps its place", () => {
     expect(kb.describeStack().layers[0]?.id).toBe("top");
     kb.handleKeydown(key("x"));
     expect(hits).toEqual(["top"]);
+  });
+
+  it("new bindings on a node layer forget the nodes the old ones ran", () => {
+    const { kb, run } = rig();
+    const map = kb.registerShortcuts(new Map([["j", cmd("next", "j")]]), { onActivate: run });
+    kb.updateLayer(map, { bindings: { j: () => {} } });
+    expect(kb.describeStack().reachable[0]?.node).toBeUndefined();
   });
 });

@@ -10,7 +10,7 @@ import { type LayerOptions, liveOptions, useLayerLifecycle } from "./use-keyboar
  */
 export function useKeyboardScope(scope: string, options: LayerOptions = {}): string | undefined {
   const { keyboard, scopes } = useKeyboardContext();
-  if (scopes === null) {
+  if (scopes === undefined) {
     throw new Error(
       `@command-kernel/react: KeyboardScope "${scope}" needs <KeyboardProvider scopes={...}>`,
     );
@@ -21,6 +21,7 @@ export function useKeyboardScope(scope: string, options: LayerOptions = {}): str
   return useLayerLifecycle(
     (id, parent) => {
       shape.current = `${options.modal === true}|${pass}`;
+      if (scopes === null) throw new Error("unreachable: no layer is pushed without a binding");
       return scopes.mount(scope, {
         id,
         ...liveOptions(options),
@@ -33,7 +34,8 @@ export function useKeyboardScope(scope: string, options: LayerOptions = {}): str
       shape.current = next;
       keyboard.updateLayer(layer, { options: liveOptions(options) });
     },
-    options,
+    // `null` is a binding still being made (useScopeBinding's first effect): no layer until then
+    { ...options, enabled: options.enabled !== false && scopes !== null },
     `scope:${scope}`,
     [scopes, scope],
   );

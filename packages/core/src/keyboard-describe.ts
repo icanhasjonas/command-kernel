@@ -1,22 +1,49 @@
 /**
  * The live layer stack as data (law L14): which layers are up, top first, and which keys a press
- * would reach right now. Reachability is `decide` (keyboard-dispatch.ts) applied to every step of
- * a binding - the same decision a press makes - so a key hint or a help sheet built from it
- * cannot offer a key that something above would take first, at any chord length. A node may
- * still decline when pressed (`when`, `disabled`); that is not known until it runs.
+ * would reach right now. Reachability is `decide` (keyboard-dispatch.ts) at every step of a
+ * binding: each earlier step must arm, and the whole of it must be this layer's key, taken
+ * without declining as far as the stack can know (a node layer's `when` and `disabled`). The
+ * press walks the same candidates, so a key hint or a help sheet built from this cannot offer a
+ * key that something above would take first. A suspended stack reaches nothing.
  */
 
-import { type Decision, decide, walk } from "./keyboard-dispatch.js";
+import { type Candidate, decide, walk } from "./keyboard-dispatch.js";
 import type { LayerStack } from "./keyboard-layers.js";
-import type { KeyLayer, ReachableKey, StackDescription } from "./keyboard-types.js";
+import type { KeyLayer } from "./keyboard-types.js";
+import type { CommandNode } from "./types.js";
 
-export function describeStack(stack: LayerStack): StackDescription {
-  const decisions = new Map<string, Decision | null>();
+/** One layer as `describeStack` reports it. */
+export interface LayerInfo {
+  id: string;
+  parent?: string;
+  base: boolean;
+  modal: boolean;
+  /** enabled, and `active()` (if any) says yes right now */
+  live: boolean;
+  /** its bindings, canonical */
+  keys: string[];
+}
+
+/** A key a press would reach right now, and the layer (and node, if known) that has it. */
+export interface ReachableKey {
+  binding: string;
+  layerId: string;
+  node?: CommandNode;
+}
+
+export interface StackDescription {
+  /** top first */
+  layers: LayerInfo[];
+  /** what a press would run: the nearest taker, barriers respected, foreseeable declines skipped */
+  reachable: ReachableKey[];
+}
+
+export function describeStack(stack: LayerStack, suspended: boolean): StackDescription {
+  const decisions = new Map<string, Candidate | null>();
   const decided = (binding: string) => {
     if (!decisions.has(binding)) decisions.set(binding, decide(stack, binding));
     return decisions.get(binding) ?? null;
   };
-  /** `binding` runs from `layer` when every earlier step arms and the whole of it is `layer`'s key */
   const reaches = (binding: string, layer: KeyLayer) => {
     const steps = binding.split(" ");
     for (let i = 1; i < steps.length; i++) {
@@ -26,10 +53,11 @@ export function describeStack(stack: LayerStack): StackDescription {
     return d?.kind === "key" && d.layer === layer;
   };
 
-  const live: KeyLayer[] = [];
+  const live = new Set<KeyLayer>();
   const reachable: ReachableKey[] = [];
   for (const [layer] of walk(stack)) {
-    live.push(layer);
+    live.add(layer);
+    if (suspended) continue;
     const nodes = stack.nodesFor(layer);
     for (const binding of Object.keys(layer.bindings)) {
       if (!reaches(binding, layer)) continue;
@@ -45,7 +73,7 @@ export function describeStack(stack: LayerStack): StackDescription {
       ...(layer.options.parent === undefined ? {} : { parent: layer.options.parent }),
       base: layer.options.base === true,
       modal: layer.options.modal === true,
-      live: live.includes(layer),
+      live: live.has(layer),
       keys: Object.keys(layer.bindings),
     })),
     reachable,

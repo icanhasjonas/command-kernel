@@ -83,6 +83,41 @@ describe("L12 facts scopes stay under overlays; setNodes rebinds in place", () =
       map();
     }).not.toThrow();
   });
+
+  it("a binding that fails part-way leaves nothing on the stack", () => {
+    const { kb } = rig();
+    expect(() =>
+      kb.bindScopes({
+        nodes: [cmd("next", "j", { scope: "one" }), cmd("down", "pgdn", { scope: "two" })],
+        scopes: ["one", "two"],
+        ctx: () => testCtx,
+        activeScopes: () => ["one", "two"],
+        onActivate: () => {},
+      }),
+    ).toThrow(/pgdn/);
+    expect(kb.describeStack().layers).toEqual([]);
+  });
+
+  it("setNodes that fails part-way changes nothing and tells nobody", () => {
+    const { kb, hits, binding } = scoped([cmd("back", "Escape", { scope: "thread" })]);
+    binding.mount("dialog");
+    let told = 0;
+    kb.subscribeStack(() => {
+      told++;
+    });
+    expect(() =>
+      binding.setNodes([
+        cmd("back 2", "Escape", { scope: "thread" }),
+        cmd("down", "pgdn", { scope: "dialog" }),
+      ]),
+    ).toThrow(/pgdn/);
+    binding.mount("dialog");
+    expect(told).toBe(1);
+    // still the OLD commands: "back", never "back 2"
+    kb.handleKeydown(key("Escape"));
+    expect(hits).toEqual(["back"]);
+    expect(kb.describeStack().reachable.map((r) => r.node?.id)).toEqual(["back"]);
+  });
 });
 
 describe("L13 a mounted scope puts its commands on the stack until popped", () => {
@@ -193,6 +228,64 @@ describe("L14 describeStack says what a press would reach, top first", () => {
         expect(hits).toEqual([binding]);
       }
     }
+  });
+
+  it("a command that would decline is not reachable; the key goes on to what a press reaches", () => {
+    const { kb, run } = rig();
+    kb.registerShortcuts(new Map([["g i", cmd("inbox", "g i")]]), { onActivate: run });
+    kb.bindScopes({
+      nodes: [cmd("go", "g", { scope: "list", when: () => false })],
+      scopes: ["list"],
+      ctx: () => testCtx,
+      activeScopes: () => ["list"],
+      onActivate: run,
+    });
+    expect(kb.describeStack().reachable.map((r) => r.binding)).toEqual(["g i"]);
+    kb.handleKeydown(key("g"));
+    expect(kb.chordCompletions().map((c) => c.shortcut)).toEqual(["g i"]);
+  });
+
+  it("chordCompletions builds the ctx once; a suspended stack reaches nothing and says so", () => {
+    let builds = 0;
+    const { kb } = rig();
+    kb.bindScopes({
+      nodes: [cmd("a", "g a", { scope: "s" }), cmd("b", "g b", { scope: "s" })],
+      scopes: ["s"],
+      ctx: () => {
+        builds++;
+        return testCtx;
+      },
+      activeScopes: () => ["s"],
+      onActivate: () => {},
+    });
+    builds = 0;
+    expect(kb.chordCompletions("g")).toHaveLength(2);
+    expect(builds).toBe(1);
+    let told = 0;
+    kb.subscribeStack(() => {
+      told++;
+    });
+    kb.setSuspended(true);
+    expect(told).toBe(1);
+    expect(kb.describeStack().reachable).toEqual([]);
+  });
+
+  it("a description made inside a handler reads the facts as they are now", () => {
+    const { kb } = rig();
+    let facts: Record<string, string> = { scopes: "list" };
+    let seen: string[] = [];
+    kb.bindScopes({
+      nodes: [cmd("open", "Enter", { scope: "list" }), cmd("reply", "r", { scope: "thread" })],
+      scopes: ["list", "thread"],
+      ctx: () => ({ ...testCtx, facts }),
+      activeScopes: (c) => String(c.facts?.scopes).split(" "),
+      onActivate: () => {
+        facts = { scopes: "thread" };
+        seen = kb.describeStack().reachable.map((r) => r.binding);
+      },
+    });
+    kb.handleKeydown(key("Enter"));
+    expect(seen).toEqual(["r"]);
   });
 });
 

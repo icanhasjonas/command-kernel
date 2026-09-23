@@ -23,14 +23,13 @@ const documented = [...read("docs/keyboard.md").matchAll(/^- \*\*(L\d+)\*\* /gm)
 /** each `describe("L3 ...` block: its law, and its text up to the next top-level describe */
 const blocks = TESTS.flatMap((f) => {
   const text = read(f);
-  const starts = [...text.matchAll(/^describe\("(L\d+) /gm)];
-  return starts.map((m, i) => ({
-    law: m[1],
-    body: text.slice(
-      m.index,
-      starts[i + 1]?.index ?? text.indexOf("\ndescribe(", (m.index ?? 0) + 1),
-    ),
-  }));
+  const tops = [...text.matchAll(/^describe\(/gm)].map((m) => m.index ?? 0);
+  return [...text.matchAll(/^describe\("(L\d+) /gm)].map((m) => {
+    const start = m.index ?? 0;
+    // the block ends at the next top-level describe of ANY kind, so a neighbour cannot lend it tests
+    const end = tops.find((t) => t > start) ?? text.length;
+    return { law: m[1], body: text.slice(start, end) };
+  });
 });
 const tested = blocks.map((b) => b.law);
 

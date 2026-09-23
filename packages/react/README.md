@@ -10,21 +10,25 @@ each one a test.
 
 ```tsx
 import { createKeyboard } from "@command-kernel/core";
-import { KeyboardProvider, KeyboardScope, useKeyboardStack } from "@command-kernel/react";
+import { KeyboardProvider, KeyboardScope, useScopeBinding } from "@command-kernel/react";
 
-const kb = createKeyboard();
-const scopes = kb.bindScopes({
-  nodes, // your commands; each declares its `shortcut` and `scope`
-  scopes: ["global", "list"], // live by facts
-  mounted: ["editor"], // live while mounted
-  ctx,
-  activeScopes,
-  onActivate,
-});
+const kb = createKeyboard(); // module scope: one per app
 
-<KeyboardProvider keyboard={kb} scopes={scopes}>
-  <App />
-</KeyboardProvider>;
+function Root() {
+  const scopes = useScopeBinding(kb, {
+    nodes, // your commands; each declares its `shortcut` and `scope`
+    scopes: ["global", "list"], // live by facts
+    mounted: ["editor"], // live while mounted
+    ctx,
+    activeScopes,
+    onActivate,
+  });
+  return (
+    <KeyboardProvider keyboard={kb} scopes={scopes}>
+      <App />
+    </KeyboardProvider>
+  );
+}
 
 function Editor() {
   // Escape and mod+Enter now mean whatever the "editor" commands say, and nothing below
@@ -36,6 +40,7 @@ function Editor() {
 | Export | What it does |
 | --- | --- |
 | `KeyboardProvider` | attaches the one keydown listener (bubble phase) and hands the keyboard down |
+| `useScopeBinding` | `keyboard.bindScopes(...)` made in an effect (never in render); new nodes via `setNodes` |
 | `KeyboardScope`, `useKeyboardScope` | mount one of the app's `mounted` scopes while mounted |
 | `KeyboardLayer`, `useKeyboardLayer` | push plain bindings while mounted |
 | `useKeyboardStack` | `describeStack()`, re-rendered on every push, pop and update |

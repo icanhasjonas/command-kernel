@@ -44,8 +44,10 @@ export function useLayerLifecycle(
   });
   const [resetA, resetB] = reset;
 
+  // A LAYOUT effect: React tears layout effects down when a shown Suspense boundary suspends
+  // again, and a hidden screen must not keep its keys (passive effects stay mounted then).
   // biome-ignore lint/correctness/useExhaustiveDependencies: resetA/resetB re-open the layer on purpose (a new scope binding, a new scope); parent and handlers are applied in place below
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!enabled) return;
     const pushed = latest.current.push(id, latest.current.parent);
     layer.current = pushed;

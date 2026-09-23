@@ -13,3 +13,4 @@ export {
 export { type LayerOptions, useKeyboardLayer } from "./use-keyboard-layer.js";
 export { useKeyboardScope } from "./use-keyboard-scope.js";
 export { useKeyboardStack } from "./use-keyboard-stack.js";
+export { useScopeBinding } from "./use-scope-binding.js";

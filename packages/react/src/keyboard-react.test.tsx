@@ -11,7 +11,7 @@ import {
   type ScopeBinding,
 } from "@command-kernel/core";
 import { act, cleanup, fireEvent, render } from "@testing-library/react";
-import { type ReactNode, StrictMode, useState } from "react";
+import { type ReactNode, StrictMode, Suspense, useState } from "react";
 import { createPortal } from "react-dom";
 import { registerDom, unregisterDom } from "../../../test/dom-setup.js";
 import { attachKeyboard, type KeySource } from "./attach-keyboard.js";
@@ -19,6 +19,7 @@ import { KeyboardLayer } from "./KeyboardLayer.js";
 import { KeyboardProvider } from "./KeyboardProvider.js";
 import { KeyboardScope } from "./KeyboardScope.js";
 import { useKeyboardStack } from "./use-keyboard-stack.js";
+import { useScopeBinding } from "./use-scope-binding.js";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 // the setup module is shared and cached: another file's afterAll may have unregistered it
@@ -279,6 +280,81 @@ describe("L13 in React: a KeyboardScope follows its binding and its scope", () =
     press("a");
     expect(hits).toEqual(["new one", "new two"]);
     expect(layerIds(keyboard)).toEqual(["panel"]);
+  });
+});
+
+describe("L13 in React: useScopeBinding binds in an effect, never in render", () => {
+  const ctx: Ctx = {
+    location: { module: "mail" },
+    user: { id: "u", name: "U", role: "admin", brand: "b" },
+    now: 0,
+    frecency: {},
+  };
+
+  it("under StrictMode: one facts layer, the scope works, and nothing is left after unmount", () => {
+    const keyboard = createKeyboard();
+    const hits: string[] = [];
+    function App({ nodes }: { nodes: CommandNode[] }) {
+      const scopes = useScopeBinding(keyboard, {
+        nodes,
+        scopes: ["thread"],
+        mounted: ["editor"],
+        ctx: () => ctx,
+        activeScopes: () => ["thread"],
+        onActivate: (n) => hits.push(n.id),
+      });
+      return (
+        <KeyboardProvider keyboard={keyboard} scopes={scopes} source={document}>
+          <KeyboardScope scope="editor" modal />
+        </KeyboardProvider>
+      );
+    }
+    const one: CommandNode[] = [
+      { id: "back", title: "", shortcut: "Escape", scope: "thread" },
+      { id: "discard", title: "", shortcut: "Escape", scope: "editor" },
+    ];
+    const view = render(
+      <StrictMode>
+        <App nodes={one} />
+      </StrictMode>,
+    );
+    press("Escape");
+    view.rerender(
+      <StrictMode>
+        <App nodes={[...one, { id: "send", title: "", shortcut: "mod+Enter", scope: "editor" }]} />
+      </StrictMode>,
+    );
+    fireEvent.keyDown(document.body, { key: "Enter", metaKey: true, ctrlKey: true });
+    const ids = layerIds(keyboard);
+    view.unmount();
+    expect(hits[0]).toBe("discard");
+    expect(ids.filter((id) => id.startsWith("scope:thread"))).toHaveLength(1);
+    expect(layerIds(keyboard)).toEqual([]);
+  });
+});
+
+describe("a layer inside a Suspense boundary that suspends again leaves the stack", () => {
+  it("the fallback shows, and the hidden thread's keys are gone", async () => {
+    const { keyboard, hits, on, app } = rig();
+    const never = new Promise<void>(() => {});
+    function Body({ wait }: { wait: boolean }) {
+      if (wait) throw never;
+      return <KeyboardLayer id="thread" bindings={{ r: on("reply") }} />;
+    }
+    const tree = (wait: boolean) =>
+      app(
+        <Suspense fallback={<p>loading</p>}>
+          <Body wait={wait} />
+        </Suspense>,
+      );
+    const view = render(tree(false));
+    await act(async () => {
+      view.rerender(tree(true));
+    });
+    press("r");
+    expect(view.container.textContent).toContain("loading");
+    expect(layerIds(keyboard)).toEqual([]);
+    expect(hits).toEqual([]);
   });
 });
 
