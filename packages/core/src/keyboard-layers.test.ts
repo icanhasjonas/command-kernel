@@ -8,6 +8,7 @@
 import { describe, expect, it } from "bun:test";
 import { createKeyboard } from "./keyboard.js";
 import { key, modKey } from "./keyboard.test-util.js";
+import { normalizeEvent } from "./keyboard-normalize.js";
 import type { CommandNode, Ctx } from "./types.js";
 
 const ctx: Ctx = {
@@ -44,6 +45,26 @@ describe("L1 the top live layer takes the key; popping it restores the one below
     kb.handleKeydown(key("Escape"));
     expect(hits).toEqual(["dialog", "screen"]);
   });
+
+  it("a chord prefix bound BELOW does not take a single key bound above", () => {
+    const { kb, hits, on } = rig();
+    kb.pushLayer({ "g i": on("inbox") });
+    kb.pushLayer({ g: on("top g") });
+    kb.handleKeydown(key("g"));
+    expect(kb.chordPrefix).toBeNull();
+    expect(hits).toEqual(["top g"]);
+  });
+
+  it("a chord bound ABOVE arms over a single key below; a declined key lets a lower chord arm", () => {
+    const { kb, hits, on } = rig();
+    kb.pushLayer({ g: on("below g"), "h i": on("help") });
+    kb.pushLayer({ "g i": on("inbox"), h: () => false });
+    kb.handleKeydown(key("g"));
+    kb.handleKeydown(key("i"));
+    kb.handleKeydown(key("h"));
+    kb.handleKeydown(key("i"));
+    expect(hits).toEqual(["inbox", "help"]);
+  });
 });
 
 describe("L2 base layers sit below every other layer, whenever they were pushed", () => {
@@ -53,6 +74,22 @@ describe("L2 base layers sit below every other layer, whenever they were pushed"
     kb.pushLayer({ j: on("app") }, { base: true });
     kb.handleKeydown(key("j"));
     expect(hits).toEqual(["overlay"]);
+  });
+
+  it("the registered shortcut map sits below the context scopes, whenever registered", () => {
+    const { kb, hits } = rig();
+    kb.bindScopes({
+      nodes: [node("discard", "Escape", { scope: "editor" })],
+      scopes: ["editor"],
+      ctx: () => ctx,
+      activeScopes: () => ["editor"],
+      onActivate: (n) => hits.push(n.id),
+    });
+    kb.registerShortcuts(new Map([["Escape", node("close all", "Escape")]]), {
+      onActivate: (n) => hits.push(n.id),
+    });
+    kb.handleKeydown(key("Escape"));
+    expect(hits).toEqual(["discard"]);
   });
 });
 
@@ -93,6 +130,14 @@ describe("L3 a layer sits above its parent, whatever order the two were pushed i
     const ids = kb.describeStack().layers.map((l) => l.id);
     expect(new Set(ids).size).toBe(ids.length);
     expect(ids).toContain(c.id);
+  });
+
+  it("two live layers cannot share an id; a popped id is free again", () => {
+    const { kb } = rig();
+    const menu = kb.pushLayer({}, { id: "menu" });
+    expect(() => kb.pushLayer({}, { id: "menu" })).toThrow(/"menu" is already on the stack/);
+    kb.popLayer(menu);
+    expect(kb.pushLayer({}, { id: "menu" }).id).toBe("menu");
   });
 });
 
@@ -146,6 +191,14 @@ describe("L6 passThrough keys cross a modal barrier", () => {
     kb.handleKeydown(key("j"));
     expect(hits).toEqual(["palette"]);
   });
+
+  it("cmd+k in passThrough is the same key", () => {
+    const { kb, hits, on } = rig();
+    kb.pushLayer({ "mod+k": on("palette") });
+    kb.pushLayer({}, { modal: true, passThrough: ["cmd+k"] });
+    kb.handleKeydown(modKey("k"));
+    expect(hits).toEqual(["palette"]);
+  });
 });
 
 describe("L7 a widget comes first: a press it already handled is never offered", () => {
@@ -185,10 +238,24 @@ describe("L10 a layer's keys are canonical: any spelling fires on the press", ()
     kb.handleKeydown(key("i"));
     expect(hits).toEqual(["send", "inbox"]);
   });
+
+  it("named keys outside the alias table, and a literal space, fire as the press spells them", () => {
+    const { kb, hits, on } = rig();
+    kb.pushLayer({ Insert: on("insert"), PrintScreen: on("print"), " ": on("space") });
+    kb.handleKeydown(key("Insert"));
+    kb.handleKeydown(key("PrintScreen"));
+    kb.handleKeydown(key(" "));
+    expect(hits).toEqual(["insert", "print", "space"]);
+  });
+
+  it("two spellings of one key in one layer throw instead of one silently winning", () => {
+    const { kb, on } = rig();
+    expect(() => kb.pushLayer({ Escape: on("a"), esc: on("b") })).toThrow(/Escape.*twice/);
+  });
 });
 
 describe("L11 chords obey the barrier", () => {
-  it("a prefix bound only below a modal neither arms nor completes", () => {
+  it("a prefix bound only below a modal does not arm", () => {
     const { kb, hits, on } = rig();
     kb.pushLayer({ "g i": on("inbox") });
     kb.pushLayer({}, { modal: true });
@@ -198,9 +265,20 @@ describe("L11 chords obey the barrier", () => {
     kb.handleKeydown(key("i"));
     expect(hits).toEqual([]);
   });
+
+  it("a chord armed above does not complete with a second key bound only below the barrier", () => {
+    const { kb, hits, on } = rig();
+    kb.pushLayer({ "g i": on("inbox") });
+    kb.pushLayer({ "g x": on("x") }, { modal: true });
+    kb.handleKeydown(key("g"));
+    expect(kb.chordPrefix).toBe("g");
+    expect(kb.chordCompletions().map((c) => c.shortcut)).toEqual(["g x"]);
+    kb.handleKeydown(key("i"));
+    expect(hits).toEqual([]);
+  });
 });
 
-describe("L12 context scopes stay under overlays, even when rebound", () => {
+describe("L12 context scopes stay under overlays, and setNodes rebinds in place", () => {
   it("bindScopes after a dialog opened still loses the key to the dialog", () => {
     const { kb, hits, on } = rig();
     kb.pushLayer({ Escape: on("dialog") }, { modal: true });
@@ -213,6 +291,29 @@ describe("L12 context scopes stay under overlays, even when rebound", () => {
     });
     kb.handleKeydown(key("Escape"));
     expect(hits).toEqual(["dialog"]);
+  });
+
+  it("setNodes swaps every scope's commands, mounted ones included, without moving a layer", () => {
+    const { kb, hits, on } = rig();
+    const binding = kb.bindScopes({
+      nodes: [node("back", "Escape", { scope: "thread" })],
+      scopes: ["thread"],
+      mounted: ["dialog"],
+      ctx: () => ctx,
+      activeScopes: () => ["thread"],
+      onActivate: (n) => hits.push(n.id),
+    });
+    const dialog = binding.mount("dialog", { modal: true });
+    const palette = kb.pushLayer({ Escape: on("palette") }, { id: "palette", modal: true });
+    binding.setNodes([
+      node("back", "Escape", { scope: "thread" }),
+      node("send", "mod+Enter", { scope: "dialog" }),
+    ]);
+    kb.handleKeydown(key("Escape"));
+    kb.popLayer(palette);
+    kb.handleKeydown(modKey("Enter"));
+    expect(hits).toEqual(["palette", "send"]);
+    expect(kb.describeStack().layers.map((l) => l.id)).toEqual([dialog.id, "scope:thread"]);
   });
 });
 
@@ -267,6 +368,20 @@ describe("L13 a mounted scope puts its commands on the stack until popped", () =
     const { binding } = setup();
     expect(() => binding.mount("thread")).toThrow(/not declared as mounted/);
   });
+
+  it("mounted ids never repeat, even across two bindings on one keyboard", () => {
+    const { kb, binding } = setup();
+    const first = binding.mount("dialog");
+    const other = kb.bindScopes({
+      nodes: [],
+      scopes: [],
+      mounted: ["dialog"],
+      ctx: () => ctx,
+      activeScopes: () => [],
+      onActivate: () => {},
+    });
+    expect(other.mount("dialog").id).not.toBe(first.id);
+  });
 });
 
 describe("L14 describeStack says what a press would reach, top first", () => {
@@ -284,9 +399,34 @@ describe("L14 describeStack says what a press would reach, top first", () => {
       ["mod+k", "screen"],
     ]);
   });
+
+  it("reads facts fresh outside a key press", () => {
+    const { kb } = rig();
+    let facts: Record<string, string> = { scopes: "list" };
+    kb.bindScopes({
+      nodes: [node("next", "j", { scope: "list" }), node("reply", "r", { scope: "thread" })],
+      scopes: ["list", "thread"],
+      ctx: () => ({ ...ctx, facts }),
+      activeScopes: (c) => String(c.facts?.scopes).split(" "),
+      onActivate: () => {},
+    });
+    kb.handleKeydown(key("x"));
+    facts = { scopes: "thread" };
+    expect(kb.describeStack().reachable.map((r) => r.binding)).toEqual(["r"]);
+  });
+
+  it("names the layer a real press reaches, on a Mac's cmd and ctrl too", () => {
+    const { kb, hits, on } = rig();
+    kb.pushLayer({ "mod+k": on("base") }, { id: "base", base: true });
+    kb.pushLayer({ "ctrl+k": on("top") }, { id: "top" });
+    const press = modKey("k");
+    const said = kb.describeStack().reachable.find((r) => r.binding === normalizeEvent(press));
+    kb.handleKeydown(press);
+    expect(hits).toEqual([said?.layerId ?? "nothing"]);
+  });
 });
 
-describe("L16 subscribeStack hears every push and pop", () => {
+describe("L16 subscribeStack hears every push, pop and update; stackVersion counts them", () => {
   it("once per change, until unsubscribed", () => {
     const { kb } = rig();
     let heard = 0;
@@ -298,5 +438,34 @@ describe("L16 subscribeStack hears every push and pop", () => {
     off();
     kb.pushLayer({});
     expect(heard).toBe(2);
+  });
+
+  it("an update is a change too, and stackVersion moves with every change", () => {
+    const { kb } = rig();
+    let heard = 0;
+    kb.subscribeStack(() => {
+      heard++;
+    });
+    const before = kb.stackVersion;
+    const layer = kb.pushLayer({});
+    kb.updateLayer(layer, { bindings: { j: () => {} } });
+    expect(heard).toBe(2);
+    expect(kb.stackVersion).toBe(before + 2);
+  });
+});
+
+describe("L17 updating a layer keeps its place", () => {
+  it("new bindings and options apply in place, still below a layer pushed after it", () => {
+    const { kb, hits, on } = rig();
+    const dialog = kb.pushLayer({ Escape: on("dialog") }, { id: "dialog", modal: true });
+    kb.pushLayer({ Escape: on("palette") }, { id: "palette", modal: true });
+    kb.updateLayer(dialog, { bindings: { Escape: on("dialog 2"), r: on("reply") } });
+    kb.updateLayer(dialog, { options: { passThrough: ["mod+k"] } });
+    kb.handleKeydown(key("Escape"));
+    expect(hits).toEqual(["palette"]);
+    expect(kb.describeStack().layers.map((l) => [l.id, l.keys.join(" ")])).toEqual([
+      ["palette", "Escape"],
+      ["dialog", "Escape r"],
+    ]);
   });
 });

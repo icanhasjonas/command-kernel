@@ -11,7 +11,10 @@ export type KeyHandler = (e: KernelKeyEvent) => unknown;
 export type KeyBindings = Record<string, KeyHandler>;
 
 export interface KeyLayerOptions {
-  /** sits below every non-base layer, whenever pushed: the app's own keys (law L2) */
+  /**
+   * sits below every non-base layer, whenever pushed: the app's own keys (law L2). The facts
+   * scopes of `bindScopes` are base; `registerShortcuts`' map sits lower still.
+   */
   base?: boolean;
   /** unique among live layers; the default (`layer-N`) never repeats */
   id?: string;
@@ -63,6 +66,12 @@ export interface ScopeBindingOptions {
   onDisabled?: (node: CommandNode, reason: string, ctx: Ctx) => void;
 }
 
+/** What `updateLayer` can change on a live layer. Not its id: that is who it is. */
+export interface LayerUpdate {
+  bindings?: KeyBindings;
+  options?: Omit<KeyLayerOptions, "id">;
+}
+
 /** How a mounted scope's layer sits: everything a layer takes except its bindings. */
 export type MountOptions = Omit<KeyLayerOptions, "base" | "active">;
 
@@ -74,6 +83,12 @@ export interface ScopeBinding {
    * exactly as a facts scope's do. Pop it with `keyboard.popLayer` when the thing closes.
    */
   mount(scope: string, options?: MountOptions): KeyLayer;
+  /**
+   * A new node list, applied IN PLACE to every layer this binding has up, mounted ones included
+   * (L12, L17): no layer moves, so a dialog that was open stays under the palette opened after it.
+   * What to call when the commands change, instead of disposing and binding again.
+   */
+  setNodes(nodes: readonly CommandNode[]): void;
   dispose(): void;
 }
 
@@ -174,8 +189,12 @@ export interface Keyboard {
   readonly chordPrefix: string | null;
   /** the live stack as data: for key hints, a help sheet, and a test that asserts it (L14) */
   describeStack(): StackDescription;
-  /** told after every push and pop (L16); returns the unsubscribe */
+  /** told after every push, pop and update (L16); returns the unsubscribe */
   subscribeStack(fn: () => void): () => void;
+  /** how many times the stack has changed: a cheap snapshot for an external store (L16) */
+  readonly stackVersion: number;
+  /** new bindings and/or options for a live layer, in place: it keeps its position (L17) */
+  updateLayer(layer: KeyLayer, update: LayerUpdate): void;
   /**
    * Every second key that would complete `prefix`, and the node each one runs.
    *

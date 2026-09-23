@@ -114,6 +114,7 @@ export {
   type KeyLayer,
   type KeyLayerOptions,
   type LayerInfo,
+  type LayerUpdate,
   type MountOptions,
   normalizeEvent,
   normalizeShortcut,

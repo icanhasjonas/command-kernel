@@ -38,9 +38,11 @@ function Editor() {
 | `KeyboardProvider` | attaches the one keydown listener (bubble phase) and hands the keyboard down |
 | `KeyboardScope`, `useKeyboardScope` | mount one of the app's `mounted` scopes while mounted |
 | `KeyboardLayer`, `useKeyboardLayer` | push plain bindings while mounted |
-| `useKeyboardStack` | `describeStack()`, re-rendered on every push and pop |
+| `useKeyboardStack` | `describeStack()`, re-rendered on every push, pop and update |
 | `useKeyboard` | the keyboard itself (chord mode, suspend) |
 | `attachKeyboard` | the listener, for a host without React |
 
 A layer's parent is the nearest layer around it in the React tree, portals included, so a
-popover rendered into `document.body` from inside a dialog still sits above the dialog.
+popover rendered into `document.body` from inside a dialog still sits above the dialog. A layer
+is pushed on mount and popped on unmount; new keys or options are applied in place, so it never
+jumps above a layer opened after it. When your commands change, call `scopes.setNodes(nodes)`.

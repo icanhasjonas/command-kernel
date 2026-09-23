@@ -69,6 +69,10 @@ export function createKeyboard(options: KeyboardOptions = {}): Keyboard {
     },
     describeStack: () => describeStack(stack),
     subscribeStack: stack.subscribe,
+    get stackVersion() {
+      return stack.version;
+    },
+    updateLayer: stack.updateLayer,
   };
 }
 
@@ -92,6 +96,7 @@ export type {
   KeyLayer,
   KeyLayerOptions,
   LayerInfo,
+  LayerUpdate,
   MountOptions,
   ReachableKey,
   ScopeBinding,

@@ -1,9 +1,10 @@
 /**
- * Keystroke dispatch for the keyboard driver (keyboard.ts): turns a normalized
- * keydown into a bound handler call, honouring layer precedence (later layers
- * win, a disabled layer is not consulted) and chord sequences (leader key ->
- * second key -> fire, or re-arm, or drop). Reads the layer stack and the chord
- * state; owns neither.
+ * Keystroke dispatch for the keyboard driver (keyboard.ts): turns a normalized keydown into a
+ * bound handler call, or arms a chord. One walk, top layer down, decides both (law L1): the
+ * NEAREST live layer that knows the key - as a binding, or as the first key of a chord - takes
+ * it. Modal layers are barriers (L5), and a press whose default is prevented, or that an input
+ * method is composing, never gets here (L7, L9). Reads the layer stack and the chord state; owns
+ * neither.
  */
 
 import type { ChordState } from "./keyboard-chord.js";
@@ -11,13 +12,7 @@ import type { LayerStack } from "./keyboard-layers.js";
 import { crosses, isLive } from "./keyboard-layers.js";
 import type { KernelKeyEvent } from "./keyboard-normalize.js";
 import { hasModifier, IGNORE, isComposing, normalizeEvent } from "./keyboard-normalize.js";
-import type {
-  ChordCompletion,
-  DeclinedListener,
-  KeyBindings,
-  KeyHandler,
-  KeyLayer,
-} from "./keyboard-types.js";
+import type { ChordCompletion, DeclinedListener, KeyLayer } from "./keyboard-types.js";
 
 export interface DispatchDeps {
   stack: LayerStack;
@@ -32,16 +27,28 @@ export interface Dispatch {
   chordCompletions(prefix?: string): ChordCompletion[];
   /** how many keydowns this dispatcher has seen: a press's identity, for per-press caches */
   press(): number;
+  /** whether a keydown is being dispatched right now: per-press caches are valid only then */
+  pressing(): boolean;
 }
 
-// ── Binding lookup (pure) ───────────────────────────────────────────────────
+/** The live layers top down, each with a test for whether a binding gets past the barriers above. */
+export function* walk(stack: LayerStack): Generator<[KeyLayer, (binding: string) => boolean]> {
+  const barriers: KeyLayer[] = [];
+  const reaches = (binding: string) => barriers.every((b) => crosses(b, binding));
+  for (let i = stack.layers.length - 1; i >= 0; i--) {
+    const layer = stack.layers[i];
+    if (!layer || !isLive(layer)) continue;
+    yield [layer, reaches];
+    if (layer.options.modal === true) barriers.push(layer);
+  }
+}
 
-function findBinding(bindings: KeyBindings, normalized: string): KeyHandler | undefined {
-  const handler = bindings[normalized];
-  if (handler) return handler;
-  if (normalized.includes("mod")) return bindings[normalized.replace("mod", "ctrl")];
-  if (normalized.includes("ctrl")) return bindings[normalized.replace("ctrl", "mod")];
-  return undefined;
+/** Whether `layer` binds a chord that starts with `prefix` and gets past the barriers above. */
+function startsChord(layer: KeyLayer, prefix: string, reaches: (b: string) => boolean): boolean {
+  const head = `${prefix} `;
+  return Object.keys(layer.bindings).some(
+    (k) => k.startsWith(head) && k.length > head.length && reaches(k),
+  );
 }
 
 export function createDispatch({
@@ -53,76 +60,62 @@ export function createDispatch({
   /**
    * Every second key that would complete `prefix` (default: the armed one), and the node each one
    * runs. Top layer first, and the first layer to claim a second key keeps it, which is the same
-   * "later layers win" rule `handleKeydown` dispatches by. A suspended stack returns nothing:
-   * nothing would fire, so nothing should be offered.
+   * rule a press dispatches by. A suspended stack returns nothing: nothing would fire.
    */
   function chordCompletions(prefix?: string): ChordCompletion[] {
     const armed = prefix ?? chord.chordPrefix;
     if (armed === undefined || armed === null || isSuspended()) return [];
-
     const head = `${armed} `;
     const seen = new Map<string, ChordCompletion>();
-
-    // below a barrier, only what every barrier above lets through (law L11)
-    const barriers: KeyLayer[] = [];
-    for (let i = stack.layers.length - 1; i >= 0; i--) {
-      const layer = stack.layers[i];
-      if (!layer || !isLive(layer)) continue;
+    for (const [layer, reaches] of walk(stack)) {
       const nodes = stack.nodesFor(layer);
       for (const shortcut of Object.keys(layer.bindings)) {
-        if (!shortcut.startsWith(head)) continue;
-        if (!barriers.every((b) => crosses(b, shortcut))) continue;
+        if (!shortcut.startsWith(head) || !reaches(shortcut)) continue;
         const key = shortcut.slice(head.length);
         // A chord is exactly two presses here; anything with a further space is a deeper
         // sequence and is not a completion OF THIS prefix.
-        if (key.length === 0 || key.includes(" ")) continue;
-        if (seen.has(key)) continue;
+        if (key.length === 0 || key.includes(" ") || seen.has(key)) continue;
         const node = nodes?.get(shortcut);
         seen.set(key, node === undefined ? { key, shortcut } : { key, shortcut, node });
       }
-      if (layer.options.modal === true) barriers.push(layer);
     }
-
     return [...seen.values()];
   }
 
-  function isChordPrefix(normalized: string): boolean {
-    return chordCompletions(normalized).length > 0;
-  }
-
-  /**
-   * Offer `binding` to the live layers, top first, until one takes it. A handler that returns
-   * `false` declined (its node is disabled here, say), and the next layer down gets its turn.
-   * Consumed only when taken: a key nobody takes is left to the browser, unprevented.
-   */
   const declinedListeners = new Set<DeclinedListener>();
 
-  function fire(binding: string, e: KernelKeyEvent, before?: () => void): boolean {
+  /**
+   * Offer `binding` down the stack (law L1). The first layer that binds a chord on it ARMS; the
+   * first that binds it runs, unless its handler returns `false` (declined, L4), and the next
+   * layer down gets its turn. Consumed only when taken: a key nobody takes is left to the browser,
+   * unprevented. `before` runs just ahead of a handler (the chord leaves chord mode first).
+   */
+  function offer(
+    binding: string,
+    e: KernelKeyEvent,
+    before?: () => void,
+  ): "fired" | "armed" | "none" {
     let offered = false;
-    for (let i = stack.layers.length - 1; i >= 0; i--) {
-      const layer = stack.layers[i];
-      if (!layer || !isLive(layer)) continue;
-      const handler = findBinding(layer.bindings, binding);
-      if (handler) {
-        offered = true;
-        before?.();
-        if (handler(e) !== false) {
-          e.preventDefault();
-          e.stopPropagation();
-          return true;
-        }
+    for (const [layer, reaches] of walk(stack)) {
+      if (startsChord(layer, binding, reaches)) return "armed";
+      const handler = reaches(binding) ? layer.bindings[binding] : undefined;
+      if (!handler) continue;
+      offered = true;
+      before?.();
+      if (handler(e) !== false) {
+        e.preventDefault();
+        e.stopPropagation();
+        return "fired";
       }
-      // a modal layer is a barrier: what it did not take stops here, unprevented (law L5)
-      if (!crosses(layer, binding)) break;
     }
     if (offered) for (const fn of declinedListeners) fn(binding, e);
-    return false;
+    return "none";
   }
 
   let presses = 0;
+  let inPress = false;
 
-  function handleKeydown(e: KernelKeyEvent): void {
-    presses++;
+  function dispatch(e: KernelKeyEvent): void {
     if (isSuspended()) return;
     if (IGNORE.has(e.key)) return;
     // a widget nearer the focus already used this key: its own key beats an app shortcut (L7)
@@ -136,38 +129,42 @@ export function createDispatch({
       const full = `${armed} ${normalized}`;
       // the chord is over whether or not the second key is taken; leave it before running, so a
       // handler that opens something starts from a clean slate
-      if (fire(full, e, () => chord.exitChordMode())) return;
-      if (isChordPrefix(full)) {
+      const result = offer(full, e, () => chord.exitChordMode());
+      if (result === "armed") {
         e.preventDefault();
         chord.enterChordMode(full);
-        return;
+      } else if (result === "none") {
+        chord.exitChordMode();
       }
-      chord.exitChordMode();
       return;
     }
 
-    // TYPING BEATS COMMANDING. A printable key with no mod, aimed at an editable
-    // surface, belongs to that surface: without this, a bare `n` bound to "New
-    // task" fires on every n somebody types into a title field. Modified combos
-    // (mod+k) and non-printables (Escape, ArrowDown) are never typing, so they
-    // pass. Deliberately placed AFTER the chord block - a prefix the user already
-    // armed on purpose still resolves - and BEFORE arming, so a bare prefix does
-    // not swallow the first letter of a word.
+    // TYPING BEATS COMMANDING (L8). A printable key with no mod, aimed at an editable surface,
+    // belongs to that surface. Modified combos (mod+k) and non-printables (Escape, ArrowDown) are
+    // never typing, so they pass. AFTER the chord block - a prefix the user armed on purpose
+    // still resolves - and BEFORE arming, so a bare prefix does not swallow the first letter of
+    // a word.
     if (editableTarget(e) && !hasModifier(normalized) && e.key.length === 1) return;
 
-    if (isChordPrefix(normalized)) {
+    if (offer(normalized, e) === "armed") {
       e.preventDefault();
       chord.enterChordMode(normalized);
-      return;
     }
-
-    fire(normalized, e);
   }
 
   return {
-    handleKeydown,
+    handleKeydown(e) {
+      presses++;
+      inPress = true;
+      try {
+        dispatch(e);
+      } finally {
+        inPress = false;
+      }
+    },
     chordCompletions,
     press: () => presses,
+    pressing: () => inPress,
     onDeclined(fn) {
       declinedListeners.add(fn);
       return () => declinedListeners.delete(fn);

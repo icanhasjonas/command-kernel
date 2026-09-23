@@ -13,5 +13,6 @@ export function KeyboardLayer({
   ...options
 }: LayerOptions & { bindings: KeyBindings; children?: ReactNode }) {
   const id = useKeyboardLayer(bindings, options);
-  return <OwnedBy id={id}>{children}</OwnedBy>;
+  // disabled: no layer, so what is inside attaches to the next layer out
+  return id === undefined ? children : <OwnedBy id={id}>{children}</OwnedBy>;
 }

@@ -61,9 +61,9 @@ describe("L15 attachKeyboard is the one listener, in the bubble phase", () => {
     expect(calls).toEqual(["add keydown 0", "remove keydown true"]);
   });
 
-  it("a browser window is a KeySource as it is", () => {
+  it("a browser window is a KeySource as it is (checked by tsc: this line must compile)", () => {
     const source: KeySource = window;
-    expect(typeof source.addEventListener).toBe("function");
+    expect(source).toBe(window);
   });
 });
 
@@ -107,6 +107,79 @@ describe("L3 in React: the tree is the stack, whatever order effects run in", ()
       expect(hits).toEqual(["close popover", "close dialog"]);
     });
   }
+});
+
+describe("L17 in React: a layer keeps its place while its keys and options change", () => {
+  function Screen({
+    on,
+    extra,
+    palette,
+  }: {
+    on: (n: string) => () => void;
+    extra: boolean;
+    palette: boolean;
+  }) {
+    return (
+      <>
+        <KeyboardLayer
+          id="screen"
+          bindings={extra ? { j: on("next"), r: on("reply") } : { j: on("next") }}
+        >
+          <KeyboardLayer id="dialog" bindings={{ Escape: on("dialog") }} modal />
+        </KeyboardLayer>
+        {palette && <KeyboardLayer id="palette" bindings={{ Escape: on("palette") }} modal />}
+      </>
+    );
+  }
+
+  it("the screen's keys change under an open palette, and the palette keeps Escape", () => {
+    const { keyboard, hits, on, app } = rig();
+    const view = render(app(<Screen on={on} extra={false} palette={false} />));
+    view.rerender(app(<Screen on={on} extra={false} palette />));
+    view.rerender(app(<Screen on={on} extra palette />));
+    press("Escape");
+    expect(hits).toEqual(["palette"]);
+    expect(layerIds(keyboard)).toEqual(["palette", "dialog", "screen"]);
+  });
+
+  it("useKeyboardStack shows the new keys", () => {
+    const { on, app } = rig();
+    function Hints() {
+      return (
+        <p>
+          {useKeyboardStack()
+            .reachable.map((r) => r.binding)
+            .join(" ")}
+        </p>
+      );
+    }
+    const tree = (extra: boolean) =>
+      app(
+        <>
+          <KeyboardLayer bindings={extra ? { j: on("j"), r: on("r") } : { j: on("j") }} />
+          <Hints />
+        </>,
+      );
+    const view = render(tree(false));
+    view.rerender(tree(true));
+    expect(view.container.textContent).toBe("j r");
+  });
+
+  it("a disabled layer is not on the stack, and what is inside it attaches to the next one out", () => {
+    const { keyboard, app } = rig();
+    render(
+      app(
+        <KeyboardLayer id="outer" bindings={{}}>
+          <KeyboardLayer id="off" bindings={{}} enabled={false}>
+            <KeyboardLayer id="inner" bindings={{}} />
+          </KeyboardLayer>
+        </KeyboardLayer>,
+      ),
+    );
+    const layers = keyboard.describeStack().layers;
+    expect(layers.map((l) => l.id)).toEqual(["inner", "outer"]);
+    expect(layers[0]?.parent).toBe("outer");
+  });
 });
 
 describe("a layer keeps its place and its keys across renders", () => {

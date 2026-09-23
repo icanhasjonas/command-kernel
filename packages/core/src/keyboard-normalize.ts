@@ -175,13 +175,25 @@ export function normalizeShortcut(parsed: ParsedShortcut): string {
   return parts.join("+");
 }
 
-/** A shortcut in the dispatcher's own dialect, chord steps apart: `G i` -> `g i`. */
+/**
+ * A shortcut in the dispatcher's own dialect, chord steps apart: `G i` -> `g i`. A literal space
+ * (`" "`, as `KeyboardEvent.key` spells it, or `shift+ `) is the Space key, not a separator.
+ */
 export function canonicalBinding(shortcut: string): string {
-  return shortcut
-    .trim()
-    .split(/\s+/)
-    .map((step) => normalizeShortcut(parseShortcut(step)))
-    .join(" ");
+  const spaced = shortcut === " " ? "Space" : shortcut.replace(/\+ $/, "+Space");
+  return spaced.trim().split(/\s+/).map(canonicalStep).join(" ");
+}
+
+/**
+ * One chord step. `parseShortcut` lower-cases the key (its public contract), which loses the only
+ * spelling a named key outside the alias table can match: `Insert`, `PrintScreen`,
+ * `MediaPlayPause` as `KeyboardEvent.key` spells them. So the key is taken as WRITTEN, and
+ * `canonicalKey` folds the ones it knows (`esc`, `ENTER`, `k`).
+ */
+function canonicalStep(step: string): string {
+  const parsed = parseShortcut(step);
+  const written = parsed.key === "+" ? "+" : step.slice(step.length - parsed.key.length);
+  return normalizeShortcut({ ...parsed, key: written });
 }
 
 /** Whether an input method is composing this press (see `KernelKeyEvent.isComposing`). */

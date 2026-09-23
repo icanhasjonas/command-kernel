@@ -2,7 +2,7 @@
  * The layer stack for the keyboard driver (keyboard.ts): the ordered layers of bindings, plus
  * which node each binding runs when it came from a node list. Owns no chord state and does no
  * dispatch - `keyboard-dispatch.ts` reads `layers` (and `nodesFor`) to decide what a keystroke
- * does. The ORDER is the whole contract, and docs/keyboard.md states it as laws L1-L3.
+ * does. The ORDER is the whole contract, and docs/keyboard.md states it as laws L1-L3 and L17.
  */
 
 import { canonicalBinding } from "./keyboard-normalize.js";
@@ -10,6 +10,7 @@ import type {
   KeyBindings,
   KeyLayer,
   KeyLayerOptions,
+  LayerUpdate,
   ShortcutDriverOptions,
 } from "./keyboard-types.js";
 import type { CommandNode } from "./types.js";
@@ -29,9 +30,13 @@ export function crosses(layer: KeyLayer, binding: string): boolean {
 export interface LayerStack {
   /** the live stack, bottom first - re-sorted in place, so this reference stays valid */
   readonly layers: readonly KeyLayer[];
+  /** counts every push, pop and update (L16) */
+  readonly version: number;
   pushLayer(bindings: KeyBindings, options?: KeyLayerOptions): KeyLayer;
   popLayer(layer: KeyLayer): void;
-  /** bind a Map of shortcut strings -> nodes as one base layer */
+  /** new bindings and/or options for a live layer, in place: it keeps its position (L17) */
+  updateLayer(layer: KeyLayer, update: LayerUpdate): void;
+  /** bind a Map of shortcut strings -> nodes as the lowest layer of all */
   registerShortcuts(nodes: Map<string, CommandNode>, options: ShortcutDriverOptions): KeyLayer;
   /** push a layer whose bindings each run a known node (recorded for `chordCompletions`) */
   pushNodeLayer(
@@ -39,20 +44,34 @@ export interface LayerStack {
     options: KeyLayerOptions,
     nodes: Map<string, CommandNode>,
   ): KeyLayer;
+  /** `updateLayer` for a node layer: its bindings and the nodes they run, together */
+  updateNodeLayer(layer: KeyLayer, bindings: KeyBindings, nodes: Map<string, CommandNode>): void;
   /** which node a binding of `layer` runs, or undefined for a plain `pushLayer` */
   nodesFor(layer: KeyLayer): Map<string, CommandNode> | undefined;
+  /** an id no layer on this stack has had: `${prefix}${n}` */
+  freshId(prefix: string): string;
   isBindingRegistered(pattern: string, excludeLayerId?: string): boolean;
   subscribe(fn: () => void): () => void;
 }
 
-/** `bindings` with every key canonical (law L10); the same object when they already were. */
+/**
+ * `bindings` with every key canonical (law L10); the same object when they already were. Two
+ * spellings of one key (`Escape` and `esc`) throw, rather than one of them silently winning.
+ */
 function canonical(bindings: KeyBindings): KeyBindings {
   const keys = Object.keys(bindings);
   if (keys.every((k) => canonicalBinding(k) === k)) return bindings;
   const out: KeyBindings = {};
+  const spelled = new Map<string, string>();
   for (const k of keys) {
     const handler = bindings[k];
-    if (handler) out[canonicalBinding(k)] = handler;
+    const c = canonicalBinding(k);
+    const other = spelled.get(c);
+    if (other !== undefined) {
+      throw new Error(`keyboard: ${c} is bound twice in one layer ("${other}" and "${k}")`);
+    }
+    spelled.set(c, k);
+    if (handler) out[c] = handler;
   }
   return out;
 }
@@ -68,20 +87,22 @@ function comparePaths(a: readonly number[], b: readonly number[]): number {
 
 export function createLayerStack(): LayerStack {
   const layers: KeyLayer[] = [];
-  /**
-   * Which node each binding of a node layer runs. A WeakMap keyed by the layer, so it cannot
-   * outlive a popped layer and there is nothing to clean up in `popLayer`.
-   */
+  /** which node each binding of a node layer runs; a WeakMap, so a popped layer takes it along */
   const layerNodes = new WeakMap<KeyLayer, Map<string, CommandNode>>();
   /** push order: the tie-break between siblings, and the default id */
   const seqOf = new WeakMap<KeyLayer, number>();
+  /** 0 the registered shortcut map, 1 base layers (facts scopes among them), 2 everything else */
+  const tierOf = new WeakMap<KeyLayer, number>();
+  const tier = (l: KeyLayer) => tierOf.get(l) ?? (l.options.base === true ? 1 : 2);
   let seq = 0;
+  let ids = 0;
+  let version = 0;
   const listeners = new Set<() => void>();
 
   /**
-   * Put the stack in law order: base layers first (L2), then each layer by the push order of its
-   * owner chain, root first (L3). Computed from ownership at every change rather than kept by
-   * inserting in the right place, so the order a host happened to push in never matters.
+   * Put the stack in law order: by tier (L2), then each layer by the push order of its owner
+   * chain, root first (L3). Computed from ownership at every change rather than kept by inserting
+   * in the right place, so the order a host happened to push in never matters.
    */
   function order(): void {
     const byId = new Map(layers.map((l) => [l.id, l]));
@@ -93,23 +114,24 @@ export function createLayerStack(): LayerStack {
       return [...pathOf(owner, seen), own];
     };
     const paths = new Map(layers.map((l) => [l, pathOf(l, new Set())]));
-    layers.sort((a, b) => {
-      const tier = Number(a.options.base !== true) - Number(b.options.base !== true);
-      return tier !== 0 ? tier : comparePaths(paths.get(a) ?? [], paths.get(b) ?? []);
-    });
+    layers.sort(
+      (a, b) => tier(a) - tier(b) || comparePaths(paths.get(a) ?? [], paths.get(b) ?? []),
+    );
   }
 
   function changed(): void {
+    version++;
     for (const fn of listeners) fn();
   }
 
   function pushLayer(bindings: KeyBindings, layerOptions: KeyLayerOptions = {}): KeyLayer {
     const n = seq++;
-    const layer: KeyLayer = {
-      id: layerOptions.id ?? `layer-${n}`,
-      bindings: canonical(bindings),
-      options: layerOptions,
-    };
+    const id = layerOptions.id ?? `layer-${n}`;
+    // an id names ONE layer: a child's `parent` must not be able to mean two
+    if (layers.some((l) => l.id === id)) {
+      throw new Error(`keyboard: a layer "${id}" is already on the stack`);
+    }
+    const layer: KeyLayer = { id, bindings: canonical(bindings), options: layerOptions };
     seqOf.set(layer, n);
     layers.push(layer);
     order();
@@ -123,14 +145,31 @@ export function createLayerStack(): LayerStack {
     nodes: Map<string, CommandNode>,
   ): KeyLayer {
     const layer = pushLayer(bindings, layerOptions);
-    layerNodes.set(layer, new Map([...nodes].map(([k, node]) => [canonicalBinding(k), node])));
+    layerNodes.set(layer, canonicalNodes(nodes));
     return layer;
+  }
+
+  function updateLayer(layer: KeyLayer, update: LayerUpdate): void {
+    if (!layers.includes(layer)) return;
+    if (update.bindings) layer.bindings = canonical(update.bindings);
+    if (update.options) layer.options = { ...layer.options, ...update.options, id: layer.id };
+    order();
+    changed();
   }
 
   return {
     layers,
+    get version() {
+      return version;
+    },
     pushLayer,
     pushNodeLayer,
+    updateLayer,
+    updateNodeLayer(layer, bindings, nodes) {
+      if (!layers.includes(layer)) return;
+      layerNodes.set(layer, canonicalNodes(nodes));
+      updateLayer(layer, { bindings });
+    },
     popLayer(layer) {
       const i = layers.indexOf(layer);
       if (i === -1) return;
@@ -144,10 +183,17 @@ export function createLayerStack(): LayerStack {
       for (const [shortcut, node] of nodes) {
         bindings[canonicalBinding(shortcut)] = () => driverOptions.onActivate(node);
       }
-      return pushNodeLayer(bindings, { base: true, id: "kernel-shortcuts" }, nodes);
+      // the lowest tier: a host's flat shortcut map is the fallback under every context scope
+      const layer = pushNodeLayer(bindings, { base: true, id: "kernel-shortcuts" }, nodes);
+      tierOf.set(layer, 0);
+      order();
+      return layer;
     },
     nodesFor(layer) {
       return layerNodes.get(layer);
+    },
+    freshId(prefix) {
+      return `${prefix}${ids++}`;
     },
     isBindingRegistered(pattern, excludeLayerId) {
       // compared in the dispatcher's own dialect, so `cmd+k`, `mod+k` and (off a Mac) `ctrl+k`
@@ -167,4 +213,8 @@ export function createLayerStack(): LayerStack {
       };
     },
   };
+}
+
+function canonicalNodes(nodes: Map<string, CommandNode>): Map<string, CommandNode> {
+  return new Map([...nodes].map(([k, node]) => [canonicalBinding(k), node]));
 }

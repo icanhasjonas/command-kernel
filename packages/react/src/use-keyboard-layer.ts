@@ -1,8 +1,8 @@
-import type { KeyBindings, KeyLayerOptions } from "@command-kernel/core";
+import type { KeyBindings, KeyLayer, KeyLayerOptions } from "@command-kernel/core";
 import { useEffect, useId, useLayoutEffect, useRef } from "react";
 import { useKeyboardContext } from "./keyboard-context.js";
 
-/** How a layer sits on the stack. Its parent is not here: it is the nearest layer above it. */
+/** How a layer sits on the stack. Its parent is not here: it is the nearest layer around it. */
 export interface LayerOptions {
   /** unique among live layers; defaults to one React makes (`useId`) */
   id?: string;
@@ -10,50 +10,98 @@ export interface LayerOptions {
   modal?: boolean;
   /** keys that cross the barrier anyway, in any spelling (law L6) */
   passThrough?: readonly string[];
-  /** off: no layer at all, as if unmounted */
+  /** off: no layer, and the layers inside it attach to the next layer out */
   enabled?: boolean;
 }
 
-/** The core options for `options`, under `parent`. */
-export function layerOptions(id: string, parent: string | undefined, options: LayerOptions) {
-  const out: KeyLayerOptions = { id, modal: options.modal === true };
-  if (parent !== undefined) out.parent = parent;
-  if (options.passThrough?.length) out.passThrough = options.passThrough;
-  return out;
+/** The part of the core options that may change while a layer is up (updated in place, L17). */
+export function liveOptions(options: LayerOptions): Omit<KeyLayerOptions, "id"> {
+  return { modal: options.modal === true, passThrough: options.passThrough ?? [] };
 }
 
 /**
- * Put `bindings` on the stack while this component is mounted, above the nearest layer around
- * it (law L3), and return the layer's id. Pushed once and popped on unmount; a new handler on a
- * re-render is picked up without a re-push, and only a change to the SET of keys re-pushes.
- * A handler returning `false` declines (law L4).
+ * Keep one layer on the stack for as long as the component is mounted and `enabled`: `push`
+ * creates it (under `parent`, law L3), and the layer is popped on unmount. That is the ONLY
+ * push: new bindings and options on a re-render are applied in place (law L17), so a layer never
+ * jumps above one pushed after it. Returns the layer's id, or `undefined` while disabled.
  */
-export function useKeyboardLayer(bindings: KeyBindings, options: LayerOptions = {}): string {
+export function useLayerLifecycle(
+  push: (id: string, parent: string | undefined) => KeyLayer,
+  update: (layer: KeyLayer) => void,
+  options: LayerOptions,
+  prefix: string,
+): string | undefined {
   const { keyboard, parent } = useKeyboardContext();
   const auto = useId();
-  const id = options.id ?? `layer${auto}`;
-  const latest = useRef(bindings);
-  useLayoutEffect(() => {
-    latest.current = bindings;
-  });
-  const keys = Object.keys(bindings).join("\n");
-  const pass = (options.passThrough ?? []).join("\n");
-  const modal = options.modal === true;
+  const id = options.id ?? `${prefix}${auto}`;
   const enabled = options.enabled !== false;
+  const layer = useRef<KeyLayer | null>(null);
+  const latest = useRef({ push, update });
+  useLayoutEffect(() => {
+    latest.current = { push, update };
+  });
 
   useEffect(() => {
     if (!enabled) return;
-    const proxy: KeyBindings = {};
-    for (const k of keys === "" ? [] : keys.split("\n")) {
-      proxy[k] = (e) => {
-        const handler = latest.current[k];
+    const pushed = latest.current.push(id, parent);
+    layer.current = pushed;
+    return () => {
+      layer.current = null;
+      keyboard.popLayer(pushed);
+    };
+  }, [keyboard, id, parent, enabled]);
+
+  // every render: the current keys and options, in place (a no-op when nothing changed shape)
+  useEffect(() => {
+    if (layer.current) latest.current.update(layer.current);
+  });
+
+  return enabled ? id : undefined;
+}
+
+/**
+ * Put `bindings` on the stack while this component is mounted, above the nearest layer around it
+ * (law L3), and return the layer's id. A handler returning `false` declines (law L4).
+ */
+export function useKeyboardLayer(
+  bindings: KeyBindings,
+  options: LayerOptions = {},
+): string | undefined {
+  const { keyboard } = useKeyboardContext();
+  const handlers = useRef(bindings);
+  useLayoutEffect(() => {
+    handlers.current = bindings;
+  });
+  const keys = Object.keys(bindings).sort().join("\n");
+  const pass = (options.passThrough ?? []).join("\n");
+  const shape = useRef("");
+
+  /** stable handlers that call the latest ones, so a new closure never needs an update */
+  const proxy = (): KeyBindings => {
+    const out: KeyBindings = {};
+    for (const k of Object.keys(handlers.current)) {
+      out[k] = (e) => {
+        const handler = handlers.current[k];
         return handler ? handler(e) : false;
       };
     }
-    const passThrough = pass === "" ? [] : pass.split("\n");
-    const layer = keyboard.pushLayer(proxy, layerOptions(id, parent, { modal, passThrough }));
-    return () => keyboard.popLayer(layer);
-  }, [keyboard, id, parent, modal, pass, keys, enabled]);
+    return out;
+  };
 
-  return id;
+  return useLayerLifecycle(
+    (id, parent) => {
+      shape.current = `${keys}|${options.modal === true}|${pass}`;
+      const core: KeyLayerOptions = { id, ...liveOptions(options) };
+      if (parent !== undefined) core.parent = parent;
+      return keyboard.pushLayer(proxy(), core);
+    },
+    (layer) => {
+      const next = `${keys}|${options.modal === true}|${pass}`;
+      if (next === shape.current) return;
+      shape.current = next;
+      keyboard.updateLayer(layer, { bindings: proxy(), options: liveOptions(options) });
+    },
+    options,
+    "layer",
+  );
 }

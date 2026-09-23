@@ -1,8 +1,7 @@
 /** Static shortcut-conflict detection for the keyboard driver (keyboard.ts). */
 
 import { GLOBAL_SCOPE, nodeScopes } from "./availability.js";
-import { normalizeShortcut } from "./keyboard-normalize.js";
-import { parseShortcut } from "./shortcut.js";
+import { canonicalBinding } from "./keyboard-normalize.js";
 import type { CommandNode } from "./types.js";
 
 export interface ShortcutConflict {
@@ -33,11 +32,7 @@ export function validateShortcuts(
   for (const [shortcut, node] of pairs) {
     // the SAME canonical form the dispatcher registers under, so two spellings
     // of one physical chord (mod+k / cmd+k, and ctrl+k off a Mac) collide here
-    const key = shortcut
-      .trim()
-      .split(/\s+/)
-      .map((step) => normalizeShortcut(parseShortcut(step)))
-      .join(" ");
+    const key = canonicalBinding(shortcut);
     for (const scope of nodeScopes(node)) {
       const keys = byScope.get(scope) ?? new Map<string, string[]>();
       keys.set(key, [...(keys.get(key) ?? []), node.id]);
