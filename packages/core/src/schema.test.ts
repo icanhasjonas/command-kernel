@@ -80,4 +80,41 @@ describe("validateArgs - the kernel checks what a driver sends", () => {
     expect(validateArgs(node, { port: "abc" })[0]?.message).toBe("must be numeric");
     expect(validateArgs(node, { port: "8080" })).toEqual([]);
   });
+
+  // gate-mail, 23 Sep: a list declared with maxItems 50 took 500 entries. The schema was
+  // published (toJsonSchema spreads it) but never enforced.
+  it("enforces a list's minItems and maxItems", () => {
+    const node: CommandNode = {
+      id: "mail.send",
+      title: "Send",
+      args: [
+        {
+          id: "to",
+          label: "to",
+          kind: "json",
+          schema: { type: "array", items: { type: "string" }, minItems: 1, maxItems: 2 },
+        },
+      ],
+    };
+    expect(validateArgs(node, { to: ["a@b.io", "c@d.io"] })).toEqual([]);
+    expect(validateArgs(node, { to: ["a", "b", "c"] })[0]?.message).toContain("at most 2");
+    expect(validateArgs(node, { to: [] })[0]?.message).toContain("at least 1");
+  });
+
+  it("enforces a text's maxLength inside a json schema", () => {
+    const node: CommandNode = {
+      id: "x",
+      title: "X",
+      args: [
+        {
+          id: "keys",
+          label: "keys",
+          kind: "json",
+          schema: { type: "array", items: { type: "string", maxLength: 3 } },
+        },
+      ],
+    };
+    expect(validateArgs(node, { keys: ["abc"] })).toEqual([]);
+    expect(validateArgs(node, { keys: ["abcd"] })[0]?.message).toContain("at most 3");
+  });
 });
