@@ -102,7 +102,7 @@ test("a --ck: button runs through the kernel and lands in onResult", async () =>
   expect(results.map((r) => r.result.message)).toEqual(["pong"]);
 });
 
-test("a gated command CANNOT auto-fire from markup — it lands in onGate", async () => {
+test("a gated command CANNOT auto-fire from markup - it lands in onGate", async () => {
   const host = fakeHost();
   const kinds: string[] = [];
   bindInvokers(host, testKernel(), ctx, {
@@ -110,7 +110,7 @@ test("a gated command CANNOT auto-fire from markup — it lands in onGate", asyn
     onGate: (res) => kinds.push(`gate:${res.node.id}`),
   });
   await fired(host, commandAttr([{ id: "reset" }]));
-  expect(kinds).toEqual(["gate:reset"]); // never a result — the gate held
+  expect(kinds).toEqual(["gate:reset"]); // never a result - the gate held
 });
 
 test("a stale / typo'd command id lands in onUnresolved, not in silence", async () => {

@@ -29,7 +29,7 @@ export function usePalette({
   onExecuted,
   onClose,
 }: Hooks) {
-  // shared "latest request wins" cancellation counter — the browse-frame
+  // shared "latest request wins" cancellation counter - the browse-frame
   // re-resolve and the arg-value completion effect both race against it
   const token = useRef(0);
 

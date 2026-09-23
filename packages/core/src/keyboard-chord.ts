@@ -1,7 +1,7 @@
 /**
  * Chord-mode state for the keyboard driver (keyboard.ts): the armed prefix, its
  * expiry timer, and the listeners a host uses to draw "you pressed `g`, what's
- * next?" hints. Owns no layers and does no dispatch — `keyboard-dispatch.ts`
+ * next?" hints. Owns no layers and does no dispatch - `keyboard-dispatch.ts`
  * reads `chordPrefix` (and calls `enterChordMode`/`exitChordMode`) to decide
  * what a keystroke does.
  */

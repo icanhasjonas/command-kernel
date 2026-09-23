@@ -10,20 +10,20 @@ import {
  *
  * The lingua franca for an LLM tool surface is MCP: a tool is
  * `{ name, description, inputSchema }` where `inputSchema` is a flat JSON Schema.
- * We derive exactly that from a `CommandNode` — `name` is the stable id, the
+ * We derive exactly that from a `CommandNode` - `name` is the stable id, the
  * description is the agent-facing `summary`, and `inputSchema` is the SAME arg
  * schema the palette renders as chips. Hand these to any LLM / tool-calling SDK,
  * or wrap them in an MCP server; map the chosen tool's `name` back to a command
- * (it IS the node id) and run it through `kernel.command(...)` — same gate.
+ * (it IS the node id) and run it through `kernel.command(...)` - same gate.
  *
  * Projection is intentionally FLAT (no deep async walk of the tree): you pass the
- * node set you want to expose — e.g. `kernel.roots(ctx).filter((n) => n.run)`, or
+ * node set you want to expose - e.g. `kernel.roots(ctx).filter((n) => n.run)`, or
  * a curated list. A "search" branch isn't enumerated; you expose the search
  * command itself as a tool that takes the query arg.
  */
 
 export interface McpTool {
-  /** stable, dot-namespaced — equals the CommandNode id */
+  /** stable, dot-namespaced - equals the CommandNode id */
   name: string;
   /** what the tool does, for the model to read */
   description: string;

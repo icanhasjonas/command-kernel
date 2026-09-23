@@ -13,7 +13,7 @@ export interface ShortcutConflict {
  * Report shortcuts bound to more than one node, normalized so `mod+k` and
  * `cmd+k` (and, off a Mac, `ctrl+k`) count as the SAME binding.
  *
- * Pass a node LIST — a `Map` keyed by shortcut string has already collapsed the
+ * Pass a node LIST - a `Map` keyed by shortcut string has already collapsed the
  * duplicates this function exists to find, so it can only ever report conflicts
  * between different spellings of one key. `kernel.shortcutConflicts(ctx)` passes
  * the list for you.

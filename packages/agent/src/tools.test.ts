@@ -24,7 +24,7 @@ const adminTool: CommandNode = {
   run: async () => ({ kind: "toast", message: "x" }),
 };
 
-describe("toMcpTool — MCP-shaped tool definition", () => {
+describe("toMcpTool - MCP-shaped tool definition", () => {
   it("maps a node to { name, description, inputSchema }", () => {
     expect(toMcpTool(send)).toEqual({
       name: "email.send",

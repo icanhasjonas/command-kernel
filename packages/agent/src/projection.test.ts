@@ -41,7 +41,7 @@ const personType: EntityType = {
 const kernel = createKernel({ roots: [usersCategory, ping], entities: [personType] });
 const projection = createProjection(kernel, { promote: [ping] });
 
-describe("projection — the generic tool surface", () => {
+describe("projection - the generic tool surface", () => {
   it("advertises the 4 generic tools + promoted named tools", () => {
     const names = projection.tools.map((t) => t.name);
     expect(names).toContain("search");
@@ -62,7 +62,7 @@ describe("projection — the generic tool surface", () => {
     expect(r.kind === "completions" && r.items.some((d) => d.id === "users.send_reset")).toBe(true);
   });
 
-  it("execute on a gated command returns a gate — the model cannot self-approve", async () => {
+  it("execute on a gated command returns a gate - the model cannot self-approve", async () => {
     const r = await projection.call(
       "execute",
       { path: "users/users.send_reset", args: { user: "jon@wall.north" } },

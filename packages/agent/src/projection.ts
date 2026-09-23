@@ -13,22 +13,22 @@ import { parseDeeplink } from "@command-kernel/core";
 import { type McpTool, toMcpTool } from "./tools.js";
 
 /**
- * The PROJECTION — the kernel as a small, generic tool surface.
+ * The PROJECTION - the kernel as a small, generic tool surface.
  *
  * Instead of one tool per command, expose four generic tools that let an agent
  * walk the SAME tree a human does, plus optional promoted named tools for the
- * high-traffic commands (the hybrid the research doc recommends — a purely
+ * high-traffic commands (the hybrid the research doc recommends - a purely
  * generic navigator tends to make a model worse at tool-calling than named
  * tools). This is model- and protocol-agnostic: an MCP server, a raw LLM loop,
  * or a test harness all consume it via `tools` + `call`.
  *
- *   search   — rank/find commands at a level   -> completions
- *   resolve  — list a node's children (drill)  -> completions
- *   execute  — run the tip                     -> result | gate | needs-args
- *   discover — search a typed entity catalog   -> entities
+ *   search - rank/find commands at a level   -> completions
+ *   resolve - list a node's children (drill)  -> completions
+ *   execute - run the tip                     -> result | gate | needs-args
+ *   discover - search a typed entity catalog   -> entities
  *
  * THE TRUST LINE: `execute` returns `gate` when human approval is owed. It never
- * mints a grant — the model cannot self-approve. A bridge surfaces the gate to
+ * mints a grant - the model cannot self-approve. A bridge surfaces the gate to
  * its human operator and re-issues approval out of band (never as a model tool).
  */
 
@@ -90,7 +90,7 @@ const GENERIC_TOOLS: McpTool[] = [
   {
     name: "execute",
     description:
-      "Run a command. Returns its result, OR a gate (a human must approve — you cannot self-approve), OR needs-args (missing/invalid arguments).",
+      "Run a command. Returns its result, OR a gate (a human must approve - you cannot self-approve), OR needs-args (missing/invalid arguments).",
     inputSchema: {
       type: "object",
       additionalProperties: false,

@@ -8,7 +8,7 @@
  *   const kb = createKeyboard();
  *   window.addEventListener("keydown", kb.handleKeydown, { capture: true });
  *
- * Core never touches window/document/KeyboardEvent — events arrive as the
+ * Core never touches window/document/KeyboardEvent - events arrive as the
  * structural `KernelKeyEvent`, which any real browser event satisfies. State
  * is INSTANCE-scoped (like every other seam): two kernels on one page get two
  * independent layer stacks, never shared chord state.

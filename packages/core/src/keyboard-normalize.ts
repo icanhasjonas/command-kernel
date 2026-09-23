@@ -2,14 +2,14 @@
  * Key normalization for the keyboard driver (keyboard.ts): the structural event
  * shape, the "is this keystroke being typed?" guard, and canonicalizing a
  * keydown (or a parsed shortcut string) to one comparable form. Pure and
- * module-level — no layer stack, no chord state.
+ * module-level - no layer stack, no chord state.
  */
 
 import { isMac, type KeyEventLike, type ParsedShortcut } from "./shortcut.js";
 
 // ── Key normalization (pure, module-level) ──────────────────────────────────
 
-/** A key event the dispatcher can consume AND cancel — a browser keydown fits. */
+/** A key event the dispatcher can consume AND cancel - a browser keydown fits. */
 export interface KernelKeyEvent extends KeyEventLike {
   /**
    * Whatever the host's event system calls the focused thing. `unknown` rather
@@ -23,14 +23,14 @@ export interface KernelKeyEvent extends KeyEventLike {
   stopPropagation(): void;
 }
 
-/** modifier keys that never make a binding on their own — `keyboard-dispatch.ts` short-circuits on these */
+/** modifier keys that never make a binding on their own - `keyboard-dispatch.ts` short-circuits on these */
 export const IGNORE = new Set(["Control", "Meta", "Alt", "Shift"]);
 
 /** Tags that consume a printable keystroke as text rather than as a command. */
 const EDITABLE_TAGS = new Set(["INPUT", "TEXTAREA", "SELECT"]);
 
 /**
- * ARIA roles whose widget owns the printable keys itself — a listbox does its own typeahead, a menu
+ * ARIA roles whose widget owns the printable keys itself - a listbox does its own typeahead, a menu
  * jumps to the item you spelled, a textbox is a textbox however it was built.
  *
  * THE TAG CHECK ABOVE IS NOT ENOUGH and every headless UI library is why. Base UI, Radix and
@@ -59,7 +59,7 @@ const WIDGET_ROLES = new Set([
   "treeitem",
 ]);
 
-/** `[role=combobox], [role=grid], ...` — built once, for the `closest` probe. */
+/** `[role=combobox], [role=grid], ...` - built once, for the `closest` probe. */
 const WIDGET_SELECTOR = [...WIDGET_ROLES].map((r) => `[role="${r}"]`).join(",");
 
 /** What the guard duck-types its way through. Every member is optional and probed before use. */
@@ -82,7 +82,7 @@ function roleOf(el: TargetLike): string | null {
 }
 
 /**
- * The default answer to "is this keystroke being TYPED?" — a structural sniff at
+ * The default answer to "is this keystroke being TYPED?" - a structural sniff at
  * the event target, so core still imports no DOM lib. A host with a different
  * event system (a terminal, React Native, a canvas) replaces it wholesale via
  * `createKeyboard({ isEditableTarget })`.
@@ -139,7 +139,7 @@ export function normalizeEvent(e: KeyEventLike): string {
 
 /**
  * Normalize a parsed shortcut string to the same canonical form
- * `normalizeEvent` yields for the matching keydown — the pure counterpart, so
+ * `normalizeEvent` yields for the matching keydown - the pure counterpart, so
  * registering a shortcut never has to construct a DOM event.
  */
 export function normalizeShortcut(parsed: ParsedShortcut): string {

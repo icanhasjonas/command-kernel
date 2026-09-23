@@ -11,11 +11,11 @@ import type { ReactNode } from "react";
  *
  * Entries that interpolate a value are functions, so a translator controls word
  * order rather than gluing fragments. The two that need markup return a
- * `ReactNode` — override them and you own the styling too.
+ * `ReactNode` - override them and you own the styling too.
  */
 export interface PaletteLabels {
   // ── the browse frame ──────────────────────────────────────────────────────
-  /** breadcrumb for the root frame — the closest thing to an app name */
+  /** breadcrumb for the root frame - the closest thing to an app name */
   root: string;
   /** search input placeholder */
   placeholder: string;
@@ -90,11 +90,11 @@ export const defaultLabels: PaletteLabels = {
   startTyping: "start typing to search…",
 
   gateBlocked: "You can't run this here",
-  gateConfirm: "This command is gated — confirm to continue",
+  gateConfirm: "This command is gated - confirm to continue",
   check: (label) => `requires ${label}`,
   yourRole: (role) => `you: ${role}`,
   needsConfirm: "requires explicit confirm",
-  blockedHint: "back — escalate to an admin to proceed",
+  blockedHint: "back - escalate to an admin to proceed",
   confirmRun: "Confirm & run",
 
   hintSelect: "select",

@@ -1,4 +1,4 @@
-// happy-dom must be installed BEFORE @testing-library/react evaluates — this
+// happy-dom must be installed BEFORE @testing-library/react evaluates - this
 // side-effecting import (first, before RTL) guarantees it. See dom-setup.ts.
 import "./dom-setup.js";
 import { afterAll, afterEach, describe, expect, it } from "bun:test";
@@ -16,13 +16,13 @@ const tick = () => new Promise((r) => setTimeout(r, 0));
 
 // Unmount portals AND drain the async focus-restoration Radix schedules on
 // unmount: those deferred timers would otherwise fire in a later (core) test
-// file — after unregisterDom() nulled the happy-dom window — and crash. Draining
+// file - after unregisterDom() nulled the happy-dom window - and crash. Draining
 // here, while the DOM is still live, keeps every side effect inside this file.
 afterEach(async () => {
   cleanup();
   await new Promise((r) => setTimeout(r, 40));
 });
-afterAll(() => unregisterDom()); // restore native globals — never leak DOM into core tests
+afterAll(() => unregisterDom()); // restore native globals - never leak DOM into core tests
 
 const ctx = (role: Ctx["user"]["role"] = "admin"): Ctx => ({
   location: { module: "home" },
@@ -32,7 +32,7 @@ const ctx = (role: Ctx["user"]["role"] = "admin"): Ctx => ({
 });
 
 // A real command tree: a navigable node, a plain runner, a two-required-arg
-// runner, a confirm-gated runner, and a role-gated runner. No mocks — every
+// runner, a confirm-gated runner, and a role-gated runner. No mocks - every
 // test drives this through a real createKernel instance.
 const buildRoots = (): CommandNode[] => [
   {
@@ -76,7 +76,7 @@ function mountHook(role: Ctx["user"]["role"] = "admin", rootsOverride?: CommandN
   const executed: string[] = [];
   const roots = rootsOverride ?? buildRoots();
   const kernel = createKernel({ roots });
-  // STABLE identities across renders — a fresh ctx object each render would
+  // STABLE identities across renders - a fresh ctx object each render would
   // retrigger usePalette's ctx-dependent effects and loop forever.
   const ctxObj = ctx(role);
   const hooks = {
@@ -94,7 +94,7 @@ function mountHook(role: Ctx["user"]["role"] = "admin", rootsOverride?: CommandN
   return { view, results, executed, nodeById };
 }
 
-describe("usePalette — browse + drill", () => {
+describe("usePalette - browse + drill", () => {
   it("lists every root as a completion on open", () => {
     const { view } = mountHook();
     expect(view.result.current.mode).toBe("browse");
@@ -139,7 +139,7 @@ describe("usePalette — browse + drill", () => {
   });
 });
 
-describe("usePalette — the arg collection flow", () => {
+describe("usePalette - the arg collection flow", () => {
   it("a missing required arg surfaces the args state instead of running", () => {
     const { view, nodeById, results } = mountHook();
     const note = nodeById("create.note");
@@ -147,7 +147,7 @@ describe("usePalette — the arg collection flow", () => {
     expect(view.result.current.mode).toBe("args");
     expect(view.result.current.arg?.node.id).toBe("create.note");
     expect(view.result.current.arg?.activeArg).toBe("title");
-    // 0 of 2 collected — both required args still missing, nothing has run
+    // 0 of 2 collected - both required args still missing, nothing has run
     expect(missingArgs(note, view.result.current.arg?.values ?? {})).toEqual(["title", "body"]);
     expect(results).toHaveLength(0);
   });
@@ -170,8 +170,8 @@ describe("usePalette — the arg collection flow", () => {
   });
 });
 
-describe("usePalette — the gate + evidence flow", () => {
-  it("a confirm-gated command does NOT run — it surfaces the confirm state", async () => {
+describe("usePalette - the gate + evidence flow", () => {
+  it("a confirm-gated command does NOT run - it surfaces the confirm state", async () => {
     const { view, nodeById, results, executed } = mountHook();
     await act(async () => {
       view.result.current.activate(nodeById("delete.account"), false);
@@ -211,9 +211,9 @@ describe("usePalette — the gate + evidence flow", () => {
 });
 
 // regression coverage ahead of the usePalette split into usePaletteFrames /
-// usePaletteArgs / usePaletteGate: these paths had no test at all before —
+// usePaletteArgs / usePaletteGate: these paths had no test at all before -
 // each is proven green here BEFORE the move, and re-checked green after.
-describe("usePalette — selection movement", () => {
+describe("usePalette - selection movement", () => {
   it("move() wraps forward and backward across the ranked list, and no-ops at zero length", () => {
     const { view } = mountHook();
     expect(view.result.current.selected).toBe(0);
@@ -226,7 +226,7 @@ describe("usePalette — selection movement", () => {
   });
 });
 
-describe("usePalette — a `multiple` arg accumulates until finishArg", () => {
+describe("usePalette - a `multiple` arg accumulates until finishArg", () => {
   const tagRoots: CommandNode[] = [
     {
       id: "tag.item",
@@ -245,7 +245,7 @@ describe("usePalette — a `multiple` arg accumulates until finishArg", () => {
     expect(view.result.current.arg?.activeArg).toBe("tags");
 
     act(() => view.result.current.commitArg("red"));
-    expect(view.result.current.mode).toBe("args"); // stayed put — multiple accumulates
+    expect(view.result.current.mode).toBe("args"); // stayed put - multiple accumulates
     expect(view.result.current.arg?.activeArg).toBe("tags");
     expect(view.result.current.arg?.values.tags).toEqual(["red"]);
 
@@ -262,7 +262,7 @@ describe("usePalette — a `multiple` arg accumulates until finishArg", () => {
   });
 });
 
-describe("usePalette — confirmAlways records a standing rule", () => {
+describe("usePalette - confirmAlways records a standing rule", () => {
   it("runs once, then auto-satisfies the same gate next time without asking again", async () => {
     const { view, nodeById, results, executed } = mountHook();
     await act(async () => {
@@ -278,7 +278,7 @@ describe("usePalette — confirmAlways records a standing rule", () => {
     expect(results.map((r) => r.message)).toEqual(["deleted"]);
     expect(executed).toEqual(["delete.account"]);
 
-    // second attempt: activate() alone runs it — the standing rule auto-satisfies
+    // second attempt: activate() alone runs it - the standing rule auto-satisfies
     // the gate, so it completes without a second confirmProceed/confirmAlways call
     await act(async () => {
       view.result.current.activate(nodeById("delete.account"), false);
@@ -289,7 +289,7 @@ describe("usePalette — confirmAlways records a standing rule", () => {
   });
 });
 
-describe("usePalette — arg value completion from enumValues", () => {
+describe("usePalette - arg value completion from enumValues", () => {
   const colorRoots: CommandNode[] = [
     {
       id: "paint.wall",
@@ -332,7 +332,7 @@ describe("usePalette — arg value completion from enumValues", () => {
   });
 });
 
-describe("CommandPalette — mounted smoke", () => {
+describe("CommandPalette - mounted smoke", () => {
   it("renders open with the kernel's completions and a search input", () => {
     const roots = buildRoots();
     const kernel = createKernel({ roots });
@@ -347,7 +347,7 @@ describe("CommandPalette — mounted smoke", () => {
         onExecuted={() => {}}
       />,
     );
-    // Radix portals into document.body — assert against the whole document
+    // Radix portals into document.body - assert against the whole document
     const body = document.body.textContent ?? "";
     expect(body).toContain("Users");
     expect(body).toContain("Settings");
@@ -381,7 +381,7 @@ describe("CommandPalette — mounted smoke", () => {
   });
 });
 
-describe("CommandPalette — labels are the consumer's, not the package's", () => {
+describe("CommandPalette - labels are the consumer's, not the package's", () => {
   const mount = (labels?: Parameters<typeof CommandPalette>[0]["labels"]) => {
     const roots = buildRoots();
     const kernel = createKernel({ roots });
@@ -402,7 +402,7 @@ describe("CommandPalette — labels are the consumer's, not the package's", () =
 
   // regression: the published palette used to hardcode the playground's app name
   // and its entity nouns. A consumer's users must never see them.
-  it("ships neutral defaults — no demo copy anywhere in the rendered palette", () => {
+  it("ships neutral defaults - no demo copy anywhere in the rendered palette", () => {
     const body = mount();
     for (const leak of ["Backoffice", "users, forms, submissions", "Everything lives here now"]) {
       expect(body.textContent ?? "").not.toContain(leak);

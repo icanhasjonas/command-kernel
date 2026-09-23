@@ -8,7 +8,7 @@ import type {
 import { parseDeeplink, serializePath } from "@command-kernel/core";
 
 /**
- * DRIVER #5 — the DOM invoker. The native HTML Invoker Commands API
+ * DRIVER #5 - the DOM invoker. The native HTML Invoker Commands API
  * (`<button command="..." commandfor="...">`, Baseline 2026) turned into a
  * command-kernel driver.
  *
@@ -18,7 +18,7 @@ import { parseDeeplink, serializePath } from "@command-kernel/core";
  * route it through the SAME `kernel.command()` + gate as the palette, the agent,
  * and the deeplink driver. HTML markup becomes a command surface.
  *
- * THE CAVEAT, made honest: a `CommandEvent` carries NO arg payload — only the
+ * THE CAVEAT, made honest: a `CommandEvent` carries NO arg payload - only the
  * command string and the source button. So we encode the whole addressed path IN
  * the command string by REUSING the deeplink serializer (the keystone). The value
  * `--ck:cmd/users.send_reset?user=jon@wall.north` is just `INVOKER_PREFIX` + a
@@ -27,7 +27,7 @@ import { parseDeeplink, serializePath } from "@command-kernel/core";
  *
  * THE SECURITY PROPERTY falls out for free: the markup carries args but never a
  * grant (the signing key never leaves the kernel). A `<button>` into a gated
- * command can't auto-fire — `kernel.command(...)` returns a `gate` and the driver
+ * command can't auto-fire - `kernel.command(...)` returns a `gate` and the driver
  * routes the human to approval, exactly like a gated deeplink.
  */
 
@@ -48,7 +48,7 @@ export function commandAttr(path: PathSegment[], opts?: DeeplinkOptions): string
 /**
  * Decode a `command` attribute value back into a kernel path, or `null` when the
  * value is not one of ours (a built-in like `show-modal`, or another app's
- * custom command — leave those to the browser / other handlers).
+ * custom command - leave those to the browser / other handlers).
  */
 export function parseInvoker(command: string, opts?: DeeplinkOptions): PathSegment[] | null {
   if (!command.startsWith(INVOKER_PREFIX)) return null;
@@ -68,21 +68,21 @@ interface CommandEventLike {
   preventDefault(): void;
 }
 
-/** What `bindInvokers` does with the kernel's response — one branch per kind. */
+/** What `bindInvokers` does with the kernel's response - one branch per kind. */
 export interface InvokerHandlers {
   /** a successful run (the common case) */
   onResult?: (res: Extract<CommandResponse, { kind: "result" }>, source: Element | null) => void;
-  /** the command is gated and not yet granted — route the human to approval */
+  /** the command is gated and not yet granted - route the human to approval */
   onGate?: (res: Extract<CommandResponse, { kind: "gate" }>, source: Element | null) => void;
-  /** required args are missing / invalid — the markup under-specified the path */
+  /** required args are missing / invalid - the markup under-specified the path */
   onArgs?: (res: Extract<CommandResponse, { kind: "args" }>, source: Element | null) => void;
-  /** an entity arg matched many candidates — ask which one */
+  /** an entity arg matched many candidates - ask which one */
   onDisambiguate?: (
     res: Extract<CommandResponse, { kind: "disambiguate" }>,
     source: Element | null,
   ) => void;
   /**
-   * The path addressed no executable command (a typo'd or since-renamed id) —
+   * The path addressed no executable command (a typo'd or since-renamed id) -
    * the kernel answered with completions instead of running anything. Without
    * this handler, stale markup would fail silently; surface it.
    */
@@ -94,7 +94,7 @@ export interface InvokerHandlers {
   onError?: (error: unknown, path: PathSegment[], source: Element | null) => void;
 }
 
-/** Minimal host surface — anything that can add/remove a `command` listener. */
+/** Minimal host surface - anything that can add/remove a `command` listener. */
 interface InvokerHost {
   addEventListener(type: "command", listener: (e: CommandEventLike) => void): void;
   removeEventListener(type: "command", listener: (e: CommandEventLike) => void): void;
@@ -123,7 +123,7 @@ export function bindInvokers(
 ): () => void {
   const listener = (e: CommandEventLike): void => {
     const path = parseInvoker(e.command, opts);
-    if (!path) return; // not ours — a built-in or another app's command
+    if (!path) return; // not ours - a built-in or another app's command
     e.preventDefault();
     const source = e.source;
     void kernel.command({ path, execute: true }, getCtx()).then(
@@ -149,7 +149,7 @@ export function bindInvokers(
         }
       },
       (error: unknown) => {
-        if (!handlers.onError) throw error; // surface it — never swallow silently
+        if (!handlers.onError) throw error; // surface it - never swallow silently
         handlers.onError(error, path, source);
       },
     );

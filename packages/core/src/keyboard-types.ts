@@ -35,7 +35,7 @@ export interface KeyboardOptions {
   isEditableTarget?: (e: KernelKeyEvent) => boolean;
 }
 
-/** One independent keyboard state machine — layers + chord state, no DOM. */
+/** One independent keyboard state machine - layers + chord state, no DOM. */
 export interface Keyboard {
   /** the host's keydown entrypoint; bound, so it can be passed as a listener */
   handleKeydown: (e: KernelKeyEvent) => void;
@@ -49,7 +49,7 @@ export interface Keyboard {
   setChordTimeout(ms: number): void;
   /**
    * Mute the whole stack. GLOBAL rather than per-layer because the caller that
-   * needs it most — a key RECORDER capturing the chord a user is about to bind —
+   * needs it most - a key RECORDER capturing the chord a user is about to bind -
    * cannot know which layer owns the key it is about to swallow.
    */
   setSuspended(value: boolean): void;

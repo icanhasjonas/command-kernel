@@ -59,7 +59,7 @@ export function usePaletteGate({
         ...(grant !== undefined && { grant }),
         priorKey: ancestorKey(),
       });
-      // the kernel refused on completeness, not permission — collect the args
+      // the kernel refused on completeness, not permission - collect the args
       // instead of showing the human a lock they can do nothing about
       if (outcome.missing.length > 0) {
         setMode("args");
@@ -83,7 +83,7 @@ export function usePaletteGate({
     [ctx, finish, ancestorKey, kernel, setMode, setArg, setArgQuery, setSelected],
   );
 
-  // human clicked Confirm — mint a grant bound to this exact command+args+path
+  // human clicked Confirm - mint a grant bound to this exact command+args+path
   const confirmProceed = useCallback(() => {
     if (!confirm) return;
     // the kernel's one mint: canonical args, this path, and this principal
@@ -97,7 +97,7 @@ export function usePaletteGate({
     void proceedGate(confirm.node, confirm.values, grant);
   }, [confirm, ancestorKey, proceedGate, kernel, ctx]);
 
-  // human clicked Always allow — record the standing rule, then run (no grant;
+  // human clicked Always allow - record the standing rule, then run (no grant;
   // the policy now auto-satisfies the gate and won't ask again this session)
   const confirmAlways = useCallback(() => {
     if (!confirm) return;
@@ -108,7 +108,7 @@ export function usePaletteGate({
   const beginExecute = useCallback(
     (node: CommandNode) => {
       const values = node.prefill ? node.prefill(ctx) : {};
-      // ANY missing required arg is collected, positional included — the kernel
+      // ANY missing required arg is collected, positional included - the kernel
       // refuses to run without them, so skipping the prompt just dead-ends.
       const missing = missingArgs(node, values);
       if (missing.length > 0) {

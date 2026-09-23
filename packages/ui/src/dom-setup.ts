@@ -22,7 +22,7 @@ const IGNORE = new Set(["undefined", "NaN", "Infinity", "global", "globalThis"])
 const SELF_REFERRING = new Set(["self", "top", "parent", "window"]);
 // happy-dom's Window re-exposes every JS built-in (Object, Array, fetch, URL…)
 // as an own property. We keep the native runtime's versions for anything that
-// already exists — EXCEPT these event types, where happy-dom MUST win so that a
+// already exists - EXCEPT these event types, where happy-dom MUST win so that a
 // `new Event()` from Testing Library is an instance the happy-dom document
 // accepts on dispatch.
 const DOM_OVERRIDE = new Set([
@@ -41,7 +41,7 @@ type Saved = Record<string, PropertyDescriptor | null>;
 let saved: Saved | null = null;
 
 export function registerDom(): void {
-  if (saved !== null) return; // idempotent — one DOM per process is plenty
+  if (saved !== null) return; // idempotent - one DOM per process is plenty
   const win = new Window({ url: "https://localhost/" });
   saved = {};
 
@@ -77,7 +77,7 @@ export function registerDom(): void {
         ...(isPlainFn ? { value: value.bind(globalThis) } : {}),
       });
     } catch {
-      // some host globals are locked down — best effort, skip them
+      // some host globals are locked down - best effort, skip them
       delete saved[key];
     }
   }

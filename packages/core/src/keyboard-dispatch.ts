@@ -109,8 +109,8 @@ export function createDispatch({
     // surface, belongs to that surface: without this, a bare `n` bound to "New
     // task" fires on every n somebody types into a title field. Modified combos
     // (mod+k) and non-printables (Escape, ArrowDown) are never typing, so they
-    // pass. Deliberately placed AFTER the chord block — a prefix the user already
-    // armed on purpose still resolves — and BEFORE arming, so a bare prefix does
+    // pass. Deliberately placed AFTER the chord block - a prefix the user already
+    // armed on purpose still resolves - and BEFORE arming, so a bare prefix does
     // not swallow the first letter of a word.
     if (editableTarget(e) && !hasModifier(normalized) && e.key.length === 1) return;
 

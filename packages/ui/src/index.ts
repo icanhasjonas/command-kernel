@@ -1,9 +1,9 @@
 /**
- * @command-kernel/ui — driver #1, the human command palette.
+ * @command-kernel/ui - driver #1, the human command palette.
  *
  * A React renderer over @command-kernel/core. It owns NO permission logic: every
  * execution flows through the kernel's `command()` + gate, exactly like the
- * agent driver. Swap or restyle this freely — it is just one driver.
+ * agent driver. Swap or restyle this freely - it is just one driver.
  */
 
 // side-effect import: augments React's ButtonHTMLAttributes with the native
@@ -14,7 +14,7 @@ export { CommandLauncher } from "./CommandLauncher.js";
 export { CommandPalette } from "./CommandPalette.js";
 export { cn } from "./cn.js";
 export { Icon } from "./icon.js";
-// DRIVER #5 — the native DOM invoker (`<button command>` / `commandfor`)
+// DRIVER #5 - the native DOM invoker (`<button command>` / `commandfor`)
 export {
   type BindInvokersOptions,
   bindInvokers,
@@ -26,7 +26,7 @@ export {
 } from "./invokers.js";
 export { Kbd } from "./Kbd.js";
 export { KernelInvoker, type KernelInvokerProps } from "./KernelInvoker.js";
-// every word the palette says — override any subset via <CommandPalette labels>
+// every word the palette says - override any subset via <CommandPalette labels>
 export {
   defaultLabels,
   type PaletteLabelOverrides,

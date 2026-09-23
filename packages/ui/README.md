@@ -1,6 +1,6 @@
 # @command-kernel/ui
 
-Driver #1 for [`@command-kernel/core`](../core): a React command palette — fuzzy
+Driver #1 for [`@command-kernel/core`](../core): a React command palette - fuzzy
 search, drill-in navigation, named-arg pills, chords, and the gate confirm panel.
 Plus driver #5: the native DOM invoker, `<button command="--ck:…">` markup routed
 through the same kernel. It owns NO permission logic; every execution flows
@@ -13,7 +13,7 @@ bun add @command-kernel/core @command-kernel/ui react react-dom
 ## Usage
 
 Create ONE kernel and hand it to the palette (the same instance your other
-drivers share — that sharing is the security invariant):
+drivers share - that sharing is the security invariant):
 
 ```tsx
 import { createKernel } from "@command-kernel/core";
@@ -59,7 +59,7 @@ English; override any subset and the rest stays put:
 ```
 
 Every string the palette can render lives in one `PaletteLabels` object
-(`labels.tsx`) — the browse frame, the arg pills, the gate panel, and the footer
+(`labels.tsx`) - the browse frame, the arg pills, the gate panel, and the footer
 hints. Entries that interpolate a value are **functions**, so a translator
 controls word order instead of gluing fragments; `freeTextOption` and `chordHint`
 return a `ReactNode`, so overriding them gives you the markup too.
@@ -71,7 +71,7 @@ Two other presentation props:
 
 | Prop | Default | What |
 |---|---|---|
-| `showWeight` | `false` | render each node's authoring `weight` in its row — an authoring diagnostic, off in product |
+| `showWeight` | `false` | render each node's authoring `weight` in its row - an authoring diagnostic, off in product |
 | `CommandLauncher`'s `label` / `hint` | `"Open the command palette"` / `""` | the trigger button's accessible name and its hover copy |
 
 ## The DOM invoker (driver #5)

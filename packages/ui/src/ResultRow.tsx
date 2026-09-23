@@ -17,7 +17,7 @@ export function ResultRow({
   item: Ranked;
   active: boolean;
   modHeld: boolean;
-  /** authoring diagnostic — off by default; a consumer's users don't want it */
+  /** authoring diagnostic - off by default; a consumer's users don't want it */
   showWeight?: boolean;
   onActivate: (exec: boolean) => void;
   onHover: () => void;

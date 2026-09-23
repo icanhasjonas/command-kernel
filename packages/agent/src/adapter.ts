@@ -1,13 +1,13 @@
 import type { ArgValues, CommandNode } from "@command-kernel/core";
 
 /**
- * The agent adapter — the headless projection of the kernel as a TOOL SURFACE.
+ * The agent adapter - the headless projection of the kernel as a TOOL SURFACE.
  *
  * It does a toy "which tool, what args" pick over a caller-supplied list of
  * command nodes. A real adapter would hand those same nodes to an LLM as tool
  * schemas (title + summary + arg schema) and let the model choose; the point
  * proven here is that whatever it picks still executes through the IDENTICAL
- * kernel + gate as the human palette — no second code path, no second gate.
+ * kernel + gate as the human palette - no second code path, no second gate.
  *
  * The tool list is a PARAMETER. This package knows nothing about any specific
  * app's commands; the demo's tool set lives in the example, not here. That is

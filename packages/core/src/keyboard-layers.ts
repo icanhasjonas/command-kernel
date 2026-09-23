@@ -1,7 +1,7 @@
 /**
  * The layer stack for the keyboard driver (keyboard.ts): LIFO layers of
  * bindings, plus which node each `registerShortcuts` binding runs. Owns no
- * chord state and does no dispatch — `keyboard-dispatch.ts` reads `layers`
+ * chord state and does no dispatch - `keyboard-dispatch.ts` reads `layers`
  * (and `nodesFor`) to decide what a keystroke does.
  */
 
@@ -16,7 +16,7 @@ import { parseShortcut } from "./shortcut.js";
 import type { CommandNode } from "./types.js";
 
 export interface LayerStack {
-  /** the live stack, base layers first — mutated in place, so this reference stays valid */
+  /** the live stack, base layers first - mutated in place, so this reference stays valid */
   readonly layers: readonly KeyLayer[];
   pushLayer(bindings: KeyBindings, options?: KeyLayerOptions): KeyLayer;
   popLayer(layer: KeyLayer): void;
