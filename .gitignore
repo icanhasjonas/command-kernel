@@ -8,3 +8,5 @@ dist
 .wrangler
 .DS_Store
 .bundle-entry-*.tsx
+# local agent tooling and worktrees; biome reads only this file, not a global gitignore
+.claude
