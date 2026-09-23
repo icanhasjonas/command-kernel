@@ -66,10 +66,13 @@ export interface ScopeBindingOptions {
   onDisabled?: (node: CommandNode, reason: string, ctx: Ctx) => void;
 }
 
-/** What `updateLayer` can change on a live layer. Not its id: that is who it is. */
+/**
+ * What `updateLayer` can change on a live layer. Not its id: that is who it is. An option set to
+ * `undefined` is cleared (`{ parent: undefined }`: the layer no longer has an owner).
+ */
 export interface LayerUpdate {
   bindings?: KeyBindings;
-  options?: Omit<KeyLayerOptions, "id">;
+  options?: { [K in keyof Omit<KeyLayerOptions, "id">]?: KeyLayerOptions[K] | undefined };
 }
 
 /** How a mounted scope's layer sits: everything a layer takes except its bindings. */
@@ -150,15 +153,16 @@ export interface Keyboard {
   handleKeydown: (e: KernelKeyEvent) => void;
   pushLayer(bindings: KeyBindings, options?: KeyLayerOptions): KeyLayer;
   popLayer(layer: KeyLayer): void;
-  /** bind a Map of shortcut strings -> nodes as one base layer */
+  /** bind a Map of shortcut strings -> nodes as one layer, below every other (L2) */
   registerShortcuts(nodes: Map<string, CommandNode>, options: ShortcutDriverOptions): KeyLayer;
   /**
    * Bind nodes by CONTEXT: one layer per scope, live while `activeScopes(ctx())` names it, so `j`
    * can be "next thread" in the list and nothing at all while a dialog is open, and `Escape` can
    * be "discard" in the editor and "back" in the thread. At each press the key's nodes in the
    * top live scope are tried in order; one hidden by `when` or `disabled` for that ctx declines,
-   * and the key falls through to the scopes below (and then to the browser). Rebind by
-   * disposing and binding again when the node list changes.
+   * and the key falls through to the scopes below (and then to the browser). When the node list
+   * changes, call `setNodes` on the binding: it swaps the commands in place (L12). Disposing and
+   * binding again re-opens every mounted scope, which puts them above anything opened since.
    */
   bindScopes(options: ScopeBindingOptions): ScopeBinding;
   /** observe chord-mode edges (prefix armed / cleared) for UI hints */
@@ -196,22 +200,23 @@ export interface Keyboard {
   /** new bindings and/or options for a live layer, in place: it keeps its position (L17) */
   updateLayer(layer: KeyLayer, update: LayerUpdate): void;
   /**
-   * Every second key that would complete `prefix`, and the node each one runs.
+   * Every next key that would RUN something after `prefix`, and the node it runs.
    *
    * THIS EXISTS SO A HOST CAN DRAW THE CHORD IT HAS ARMED. `subscribeChordMode` already says a
    * prefix went live, and until now that was the whole story: a UI that wanted to answer "you
    * pressed `g`, so what follows?" had to filter its own copy of the bindings. That copy is a
-   * second source of truth for something this object knows exactly -- `isChordPrefix` walks the
-   * live layer stack to decide whether to arm at all, and then discards the matches it found.
+   * second source of truth for something this object knows exactly: the press itself decides
+   * with the same rule (`decide` in keyboard-dispatch.ts).
    *
    * The consequence of not having it is a real one rather than a tidiness argument: a chord the
    * user cannot see is a chord the user has to memorise, and a host-side copy of the binding list
    * goes stale the moment anything is bound through `pushLayer` at runtime, which is precisely
    * when a hint is most needed.
    *
-   * Layer precedence is honoured exactly as a real press honours it -- later layers win, a
-   * disabled layer is not consulted, and a suspended stack completes nothing -- so what comes back
-   * is what WOULD FIRE, not what merely appears somewhere in the registry.
+   * Precedence is exactly a real press's - the nearest layer that knows a key decides (L1),
+   * barriers hold (L11), a disabled layer is not consulted, a suspended stack completes nothing,
+   * and a key that would only arm a longer chord is not listed - so what comes back is what WOULD
+   * FIRE, not what merely appears somewhere in the registry.
    *
    * `prefix` defaults to the armed one, so the common call is `chordCompletions()`.
    */
@@ -220,7 +225,7 @@ export interface Keyboard {
 
 /** One key that would complete an armed chord, and the node it would run. */
 export interface ChordCompletion {
-  /** the second key, normalized as the stack stores it -- `p`, `t`, `arrowdown` */
+  /** the next key, canonical as the stack stores it: `p`, `t`, `ArrowDown` */
   key: string;
   /** the whole binding as registered -- `g p` */
   shortcut: string;

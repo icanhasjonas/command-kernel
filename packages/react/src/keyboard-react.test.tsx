@@ -3,7 +3,13 @@
 // keydown fired on an element never bubbles to. In a browser the default (`window`) is right.
 import "../../../test/dom-setup.js";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "bun:test";
-import { type CommandNode, type Ctx, createKeyboard, type Keyboard } from "@command-kernel/core";
+import {
+  type CommandNode,
+  type Ctx,
+  createKeyboard,
+  type Keyboard,
+  type ScopeBinding,
+} from "@command-kernel/core";
 import { act, cleanup, fireEvent, render } from "@testing-library/react";
 import { type ReactNode, StrictMode, useState } from "react";
 import { createPortal } from "react-dom";
@@ -232,6 +238,68 @@ describe("L13 in React: KeyboardScope mounts a scope's commands", () => {
     view.rerender(tree(false));
     press("Escape");
     expect(hits).toEqual(["discard", "back"]);
+  });
+});
+
+describe("L13 in React: a KeyboardScope follows its binding and its scope", () => {
+  const ctx: Ctx = {
+    location: { module: "mail" },
+    user: { id: "u", name: "U", role: "admin", brand: "b" },
+    now: 0,
+    frecency: {},
+  };
+  const bind = (keyboard: Keyboard, hits: string[], nodes: CommandNode[]) =>
+    keyboard.bindScopes({
+      nodes,
+      scopes: [],
+      mounted: ["one", "two"],
+      ctx: () => ctx,
+      activeScopes: () => [],
+      onActivate: (n) => hits.push(n.id),
+    });
+
+  it("a new binding on the provider re-mounts the scope from it; so does a new scope prop", () => {
+    const keyboard = createKeyboard();
+    const hits: string[] = [];
+    const old = bind(keyboard, hits, [{ id: "old", title: "", shortcut: "a", scope: "one" }]);
+    const tree = (scopes: ScopeBinding, scope: string) => (
+      <KeyboardProvider keyboard={keyboard} scopes={scopes} source={document}>
+        <KeyboardScope id="panel" scope={scope} modal />
+      </KeyboardProvider>
+    );
+    const view = render(tree(old, "one"));
+    old.dispose();
+    const next = bind(keyboard, hits, [
+      { id: "new one", title: "", shortcut: "a", scope: "one" },
+      { id: "new two", title: "", shortcut: "a", scope: "two" },
+    ]);
+    view.rerender(tree(next, "one"));
+    press("a");
+    view.rerender(tree(next, "two"));
+    press("a");
+    expect(hits).toEqual(["new one", "new two"]);
+    expect(layerIds(keyboard)).toEqual(["panel"]);
+  });
+});
+
+describe("L17 in React: owners change in place", () => {
+  it("switching off an ancestor does not lift its dialog above a palette opened after it", () => {
+    const { keyboard, hits, on, app } = rig();
+    const tree = (outer: boolean, palette: boolean) =>
+      app(
+        <>
+          <KeyboardLayer id="outer" bindings={{}} enabled={outer}>
+            <KeyboardLayer id="dialog" bindings={{ Escape: on("dialog") }} modal />
+          </KeyboardLayer>
+          {palette && <KeyboardLayer id="palette" bindings={{ Escape: on("palette") }} modal />}
+        </>,
+      );
+    const view = render(tree(true, false));
+    view.rerender(tree(true, true));
+    view.rerender(tree(false, true));
+    press("Escape");
+    expect(hits).toEqual(["palette"]);
+    expect(layerIds(keyboard)).toEqual(["palette", "dialog"]);
   });
 });
 

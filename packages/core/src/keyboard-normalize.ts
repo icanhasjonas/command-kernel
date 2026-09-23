@@ -7,6 +7,7 @@
 
 import {
   canonicalKey,
+  isKnownKeyName,
   isMac,
   isShiftedSymbol,
   type KeyEventLike,
@@ -193,6 +194,14 @@ export function canonicalBinding(shortcut: string): string {
 function canonicalStep(step: string): string {
   const parsed = parseShortcut(step);
   const written = parsed.key === "+" ? "+" : step.slice(step.length - parsed.key.length);
+  // a lower-case name the alias table does not know can match no press (`KeyboardEvent.key`
+  // spells named keys in PascalCase): say so now, rather than bind a key that never fires
+  if (written.length > 1 && written === written.toLowerCase() && !isKnownKeyName(written)) {
+    throw new Error(
+      `keyboard: "${written}" is not a key name this kernel knows; spell it the way a ` +
+        "browser key event does (MediaPlayPause, AudioVolumeUp)",
+    );
+  }
   return normalizeShortcut({ ...parsed, key: written });
 }
 

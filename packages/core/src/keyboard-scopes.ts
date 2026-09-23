@@ -105,13 +105,16 @@ export function bindScopes(
     return { bindings, first };
   }
 
-  // Facts scopes are BASE layers (law L12): the app's context, so a rebind (the node list
-  // changed while a dialog was open) lands under every overlay instead of on top of it.
+  // Facts scopes are BASE layers (law L12): the app's context, so they sit under every overlay.
+  // Ids are fresh per binding, so a second binding of the same scopes (StrictMode running a
+  // memo twice, a new binding made before the old one is disposed) never collides.
   const layers: KeyLayer[] = scopes.map((scope) => {
     const { bindings, first } = bindingsFor(scope);
     const active = () => activeScopes(ctx()).includes(scope);
-    return stack.pushNodeLayer(bindings, { id: `scope:${scope}`, base: true, active }, first);
+    const id = stack.freshId(`scope:${scope}:`);
+    return stack.pushNodeLayer(bindings, { id, base: true, active }, first);
   });
+  let disposed = false;
 
   /** the mounted layers still up, and the scope each one is, popped on dispose */
   const open = new Map<KeyLayer, string>();
@@ -130,6 +133,8 @@ export function bindScopes(
   return {
     layers,
     mount(scope, mountOptions = {}) {
+      if (disposed)
+        throw new Error(`bindScopes: this binding is disposed; mount "${scope}" on the new one`);
       if (!mounted.includes(scope)) {
         throw new Error(`bindScopes: scope "${scope}" was not declared as mounted`);
       }
@@ -146,20 +151,26 @@ export function bindScopes(
       check(next);
       nodes = next;
       prune();
-      scopes.forEach((scope, i) => {
-        const layer = layers[i];
-        if (!layer) return;
-        const { bindings, first } = bindingsFor(scope);
-        stack.updateNodeLayer(layer, bindings, first);
+      // one change for the whole swap: one re-sort, one notification (L16)
+      stack.batch(() => {
+        scopes.forEach((scope, i) => {
+          const layer = layers[i];
+          if (!layer) return;
+          const { bindings, first } = bindingsFor(scope);
+          stack.updateNodeLayer(layer, bindings, first);
+        });
+        for (const [layer, scope] of open) {
+          const { bindings, first } = bindingsFor(scope);
+          stack.updateNodeLayer(layer, bindings, first);
+        }
       });
-      for (const [layer, scope] of open) {
-        const { bindings, first } = bindingsFor(scope);
-        stack.updateNodeLayer(layer, bindings, first);
-      }
     },
     dispose() {
+      disposed = true;
       unsubscribe();
-      for (const layer of [...layers, ...open.keys()]) stack.popLayer(layer);
+      stack.batch(() => {
+        for (const layer of [...layers, ...open.keys()]) stack.popLayer(layer);
+      });
       open.clear();
     },
   };

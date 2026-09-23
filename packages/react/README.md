@@ -45,4 +45,5 @@ function Editor() {
 A layer's parent is the nearest layer around it in the React tree, portals included, so a
 popover rendered into `document.body` from inside a dialog still sits above the dialog. A layer
 is pushed on mount and popped on unmount; new keys or options are applied in place, so it never
-jumps above a layer opened after it. When your commands change, call `scopes.setNodes(nodes)`.
+jumps above a layer opened after it (a new `id`, a new scope binding or a new `scope` prop is a
+new layer). When your commands change, call `scopes.setNodes(nodes)`.

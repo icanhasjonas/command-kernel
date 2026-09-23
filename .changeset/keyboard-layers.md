@@ -26,5 +26,21 @@ BEHAVIOUR CHANGES for existing hosts (a 0.x minor):
   spellings of one key in one layer, and a second live layer with an id already on the
   stack, throw.
 - On a Mac, a binding written `ctrl+k` no longer fires on Cmd+K (nor `mod+k` on Ctrl+K).
-- A named key outside the alias table is matched as written, as `KeyboardEvent.key` spells
-  it (`Insert`, `PrintScreen`), and a literal `" "` binds Space.
+- Named keys: the alias table gains `insert`, `printscreen`, `contextmenu`, `capslock`,
+  `numlock`, `scrolllock`, `pause`. Any other named key is matched as written, as
+  `KeyboardEvent.key` spells it (so `isBindingRegistered` and `validateShortcuts` are
+  case-sensitive for those), and a lower-case name nobody knows (`mediaplaypause`) THROWS:
+  it could never fire. A literal `" "` binds Space.
+- New throws: a second live layer with an id already on the stack; two spellings of one key
+  in one layer or one `registerShortcuts` map; an unknown lower-case key name; `mount` on a
+  disposed binding. Facts-scope and `registerShortcuts` ids are fresh per call now
+  (`scope:thread:3`, `kernel-shortcuts:0`), so binding twice does not collide.
+- Chords, every step: the nearest layer that knows a key sequence decides it, and in one
+  layer a chord beats a single key. So with `g p` and `g p x` in one layer, `g p` now arms
+  toward `g p x` (it used to fire). `chordCompletions` lists only keys that would run
+  something, as the press would decide them.
+- `pushLayer` copies bindings that are not canonical, so a host that keeps the object it
+  passed in and changes it later changes nothing; `updateLayer` replaces a layer's options
+  object, so mutate options through it.
+- `registerShortcuts`' layer sits below every base layer, including ones pushed after it.
+- `keyboard.describeStack()` and `useKeyboardStack` build the facts once per description.

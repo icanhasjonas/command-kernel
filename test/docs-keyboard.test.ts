@@ -12,14 +12,27 @@ const ROOT = join(import.meta.dir, "..");
 const read = (path: string) => readFileSync(join(ROOT, path), "utf8");
 
 const TESTS = [
-  "packages/core/src/keyboard-layers.test.ts",
+  "packages/core/src/keyboard-laws-order.test.ts",
+  "packages/core/src/keyboard-laws-keys.test.ts",
+  "packages/core/src/keyboard-laws-scopes.test.ts",
   "packages/react/src/keyboard-react.test.tsx",
 ];
 
 /** `- **L3** ...` bullets under "### The laws" */
 const documented = [...read("docs/keyboard.md").matchAll(/^- \*\*(L\d+)\*\* /gm)].map((m) => m[1]);
-/** `describe("L3 ...` */
-const tested = TESTS.flatMap((f) => [...read(f).matchAll(/describe\("(L\d+) /g)].map((m) => m[1]));
+/** each `describe("L3 ...` block: its law, and its text up to the next top-level describe */
+const blocks = TESTS.flatMap((f) => {
+  const text = read(f);
+  const starts = [...text.matchAll(/^describe\("(L\d+) /gm)];
+  return starts.map((m, i) => ({
+    law: m[1],
+    body: text.slice(
+      m.index,
+      starts[i + 1]?.index ?? text.indexOf("\ndescribe(", (m.index ?? 0) + 1),
+    ),
+  }));
+});
+const tested = blocks.map((b) => b.law);
 
 describe("docs/keyboard.md and the layer-law tests agree", () => {
   it("states the laws in order, L1 to Ln, none skipped", () => {
@@ -29,6 +42,11 @@ describe("docs/keyboard.md and the layer-law tests agree", () => {
 
   it("every law in the doc has a test", () => {
     expect(documented.filter((l) => !tested.includes(l))).toEqual([]);
+  });
+
+  it("every law block holds a test with an assertion", () => {
+    const empty = blocks.filter((b) => !/\bit\(/.test(b.body) || !/expect\(/.test(b.body));
+    expect(empty.map((b) => b.law)).toEqual([]);
   });
 
   it("every tested law is in the doc", () => {

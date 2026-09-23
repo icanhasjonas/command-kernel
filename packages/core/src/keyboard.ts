@@ -67,7 +67,8 @@ export function createKeyboard(options: KeyboardOptions = {}): Keyboard {
     get chordPrefix() {
       return chord.chordPrefix;
     },
-    describeStack: () => describeStack(stack),
+    // one snapshot: the facts are read once for the whole description (L14)
+    describeStack: () => dispatch.snapshot(() => describeStack(stack)),
     subscribeStack: stack.subscribe,
     get stackVersion() {
       return stack.version;

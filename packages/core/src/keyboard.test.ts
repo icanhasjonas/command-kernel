@@ -494,7 +494,7 @@ describe("chordCompletions", () => {
     kb.registerShortcuts(
       new Map([
         ["g p", node("people")],
-        ["g p x", node("deeper")],
+        ["g q x", node("deeper")],
       ]),
       { onActivate: () => {} },
     );

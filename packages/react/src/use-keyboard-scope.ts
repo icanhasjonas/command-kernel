@@ -35,5 +35,6 @@ export function useKeyboardScope(scope: string, options: LayerOptions = {}): str
     },
     options,
     `scope:${scope}`,
+    [scopes, scope],
   );
 }

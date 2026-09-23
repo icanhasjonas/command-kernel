@@ -29,14 +29,21 @@ export interface Dispatch {
   press(): number;
   /** whether a keydown is being dispatched right now: per-press caches are valid only then */
   pressing(): boolean;
+  /** run `fn` as if it were one press: per-press caches (the ctx) are built once for it */
+  snapshot<T>(fn: () => T): T;
 }
 
-/** The live layers top down, each with a test for whether a binding gets past the barriers above. */
+/**
+ * The live layers top down, each with a test for whether a binding gets past the barriers above.
+ * Over a SNAPSHOT of the stack: a handler that pushes or pops (and so re-sorts the live array)
+ * must not make the walk skip a layer or see one twice.
+ */
 export function* walk(stack: LayerStack): Generator<[KeyLayer, (binding: string) => boolean]> {
   const barriers: KeyLayer[] = [];
   const reaches = (binding: string) => barriers.every((b) => crosses(b, binding));
-  for (let i = stack.layers.length - 1; i >= 0; i--) {
-    const layer = stack.layers[i];
+  const layers = [...stack.layers];
+  for (let i = layers.length - 1; i >= 0; i--) {
+    const layer = layers[i];
     if (!layer || !isLive(layer)) continue;
     yield [layer, reaches];
     if (layer.options.modal === true) barriers.push(layer);
@@ -51,6 +58,27 @@ function startsChord(layer: KeyLayer, prefix: string, reaches: (b: string) => bo
   );
 }
 
+/** Who decides `binding` (a key, or a chord so far) and how: the rule of law L1, as data. */
+export interface Decision {
+  layer: KeyLayer;
+  /** "arm": a chord goes on from here; "key": the binding runs */
+  kind: "arm" | "key";
+}
+
+/**
+ * The nearest live layer that knows `binding` - binds it, or binds a chord that starts with it -
+ * and whether it arms or runs. In one layer a chord beats a single key. The decision a press
+ * makes, before any handler has a chance to decline; `describeStack` and `chordCompletions`
+ * read it so they cannot disagree with a press.
+ */
+export function decide(stack: LayerStack, binding: string): Decision | null {
+  for (const [layer, reaches] of walk(stack)) {
+    if (startsChord(layer, binding, reaches)) return { layer, kind: "arm" };
+    if (reaches(binding) && layer.bindings[binding]) return { layer, kind: "key" };
+  }
+  return null;
+}
+
 export function createDispatch({
   stack,
   chord,
@@ -58,24 +86,23 @@ export function createDispatch({
   isSuspended,
 }: DispatchDeps): Dispatch {
   /**
-   * Every second key that would complete `prefix` (default: the armed one), and the node each one
-   * runs. Top layer first, and the first layer to claim a second key keeps it, which is the same
-   * rule a press dispatches by. A suspended stack returns nothing: nothing would fire.
+   * Every next key that would RUN something after `prefix` (default: the armed one), and the
+   * node it runs - decided exactly as the press would decide it (`decide`). A key that would only
+   * arm a longer chord is not listed. A suspended stack returns nothing: nothing would fire.
    */
   function chordCompletions(prefix?: string): ChordCompletion[] {
     const armed = prefix ?? chord.chordPrefix;
     if (armed === undefined || armed === null || isSuspended()) return [];
+    if (decide(stack, armed)?.kind !== "arm") return [];
     const head = `${armed} `;
     const seen = new Map<string, ChordCompletion>();
-    for (const [layer, reaches] of walk(stack)) {
-      const nodes = stack.nodesFor(layer);
+    for (const layer of [...stack.layers].reverse()) {
       for (const shortcut of Object.keys(layer.bindings)) {
-        if (!shortcut.startsWith(head) || !reaches(shortcut)) continue;
         const key = shortcut.slice(head.length);
-        // A chord is exactly two presses here; anything with a further space is a deeper
-        // sequence and is not a completion OF THIS prefix.
-        if (key.length === 0 || key.includes(" ") || seen.has(key)) continue;
-        const node = nodes?.get(shortcut);
+        if (!shortcut.startsWith(head) || key.includes(" ") || seen.has(key)) continue;
+        const d = decide(stack, shortcut);
+        if (d?.kind !== "key") continue;
+        const node = stack.nodesFor(d.layer)?.get(shortcut);
         seen.set(key, node === undefined ? { key, shortcut } : { key, shortcut, node });
       }
     }
@@ -152,16 +179,21 @@ export function createDispatch({
     }
   }
 
+  function snapshot<T>(fn: () => T): T {
+    // already inside one (a handler reading describeStack): it shares that press's ctx
+    if (inPress) return fn();
+    presses++;
+    inPress = true;
+    try {
+      return fn();
+    } finally {
+      inPress = false;
+    }
+  }
+
   return {
-    handleKeydown(e) {
-      presses++;
-      inPress = true;
-      try {
-        dispatch(e);
-      } finally {
-        inPress = false;
-      }
-    },
+    handleKeydown: (e) => snapshot(() => dispatch(e)),
+    snapshot,
     chordCompletions,
     press: () => presses,
     pressing: () => inPress,

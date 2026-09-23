@@ -69,7 +69,21 @@ const KEY_NAMES: Record<string, string> = {
   pageup: "PageUp",
   pagedown: "PageDown",
   plus: "+",
+  insert: "Insert",
+  ins: "Insert",
+  printscreen: "PrintScreen",
+  contextmenu: "ContextMenu",
+  capslock: "CapsLock",
+  numlock: "NumLock",
+  scrolllock: "ScrollLock",
+  pause: "Pause",
 };
+
+/** Whether `key` (as written) is a key name `canonicalKey` knows how to spell. */
+export function isKnownKeyName(key: string): boolean {
+  const lower = key.toLowerCase();
+  return KEY_NAMES[lower] !== undefined || /^f\d{1,2}$/.test(lower);
+}
 
 /**
  * One key, spelled the way the dispatcher compares it: a named key as `KeyboardEvent.key` spells

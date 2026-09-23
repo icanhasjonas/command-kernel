@@ -21,39 +21,46 @@ export function liveOptions(options: LayerOptions): Omit<KeyLayerOptions, "id"> 
 
 /**
  * Keep one layer on the stack for as long as the component is mounted and `enabled`: `push`
- * creates it (under `parent`, law L3), and the layer is popped on unmount. That is the ONLY
- * push: new bindings and options on a re-render are applied in place (law L17), so a layer never
- * jumps above one pushed after it. Returns the layer's id, or `undefined` while disabled.
+ * creates it (under the nearest layer around it, law L3), and it is popped on unmount. That is
+ * the ONLY push, besides a new `id` or a change in `reset` (the scope binding, the scope): new
+ * bindings, options and even a new owner are applied in place (law L17), so a layer never jumps
+ * above one opened after it. Returns the layer's id, or `undefined` while disabled.
  */
 export function useLayerLifecycle(
   push: (id: string, parent: string | undefined) => KeyLayer,
   update: (layer: KeyLayer) => void,
   options: LayerOptions,
   prefix: string,
+  reset: readonly unknown[] = [],
 ): string | undefined {
   const { keyboard, parent } = useKeyboardContext();
   const auto = useId();
   const id = options.id ?? `${prefix}${auto}`;
   const enabled = options.enabled !== false;
   const layer = useRef<KeyLayer | null>(null);
-  const latest = useRef({ push, update });
+  const latest = useRef({ push, update, parent });
   useLayoutEffect(() => {
-    latest.current = { push, update };
+    latest.current = { push, update, parent };
   });
+  const [resetA, resetB] = reset;
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: resetA/resetB re-open the layer on purpose (a new scope binding, a new scope); parent and handlers are applied in place below
   useEffect(() => {
     if (!enabled) return;
-    const pushed = latest.current.push(id, parent);
+    const pushed = latest.current.push(id, latest.current.parent);
     layer.current = pushed;
     return () => {
       layer.current = null;
       keyboard.popLayer(pushed);
     };
-  }, [keyboard, id, parent, enabled]);
+  }, [keyboard, id, enabled, resetA, resetB]);
 
-  // every render: the current keys and options, in place (a no-op when nothing changed shape)
+  // every render: the current owner, keys and options, in place (a no-op when nothing changed)
   useEffect(() => {
-    if (layer.current) latest.current.update(layer.current);
+    const current = layer.current;
+    if (!current) return;
+    if (current.options.parent !== parent) keyboard.updateLayer(current, { options: { parent } });
+    latest.current.update(current);
   });
 
   return enabled ? id : undefined;

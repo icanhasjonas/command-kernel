@@ -90,9 +90,10 @@ its keys as a layer instead, see Recipes.)
 
 The ORDER of that stack is the whole contract, so it is written down as laws.
 Each law is a `describe` block with the same number in
-`packages/core/src/keyboard-layers.test.ts` (L15 lives in
+`packages/core/src/keyboard-laws-{order,keys,scopes}.test.ts` (L15 lives in
 `packages/react/src/keyboard-react.test.tsx`), and `test/docs-keyboard.test.ts`
-fails the build when a law here has no test or a tested law is missing here.
+fails the build when a law here has no test block, a block has no assertion,
+or a tested law is missing here.
 
 A mail app with a New mail editor open, its recipient suggestions showing:
 
@@ -112,9 +113,12 @@ while the editor is open. `mod+k` still opens the palette.
 ### The laws
 
 - **L1** The nearest live layer that knows a key takes it: as a binding it
-  runs, as the first key of a chord it arms the chord. A single key above beats a
-  chord below on the same first key, and a chord above beats a single key below.
-  Popping a layer hands its keys back to the layers below.
+  runs, as the start of a chord it arms the chord. A single key above beats a
+  chord below on the same key, a chord above beats a single key below, and in
+  ONE layer a chord beats a single key. The same rule decides every step of a
+  longer chord (`g i` against `g i x`). Popping a layer hands its keys back to
+  the layers below. While a chord is armed, a key that completes nothing ends
+  it and does nothing else: Escape cancels a pending chord.
 - **L2** Base layers (`base: true`) sit below every other layer, whenever they
   were pushed. Every facts scope is base, and `registerShortcuts`' flat map sits
   lower still, under the scopes.
@@ -122,8 +126,11 @@ while the editor is open. `mod+k` still opens the palette.
   its other children, whatever order the two were pushed in. React runs a
   child's effects before its parent's, so plain push order would put a popover
   UNDER its own dialog; the stack re-sorts by ownership on every change instead.
-  Siblings stack in push order. Two live layers cannot share an id (the second
-  push throws), so a parent id always names one layer; default ids never repeat.
+  Siblings stack in push order. Ownership beats base: a base layer owned by a
+  dialog sits above the dialog. A layer whose owner is popped keeps the place it
+  had. Two live layers cannot share an id (the second push throws), so a parent
+  id always names one layer; default ids, facts-scope ids and mount ids never
+  repeat.
 - **L4** A handler that returns exactly `false` declines: the key goes on down,
   as if that binding were not there.
 - **L5** A live `modal: true` layer is a barrier. A key it does not take
@@ -139,36 +146,48 @@ while the editor is open. `mod+k` still opens the palette.
   Safari's `keyCode` 229 on the Enter that ends a composition) is never a
   command: that Enter picks a candidate, that Escape cancels it.
 - **L10** A layer's keys are canonical: `mod+enter`, `Mod+Enter` and `G I` bind
-  the presses `mod+Enter` and `g` then `i`. A named key the alias table does not
-  know is matched as written, so spell it as `KeyboardEvent.key` does (`Insert`,
-  `PrintScreen`); a literal `" "` is Space. Two spellings of one key in one layer
-  (`Escape` and `esc`) throw instead of one silently winning.
+  the presses `mod+Enter` and `g` then `i`. Named keys in the alias table match
+  in any case (`esc`, `ENTER`, `insert`, `printscreen`); any other named key is
+  matched as written, so spell it as `KeyboardEvent.key` does
+  (`MediaPlayPause`), and a lower-case name the table does not know throws
+  instead of binding a key that never fires. A literal `" "` is Space. Two
+  spellings of one key (`Escape` and `esc`) in one layer, or in one
+  `registerShortcuts` map, throw instead of one silently winning. `shift+` in
+  front of a symbol means the symbol itself (`shift++` is `+`): write the
+  character the press makes, `?`, never `shift+/`.
 - **L11** Chords obey barriers: a prefix bound only below a modal layer neither
   arms nor completes, and `chordCompletions` does not offer it.
 - **L12** Facts scopes (`bindScopes`) are base layers, so they never land above
   an open overlay. When the commands change, `binding.setNodes(nodes)` swaps them
-  on every layer the binding has up, mounted ones included, and nothing moves.
+  on every layer the binding has up, mounted ones included, as ONE change, and
+  nothing moves. A second binding of the same scopes is allowed (each gets its
+  own layer ids).
 - **L13** A mounted scope puts the commands declared in it on the stack while
   something is open: `bindScopes({ ..., mounted: ["editor"] })`, then
   `binding.mount("editor", { modal: true, parent })`, popped with
   `kb.popLayer(layer)`. Its commands run, decline and give a disabled reason
   exactly like a facts scope's. A scope not declared as mounted cannot be
-  mounted; `dispose()` pops mounted layers too.
+  mounted; `dispose()` pops mounted layers too, and a disposed binding mounts
+  nothing (it throws).
 - **L14** `kb.describeStack()` reports what a press would reach: the layers top
-  first, and each reachable key with its layer and node, by the same walk a
-  press makes (barriers, L1's chord rule). Outside a key press it reads the
-  facts fresh. Draw key hints and a help sheet from it, and they can never offer
-  a key that something above would take first. A node can still decline when
-  pressed (`when`, `disabled`); the palette shows why.
+  first, and each reachable key with its layer and node, decided step by step by
+  the same rule a press uses (barriers, L1 at every step of a chord). It reads
+  the facts fresh, once per description. Draw key hints and a help sheet from
+  it, and they can never offer a key that something above would take first. A
+  node can still decline when pressed (`when`, `disabled`); the palette shows
+  why. `chordCompletions()` lists the next keys that would RUN something.
 - **L15** A browser host listens ONCE, in the bubble phase:
   `attachKeyboard(kb, window)` from `@command-kernel/react` (what
   `KeyboardProvider` does). A capture listener runs before every widget and
   breaks L7.
-- **L16** `kb.subscribeStack(fn)` is told after every push, pop and update, and
-  `kb.stackVersion` counts them.
+- **L16** `kb.subscribeStack(fn)` is told after every push, pop and update,
+  with the layer already in its final place, and `kb.stackVersion` counts them.
 - **L17** `kb.updateLayer(layer, { bindings, options })` changes a live layer in
   place: it keeps its position, still under a layer pushed after it. A layer's
-  keys changing is not the layer opening again.
+  keys changing is not the layer opening again. A new `parent` moves it into
+  that owner's subtree; `{ parent: undefined }` makes it a root again.
+  `updateLayer` REPLACES the layer's options object, so change options through
+  it, not by mutating an object you kept.
 
 ### Facts scope or mounted scope?
 
@@ -222,13 +241,15 @@ function NewMail() {
   as the component is mounted.
 - `KeyboardLayer` / `useKeyboardLayer(bindings, options)` push plain bindings,
   for keys that are not commands. A layer is pushed when the component mounts
-  and popped when it unmounts, nothing else: new handlers, a new set of keys, a
-  new `modal` or `passThrough` are applied in place (L17).
+  (or `enabled` turns on) and popped when it unmounts (or turns off). Everything
+  else is applied in place (L17): new handlers, a new set of keys, a new `modal`
+  or `passThrough`, a new owner. A new `id` prop is a new layer.
 - `enabled={false}` takes the layer off the stack; layers rendered inside it
-  attach to the next layer out.
+  attach to the next layer out, in place, without re-opening.
 - When the commands change, call `scopes.setNodes(nodes)` on the binding you
-  gave the provider (L12). Handing the provider a NEW binding re-mounts every
-  `KeyboardScope`, which is an open-and-close as far as the stack is concerned.
+  gave the provider (L12). Handing the provider a NEW binding (dispose the old
+  one first) re-mounts every `KeyboardScope` from it, and so does a new `scope`
+  prop: to the stack that is a close and an open, so they land on top.
 - The `parent` of every layer is the nearest layer around it in the React tree,
   through portals too: a popover rendered into `document.body` from inside a
   dialog is still the dialog's child (L3). Nobody passes an id by hand.
