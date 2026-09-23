@@ -337,13 +337,16 @@ kb.bindScopes({
   ctx: () => ({ ...base, facts: currentFacts() }), // built once per press
   activeScopes: (ctx) => (ctx.facts?.dialog ? ["dialog"] : ["global", "list", "thread"]),
   onActivate: (node, ctx) => void kernel.executeNode(node, {}, ctx),
+  onDisabled: (node, reason) => toast(`${node.title}: ${reason}`), // a key never fails silently
 });
 window.addEventListener("keydown", kb.handleKeydown); // bubble: a widget's own keys go first
 ```
 
 - A disabled node (or one hidden by `when`) declines the key: it falls through to the scopes
   below, then to the browser, never prevented for nothing. `executeNode` refuses it too, with
-  the reason as the failing check; a palette shows the same reason on the greyed row.
+  the reason as the failing check; a palette shows the same reason on the greyed row, and
+  `onDisabled` hands it to the host when nothing else took the key (`keyboard.onDeclined` is
+  the raw signal: a press whose bindings all declined).
 - A printable key aimed at a text field is typing, never a shortcut. `mod` is ⌘ on a Mac and
   Ctrl elsewhere. Named keys (`enter`, `esc`, `down`) and shifted symbols (`?`) match the press.
 - A key a widget already handled (`defaultPrevented`) is left alone.

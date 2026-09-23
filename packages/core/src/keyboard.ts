@@ -46,8 +46,9 @@ export function createKeyboard(options: KeyboardOptions = {}): Keyboard {
     pushLayer: stack.pushLayer,
     popLayer: stack.popLayer,
     registerShortcuts: stack.registerShortcuts,
-    bindScopes: (scopeOptions) => bindScopes(stack, scopeOptions, dispatch.press),
+    bindScopes: (scopeOptions) => bindScopes(stack, scopeOptions, dispatch),
     subscribeChordMode: chord.subscribeChordMode,
+    onDeclined: dispatch.onDeclined,
     exitChordMode: chord.exitChordMode,
     setChordTimeout: chord.setChordTimeout,
     setSuspended(value) {
@@ -75,6 +76,7 @@ export { canonicalBinding } from "./keyboard-scopes.js";
 export type {
   ChordCompletion,
   ChordListener,
+  DeclinedListener,
   KeyBindings,
   Keyboard,
   KeyboardOptions,

@@ -103,6 +103,7 @@ export {
   type ChordListener,
   canonicalBinding,
   createKeyboard,
+  type DeclinedListener,
   isEditableTarget,
   type KernelKeyEvent,
   type KeyBindings,

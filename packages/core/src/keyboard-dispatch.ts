@@ -11,7 +11,12 @@ import type { LayerStack } from "./keyboard-layers.js";
 import { isLive } from "./keyboard-layers.js";
 import type { KernelKeyEvent } from "./keyboard-normalize.js";
 import { hasModifier, IGNORE, normalizeEvent } from "./keyboard-normalize.js";
-import type { ChordCompletion, KeyBindings, KeyHandler } from "./keyboard-types.js";
+import type {
+  ChordCompletion,
+  DeclinedListener,
+  KeyBindings,
+  KeyHandler,
+} from "./keyboard-types.js";
 
 export interface DispatchDeps {
   stack: LayerStack;
@@ -22,6 +27,7 @@ export interface DispatchDeps {
 
 export interface Dispatch {
   handleKeydown: (e: KernelKeyEvent) => void;
+  onDeclined(fn: DeclinedListener): () => void;
   chordCompletions(prefix?: string): ChordCompletion[];
   /** how many keydowns this dispatcher has seen: a press's identity, for per-press caches */
   press(): number;
@@ -84,18 +90,23 @@ export function createDispatch({
    * `false` declined (its node is disabled here, say), and the next layer down gets its turn.
    * Consumed only when taken: a key nobody takes is left to the browser, unprevented.
    */
+  const declinedListeners = new Set<DeclinedListener>();
+
   function fire(binding: string, e: KernelKeyEvent, before?: () => void): boolean {
+    let offered = false;
     for (let i = stack.layers.length - 1; i >= 0; i--) {
       const layer = stack.layers[i];
       if (!layer || !isLive(layer)) continue;
       const handler = findBinding(layer.bindings, binding);
       if (!handler) continue;
+      offered = true;
       before?.();
       if (handler(e) === false) continue;
       e.preventDefault();
       e.stopPropagation();
       return true;
     }
+    if (offered) for (const fn of declinedListeners) fn(binding, e);
     return false;
   }
 
@@ -142,5 +153,13 @@ export function createDispatch({
     fire(normalized, e);
   }
 
-  return { handleKeydown, chordCompletions, press: () => presses };
+  return {
+    handleKeydown,
+    chordCompletions,
+    press: () => presses,
+    onDeclined(fn) {
+      declinedListeners.add(fn);
+      return () => declinedListeners.delete(fn);
+    },
+  };
 }

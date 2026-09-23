@@ -231,3 +231,60 @@ describe("validateShortcuts - per scope", () => {
     ]);
   });
 });
+
+describe("onDisabled - a key that did nothing says why", () => {
+  function withReasons(nodes: CommandNode[], facts: Record<string, Fact>) {
+    const kb = createKeyboard();
+    const hits: string[] = [];
+    const said: string[] = [];
+    kb.bindScopes({
+      nodes,
+      scopes: ["global", "list", "thread", "composer"],
+      ctx: () => ctxWith(facts),
+      activeScopes: (c) => String(c.facts?.scopes ?? "global").split(" "),
+      onActivate: (n) => hits.push(n.id),
+      onDisabled: (n, reason) => said.push(`${n.id}: ${reason}`),
+    });
+    return { kb, hits, said };
+  }
+
+  it("tells the reason when every candidate is disabled", () => {
+    const next = node("next", "j", { scope: "list", disabled: () => "This is the last thread" });
+    const { kb, said } = withReasons([next], { scopes: "list" });
+    const e = key("j");
+    kb.handleKeydown(e);
+    expect(said).toEqual(["next: This is the last thread"]);
+    expect(e.prevented).toBe(false);
+  });
+
+  it("says nothing when a lower scope took the key after all", () => {
+    const nodes = [
+      node("back", "Escape", { scope: "thread" }),
+      node("leave", "Escape", { scope: "composer", disabled: () => "Not writing" }),
+    ];
+    const { kb, hits, said } = withReasons(nodes, { scopes: "thread composer" });
+    kb.handleKeydown(key("Escape"));
+    expect(hits).toEqual(["back"]);
+    expect(said).toEqual([]);
+  });
+
+  it("says nothing for a hidden node, or a key bound nowhere live", () => {
+    const hidden = node("discard", "Escape", { when: () => false, disabled: () => "no" });
+    const listOnly = node("next", "j", { scope: "list", disabled: () => "no" });
+    const { kb, said } = withReasons([hidden, listOnly], { scopes: "global" });
+    kb.handleKeydown(key("Escape"));
+    kb.handleKeydown(key("j"));
+    kb.handleKeydown(key("x"));
+    expect(said).toEqual([]);
+  });
+
+  it("the top-most reason wins, said once", () => {
+    const nodes = [
+      node("low", "x", { disabled: () => "low" }),
+      node("high", "x", { scope: "thread", disabled: () => "high" }),
+    ];
+    const { kb, said } = withReasons(nodes, { scopes: "global thread" });
+    kb.handleKeydown(key("x"));
+    expect(said).toEqual(["high: high"]);
+  });
+});

@@ -34,6 +34,13 @@ export interface ScopeBindingOptions {
   activeScopes: (ctx: Ctx) => readonly string[];
   /** run it: the host calls `kernel.executeNode` (or its own runner) */
   onActivate: (node: CommandNode, ctx: Ctx) => void;
+  /**
+   * The key was bound here, nothing took it, and the reason is that a node is DISABLED (not
+   * hidden): the host says why ("This is the last thread"), so a key never fails in silence.
+   * Called once per press, with the top-most disabled candidate, only when no other layer (and
+   * no other node) took the key. A key that is merely not live here stays silent.
+   */
+  onDisabled?: (node: CommandNode, reason: string, ctx: Ctx) => void;
 }
 
 /** The layers `bindScopes` pushed. `dispose` pops them all. */
@@ -49,6 +56,9 @@ export interface KeyLayer {
 }
 
 export type ChordListener = (prefix: string | null) => void;
+
+/** A press whose bindings all declined: the binding (`mod+Enter`, `g m`) and the event. */
+export type DeclinedListener = (binding: string, e: KernelKeyEvent) => void;
 
 export interface ShortcutDriverOptions {
   onActivate: (node: CommandNode) => void;
@@ -84,6 +94,11 @@ export interface Keyboard {
   bindScopes(options: ScopeBindingOptions): ScopeBinding;
   /** observe chord-mode edges (prefix armed / cleared) for UI hints */
   subscribeChordMode(fn: ChordListener): () => void;
+  /**
+   * Told when a press found bindings for its key but every one DECLINED (returned false), so
+   * nothing ran and the key went on to the browser. `bindScopes` uses it to say why.
+   */
+  onDeclined(fn: DeclinedListener): () => void;
   exitChordMode(): void;
   setChordTimeout(ms: number): void;
   /**
