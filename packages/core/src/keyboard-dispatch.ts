@@ -147,15 +147,18 @@ export function createDispatch({
     if (armed !== null) {
       const full = `${armed} ${normalized}`;
       // the chord is over whether or not the key is taken; leave it before running, so a handler
-      // that opens something starts from a clean slate. A key that completes nothing just ends it.
+      // that opens something starts from a clean slate
       const result = offer(full, e, () => chord.exitChordMode());
       if (result === "armed") {
         e.preventDefault();
         chord.enterChordMode(full);
-      } else if (result === "none") {
-        chord.exitChordMode();
+        return;
       }
-      return;
+      if (result === "fired") return;
+      // a key that completes no chord cancels it, then goes on as if none had been armed (L1).
+      // Escape is the exception: it only cancels, so it never also closes what is behind the chord
+      chord.exitChordMode();
+      if (normalized === "Escape") return;
     }
 
     // TYPING BEATS COMMANDING (L8). A printable key with no mod, aimed at an editable surface,

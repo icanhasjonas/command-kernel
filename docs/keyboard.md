@@ -121,7 +121,12 @@ while the editor is open. `mod+k` still opens the palette.
   command is hidden (`when`) is not there: it does not arm, and the key goes on
   (a disabled one still arms, so its second key can say why). Popping a layer hands its
   keys back to the layers below. While a chord is armed, a key that completes
-  nothing ends it and does nothing else: Escape cancels a pending chord.
+  no chord (unbound after the prefix, or declined) cancels it and then runs as
+  itself, exactly as if no chord had been armed: `g` then `c` runs `c`, `g`
+  then `mod+k` opens the palette, `g` then `h` arms `h` if `h` starts a chord,
+  and a letter typed into a field is left to the field (L8). Escape is the one
+  exception: it only cancels the pending chord, and never also runs an Escape
+  binding (so it does not close the dialog behind the chord).
 - **L2** Base layers (`base: true`) sit below every other layer, whenever they
   were pushed. Every facts scope is base, and `registerShortcuts`' flat map sits
   lower still, under the scopes.

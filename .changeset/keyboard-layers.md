@@ -61,6 +61,8 @@ BEHAVIOUR CHANGES for existing hosts (a 0.x minor):
   step past its prefix (in any spelling).
 - A press that a widget already handled, or that an input method is composing, ends a
   pending chord.
+- A key that completes no chord cancels it and then runs as itself (`g` then `mod+k` opens
+  the palette; it used to be swallowed). Escape still only cancels the chord.
 - `@command-kernel/react`: `useScopeBinding` binds in an effect; layers are pushed in layout
   effects (a re-suspended Suspense boundary takes its layers off the stack).
 - Order: modal layers are windows. The window opened last is on top; every other layer

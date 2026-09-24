@@ -101,7 +101,7 @@ describe("chord state machine", () => {
     expect(kb.chordPrefix).toBeNull();
   });
 
-  it("a wrong second key exits chord mode without firing", () => {
+  it("a second key bound to nothing exits chord mode without firing", () => {
     const kb = createKeyboard();
     const hits: string[] = [];
     kb.pushLayer({ "g d": () => hits.push("docs") });

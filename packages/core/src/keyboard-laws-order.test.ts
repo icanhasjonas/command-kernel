@@ -5,7 +5,7 @@
  */
 
 import { describe, expect, it } from "bun:test";
-import { cmd, key, modKey, rig, testCtx } from "./keyboard.test-util.js";
+import { cmd, key, mod, modKey, rig, testCtx } from "./keyboard.test-util.js";
 
 describe("L1 the nearest live layer that knows a key takes it", () => {
   it("later wins, and a pop hands the key back", () => {
@@ -74,6 +74,93 @@ describe("L1 the nearest live layer that knows a key takes it", () => {
     kb.handleKeydown(key("h"));
     expect(hits).toEqual(["base g", "own g"]);
     expect(kb.chordPrefix).toBeNull();
+  });
+});
+
+describe("L1 a key that completes no chord cancels it and runs as itself", () => {
+  /** `g r` is a chord; `c`, `mod+enter` and `mod+k` are plain keys; `h i` is another chord */
+  function chords() {
+    const r = rig();
+    r.kb.registerShortcuts(
+      new Map([
+        ["g r", cmd("reply", "g r")],
+        ["c", cmd("compose", "c")],
+        ["mod+enter", cmd("send", "mod+enter")],
+        ["mod+k", cmd("palette", "mod+k")],
+        ["h i", cmd("help", "h i")],
+        ["Escape", cmd("close", "Escape")],
+      ]),
+      { onActivate: r.run },
+    );
+    return r;
+  }
+
+  it("g then c runs the node bound to c", () => {
+    const { kb, hits } = chords();
+    kb.handleKeydown(key("g"));
+    const c = key("c");
+    kb.handleKeydown(c);
+    expect(hits).toEqual(["compose"]);
+    expect(c.prevented).toBe(true);
+    expect(kb.chordPrefix).toBeNull();
+  });
+
+  it("g then mod+enter runs mod+enter's node", () => {
+    const { kb, hits } = chords();
+    kb.handleKeydown(key("g"));
+    kb.handleKeydown(modKey("Enter"));
+    expect(hits).toEqual(["send"]);
+    expect(kb.chordPrefix).toBeNull();
+  });
+
+  it("g then mod+k runs mod+k's node", () => {
+    const { kb, hits } = chords();
+    kb.handleKeydown(key("g"));
+    kb.handleKeydown(modKey("k"));
+    expect(hits).toEqual(["palette"]);
+  });
+
+  it("g then a key that is itself a chord prefix arms that prefix", () => {
+    const { kb, hits } = chords();
+    kb.handleKeydown(key("g"));
+    const h = key("h");
+    kb.handleKeydown(h);
+    expect(kb.chordPrefix).toBe("h");
+    expect(h.prevented).toBe(true);
+    kb.handleKeydown(key("i"));
+    expect(hits).toEqual(["help"]);
+  });
+
+  it("a real completion still runs the chord and not the second key alone: g r is reply", () => {
+    const { kb, hits, run } = chords();
+    kb.registerShortcuts(new Map([["r", cmd("plain r", "r")]]), { onActivate: run });
+    kb.handleKeydown(key("g"));
+    kb.handleKeydown(key("r"));
+    expect(hits).toEqual(["reply"]);
+    expect(kb.chordPrefix).toBeNull();
+  });
+
+  it("in a field, a printable key that completes no chord is left to the field", () => {
+    const { kb, hits, on } = rig();
+    kb.pushLayer({ "mod+k p": on("people"), c: on("compose") });
+    const field = { target: { tagName: "INPUT" } };
+    kb.handleKeydown(key("k", { ...mod, ...field }));
+    expect(kb.chordPrefix).toBe("mod+k");
+    const c = key("c", field);
+    kb.handleKeydown(c);
+    expect(hits).toEqual([]);
+    expect(c.prevented).toBe(false);
+    expect(kb.chordPrefix).toBeNull();
+  });
+
+  it("Escape only cancels the chord: the Escape binding does not run", () => {
+    const { kb, hits } = chords();
+    kb.handleKeydown(key("g"));
+    kb.handleKeydown(key("Escape"));
+    expect(hits).toEqual([]);
+    expect(kb.chordPrefix).toBeNull();
+    kb.handleKeydown(key("Escape"));
+    expect(hits).toEqual(["close"]);
   });
 });
 
