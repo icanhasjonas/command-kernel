@@ -199,6 +199,34 @@ describe("editable-target guard", () => {
     expect(e.prevented).toBe(false); // the field must still receive the n
   });
 
+  it("an input that takes no text (a radio, a checkbox, a button) is not a field", () => {
+    for (const type of ["radio", "checkbox", "button", "submit", "range", "color", "file"]) {
+      const kb = createKeyboard();
+      const hits: string[] = [];
+      kb.pushLayer({ n: () => hits.push(type) });
+      kb.handleKeydown(key("n", { target: { tagName: "INPUT", type, isContentEditable: false } }));
+      expect(hits).toEqual([type]);
+    }
+    // a text-like input still is, whatever its type says
+    for (const type of [
+      "text",
+      "search",
+      "email",
+      "url",
+      "tel",
+      "password",
+      "number",
+      "date",
+      "",
+    ]) {
+      const kb = createKeyboard();
+      const hits: string[] = [];
+      kb.pushLayer({ n: () => hits.push(type) });
+      kb.handleKeydown(key("n", { target: { tagName: "INPUT", type, isContentEditable: false } }));
+      expect(hits).toEqual([]);
+    }
+  });
+
   it("the same key still fires when focus is not in a field", () => {
     const kb = createKeyboard();
     const hits: string[] = [];

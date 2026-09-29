@@ -27,7 +27,9 @@ receiving it, and the rule has exactly three parts:
 if (editableTarget(e) && !hasModifier(normalized) && e.key.length === 1) return;
 ```
 
-- **`editableTarget`** - `INPUT`, `TEXTAREA`, `SELECT`, anything
+- **`editableTarget`** - `INPUT` (but not one that takes no text: a radio,
+  checkbox, button, range, color or file input is a button to the keyboard),
+  `TEXTAREA`, `SELECT`, anything
   `isContentEditable`, and any widget role that owns its own typeahead
   (`listbox`, `menu`, `option`, `combobox`...). The default sniffs `e.target`
   structurally; a host whose events are not DOM events replaces it with

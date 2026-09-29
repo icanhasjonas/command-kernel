@@ -49,6 +49,24 @@ export const IGNORE = new Set(["Control", "Meta", "Alt", "Shift"]);
 const EDITABLE_TAGS = new Set(["INPUT", "TEXTAREA", "SELECT"]);
 
 /**
+ * `<input>` types that take no typed text: a key pressed on one is a command, as on a button. A
+ * radio group rebuilt from buttons into real radios must not start swallowing every bare-letter
+ * shortcut (gate-mail, share dialog round 4). Any other type, or none, is text.
+ */
+const NON_TEXT_INPUTS = new Set([
+  "button",
+  "checkbox",
+  "color",
+  "file",
+  "hidden",
+  "image",
+  "radio",
+  "range",
+  "reset",
+  "submit",
+]);
+
+/**
  * ARIA roles whose widget owns the printable keys itself - a listbox does its own typeahead, a menu
  * jumps to the item you spelled, a textbox is a textbox however it was built.
  *
@@ -84,6 +102,8 @@ const WIDGET_SELECTOR = [...WIDGET_ROLES].map((r) => `[role="${r}"]`).join(",");
 /** What the guard duck-types its way through. Every member is optional and probed before use. */
 interface TargetLike {
   tagName?: unknown;
+  /** an `<input>`'s type */
+  type?: unknown;
   isContentEditable?: unknown;
   role?: unknown;
   getAttribute?: unknown;
@@ -109,7 +129,10 @@ function roleOf(el: TargetLike): string | null {
 export function isEditableTarget(e: KernelKeyEvent): boolean {
   const el = e.target as TargetLike | null | undefined;
   if (!el) return false;
-  if (typeof el.tagName === "string" && EDITABLE_TAGS.has(el.tagName.toUpperCase())) return true;
+  if (typeof el.tagName === "string" && EDITABLE_TAGS.has(el.tagName.toUpperCase())) {
+    const input = el.tagName.toUpperCase() === "INPUT";
+    return !(input && typeof el.type === "string" && NON_TEXT_INPUTS.has(el.type.toLowerCase()));
+  }
   if (el.isContentEditable === true) return true;
 
   const role = roleOf(el);
