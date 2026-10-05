@@ -116,7 +116,7 @@ export function createDispatch({
     binding: string,
     e: KernelKeyEvent,
     before?: () => void,
-  ): "fired" | "armed" | "none" {
+  ): "fired" | "armed" | "declined" | "none" {
     let offered = false;
     for (const c of candidates(stack, binding)) {
       if (c.kind === "arm") return "armed";
@@ -128,8 +128,9 @@ export function createDispatch({
         return "fired";
       }
     }
-    if (offered) for (const fn of declinedListeners) fn(binding, e);
-    return "none";
+    if (!offered) return "none";
+    for (const fn of declinedListeners) fn(binding, e);
+    return "declined";
   }
 
   function dispatch(e: KernelKeyEvent): void {
@@ -155,9 +156,17 @@ export function createDispatch({
         return;
       }
       if (result === "fired") return;
+      chord.exitChordMode();
+      // a chord that IS bound but declined ends there (L1): the press was `g a`, never `a`, and
+      // running the last key alone would do something the person did not ask for (gate-mail:
+      // a refused Go to Account ran Reply all). The decline was announced; the key is taken.
+      if (result === "declined") {
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
       // a key that completes no chord cancels it, then goes on as if none had been armed (L1).
       // Escape is the exception: it only cancels, so it never also closes what is behind the chord
-      chord.exitChordMode();
       if (normalized === "Escape") return;
     }
 

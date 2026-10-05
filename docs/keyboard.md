@@ -123,8 +123,11 @@ while the editor is open. `mod+k` still opens the palette.
   command is hidden (`when`) is not there: it does not arm, and the key goes on
   (a disabled one still arms, so its second key can say why). Popping a layer hands its
   keys back to the layers below. While a chord is armed, a key that completes
-  no chord (unbound after the prefix, or declined) cancels it and then runs as
-  itself, exactly as if no chord had been armed: `g` then `c` runs `c`, `g`
+  a chord some layer binds but every such layer declines (a disabled command,
+  a handler returning false) ends the chord there: the decline is announced,
+  the key is taken, and it never runs as itself (`g a` refused never runs `a`).
+  A key that completes no chord (unbound after the prefix) cancels it and then
+  runs as itself, exactly as if no chord had been armed: `g` then `c` runs `c`, `g`
   then `mod+k` opens the palette, `g` then `h` arms `h` if `h` starts a chord,
   and a letter typed into a field is left to the field (L8). Escape is the one
   exception: it only cancels the pending chord, and never also runs an Escape

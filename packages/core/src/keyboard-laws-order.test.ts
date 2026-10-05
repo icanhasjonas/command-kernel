@@ -140,6 +140,43 @@ describe("L1 a key that completes no chord cancels it and runs as itself", () =>
     expect(kb.chordPrefix).toBeNull();
   });
 
+  it("a chord that IS bound but declines ends there: its last key never runs alone", () => {
+    // gate-mail, 5 Oct 2026: `g a` (Go to Account) refused on live mail ran `a`, Reply all
+    const { kb, hits, run } = rig();
+    kb.registerShortcuts(new Map([["a", cmd("reply all", "a")]]), { onActivate: run });
+    const b = kb.bindScopes({
+      nodes: [cmd("account", "g a", { scope: "panel", disabled: () => "Not on live mail" })],
+      scopes: [],
+      mounted: ["panel"],
+      ctx: () => testCtx,
+      activeScopes: () => [],
+      onActivate: run,
+    });
+    b.mount("panel");
+    const declined: string[] = [];
+    kb.onDeclined((binding) => declined.push(binding));
+    kb.handleKeydown(key("g"));
+    const a = key("a");
+    kb.handleKeydown(a);
+    expect(hits).toEqual([]);
+    expect(declined).toEqual(["g a"]);
+    // taken, so the browser does not act on it either
+    expect(a.prevented).toBe(true);
+    expect(kb.chordPrefix).toBeNull();
+    // and a alone is still Reply all
+    kb.handleKeydown(key("a"));
+    expect(hits).toEqual(["reply all"]);
+  });
+
+  it("a declining handler on a chord hands it to a lower layer's same chord, never the last key", () => {
+    const { kb, hits, on } = rig();
+    kb.pushLayer({ "g a": on("lower g a"), a: on("a alone") });
+    kb.pushLayer({ "g a": () => false });
+    kb.handleKeydown(key("g"));
+    kb.handleKeydown(key("a"));
+    expect(hits).toEqual(["lower g a"]);
+  });
+
   it("in a field, a printable key that completes no chord is left to the field", () => {
     const { kb, hits, on } = rig();
     kb.pushLayer({ "mod+k p": on("people"), c: on("compose") });
