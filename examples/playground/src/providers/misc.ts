@@ -97,8 +97,9 @@ export const sendEmail: CommandNode = {
       required: true,
       placeholder: "recipient…",
       // typed entity ref -> the registered `person` catalog is the completion
-      // source (and is agent-queryable). Person<'with-email-address'>.
-      entity: { type: "person", constraint: "with-email-address" },
+      // source (and is agent-queryable). Person<'with-email-address'>. Open: an
+      // address that is nobody in the catalog is still somewhere to send to.
+      entity: { type: "person", constraint: "with-email-address", open: true },
     },
     {
       id: "subject",

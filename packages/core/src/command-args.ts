@@ -1,6 +1,6 @@
-import type { ArgOption, ArgValues } from "./args.js";
+import type { ArgOption, ArgValues, EntityRef } from "./args.js";
 import type { CommandResponse, Completion } from "./command.js";
-import { type EntityRegistry, entityOption } from "./entity.js";
+import { type Entity, type EntityRegistry, entityOption } from "./entity.js";
 import { getOwn, setOwn } from "./own.js";
 import type { CommandNode, Ctx } from "./types.js";
 import { isFilled } from "./values.js";
@@ -11,11 +11,36 @@ import { isFilled } from "./values.js";
  * agent's options). Split out of command.ts so the verb reads top to bottom.
  */
 
+type Found = { id: string } | { many: Entity[] } | { none: true };
+
+/** One value against its entity type: an id, the one search match, several, or none. */
+async function findEntity(
+  ref: EntityRef,
+  v: string,
+  ctx: Ctx,
+  entities: EntityRegistry,
+): Promise<Found> {
+  if (await entities.get(ref.type, v, ctx)) return { id: v }; // already a valid id
+  const candidates = await entities.search(
+    ref.type,
+    v,
+    ctx,
+    ref.constraint !== undefined ? { constraint: ref.constraint } : undefined,
+  );
+  if (candidates.some((c) => c.id === v)) return { id: v };
+  if (candidates.length === 1 && candidates[0]) return { id: candidates[0].id };
+  if (candidates.length > 1) return { many: candidates };
+  return { none: true };
+}
+
 /**
  * Resolve a node's entity-typed args before running: a value that's already a
  * valid entity id passes; a single search match auto-resolves to its id; many
- * matches surface a `disambiguate` response. Returns the response to short-circuit
- * with, or null when every entity arg is resolved (mutating `values` in place).
+ * matches surface a `disambiguate` response; no match is an arg error, unless the
+ * arg is `open` (it takes a value typed by hand). Every value of a `multiple` arg
+ * is checked the same way; one with several matches is an error there, since a
+ * list has no single pick to ask for. Returns the response to short-circuit with,
+ * or null when every entity arg is resolved (mutating `values` in place).
  */
 export async function resolveEntities(
   node: CommandNode,
@@ -23,25 +48,32 @@ export async function resolveEntities(
   ctx: Ctx,
   entities: EntityRegistry,
 ): Promise<CommandResponse | null> {
+  const refuse = async (argId: string, message: string): Promise<CommandResponse> => ({
+    kind: "args",
+    node,
+    missing: [],
+    errors: [{ argId, message }],
+    items: await argCompletions(node, values, ctx, entities),
+  });
   for (const a of node.args ?? []) {
     if (!a.entity) continue;
     const raw = getOwn(values, a.id);
-    if (typeof raw !== "string") continue; // empty or multi-value (listOf) -- handled elsewhere
-    const v = raw.trim();
-    if (!v) continue;
-
-    if (await entities.get(a.entity.type, v, ctx)) continue; // already a valid id
-    const candidates = await entities.search(
-      a.entity.type,
-      v,
-      ctx,
-      a.entity.constraint !== undefined ? { constraint: a.entity.constraint } : undefined,
-    );
-    const exact = candidates.find((c) => c.id === v);
-    if (exact) continue;
-    if (candidates.length === 1 && candidates[0]) setOwn(values, a.id, candidates[0].id);
-    else if (candidates.length > 1)
-      return { kind: "disambiguate", node, arg: a, query: v, candidates };
+    const list = Array.isArray(raw) ? raw : typeof raw === "string" ? [raw] : [];
+    const out: string[] = [];
+    for (const item of list) {
+      const v = typeof item === "string" ? item.trim() : "";
+      if (!v) continue;
+      const found = await findEntity(a.entity, v, ctx, entities);
+      if ("id" in found) out.push(found.id);
+      else if (a.entity.open) out.push(v);
+      else if ("many" in found) {
+        if (!Array.isArray(raw))
+          return { kind: "disambiguate", node, arg: a, query: v, candidates: found.many };
+        return refuse(a.id, `"${v}" matches several ${a.entity.type}s`);
+      } else return refuse(a.id, `no ${a.entity.type} matches "${v}"`);
+    }
+    if (Array.isArray(raw)) setOwn(values, a.id, out);
+    else if (out[0] !== undefined) setOwn(values, a.id, out[0]);
   }
   return null;
 }

@@ -1,5 +1,5 @@
 import { createKernel } from "@command-kernel/core";
-import { personEntity } from "../providers/entities";
+import { personEntity, submissionEntity } from "../providers/entities";
 import { FILE_SHAPES } from "../providers/files";
 import { ROOTS } from "../providers/registry";
 import { tap } from "../trace/tap";
@@ -10,7 +10,10 @@ import { tap } from "../trace/tap";
  * palette mints is the grant the agent's call is checked against. That sharing is
  * the security invariant, made physical by there being one object.
  */
-export const kernel = createKernel({ roots: ROOTS, entities: [personEntity, ...FILE_SHAPES] });
+export const kernel = createKernel({
+  roots: ROOTS,
+  entities: [personEntity, submissionEntity, ...FILE_SHAPES],
+});
 
 export const drivers = {
   palette: tap(kernel, "palette"),

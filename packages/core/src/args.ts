@@ -51,6 +51,11 @@ export interface EntityRef {
   type: string;
   /** opaque refinement the entity provider interprets, e.g. "with-email-address" */
   constraint?: string;
+  /**
+   * The arg also takes a value no entity matches, as typed ("email anyone": an
+   * address that is nobody's). Off by default: an unmatched value is an arg error.
+   */
+  open?: boolean;
 }
 
 export interface ArgSpec {

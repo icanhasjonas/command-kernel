@@ -59,3 +59,45 @@ describe("entity disambiguation (App Intents-style)", () => {
     expect(r.kind === "result" && r.result.message).toBe("to jane@doe.io");
   });
 });
+
+describe("an entity arg takes an entity, not any string (B14)", () => {
+  const cc: CommandNode = {
+    id: "cc",
+    title: "Copy in",
+    args: [{ id: "who", label: "who", kind: "entity", multiple: true, entity: { type: "person" } }],
+    run: async (a) => ({ kind: "toast", message: `cc ${String(a.who)}` }),
+  };
+  const anyone: CommandNode = {
+    id: "anyone",
+    title: "Write to anyone",
+    args: [{ id: "to", label: "to", kind: "entity", entity: { type: "person", open: true } }],
+    run: async (a) => ({ kind: "toast", message: `to ${a.to}` }),
+  };
+  const k2 = createKernel({ roots: [email, cc, anyone], entities: [personType] });
+  const go = (id: string, args: Record<string, string | string[]>) =>
+    k2.command({ path: [{ id, args }], execute: true }, ctx);
+
+  it("refuses a value no entity matches, at the args stage, before any run", async () => {
+    const r = await go("email", { to: "nobody@nowhere.com" });
+    expect(r.kind).toBe("args");
+    if (r.kind === "args") {
+      expect(r.errors).toEqual([
+        { argId: "to", message: 'no person matches "nobody@nowhere.com"' },
+      ]);
+    }
+  });
+
+  it("checks every value of a multiple arg, resolving each like a single one", async () => {
+    const ok = await go("cc", { who: ["jon@wall.north", "sam"] });
+    expect(ok.kind === "result" && ok.result.message).toBe("cc jon@wall.north,sam@castle.black");
+    const bad = await go("cc", { who: ["jon@wall.north", "nobody"] });
+    expect(bad.kind === "args" && bad.errors[0]?.message).toBe('no person matches "nobody"');
+    const many = await go("cc", { who: ["j"] });
+    expect(many.kind === "args" && many.errors[0]?.message).toBe('"j" matches several persons');
+  });
+
+  it("an open entity arg still takes a value typed by hand", async () => {
+    const r = await go("anyone", { to: "grace@navy.mil" });
+    expect(r.kind === "result" && r.result.message).toBe("to grace@navy.mil");
+  });
+});

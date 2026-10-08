@@ -46,7 +46,8 @@ export const resyncSubmission: CommandNode = {
     {
       id: "submissionId",
       label: "submission",
-      kind: "string",
+      kind: "entity",
+      entity: { type: "submission" },
       required: true,
       placeholder: "sub_…",
     },

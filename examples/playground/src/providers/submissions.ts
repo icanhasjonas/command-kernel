@@ -99,6 +99,14 @@ export const resendHere: CommandNode = {
   boost: () => 1000,
   prefill: (c) => ({ submissionId: c.location.recordId ?? "" }),
   gate: { confirm: true, reason: "sends a real email to the applicant" },
-  args: [{ id: "submissionId", label: "submission", kind: "string", required: true }],
+  args: [
+    {
+      id: "submissionId",
+      label: "submission",
+      kind: "entity",
+      entity: { type: "submission" },
+      required: true,
+    },
+  ],
   run: async (a) => ({ kind: "toast", message: `Confirmation resent for ${a.submissionId}` }),
 };
