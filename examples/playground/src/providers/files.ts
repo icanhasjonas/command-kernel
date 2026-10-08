@@ -1,75 +1,62 @@
 import type { CommandNode, Entity, EntityType, Piped } from "@command-kernel/core";
+import { ICON, type Shape, type WorkspaceFile, workspace } from "./workspace";
 
 /**
- * A tiny workspace of files: the `file` entity type, the Files category (each file
- * is a SUBJECT you can pipe into a command), and "Load as text", which turns a file
- * into text the next command can take.
+ * The workspace as SHAPES the kernel knows: `file` is abstract (no catalog of its
+ * own), `document` and `media-file` extend it, `image` extends `media-file`. An arg
+ * that asks for a `file` takes any of them (Send email's attachments); one that asks
+ * for a `media-file` takes media and images, never a document (Make thumbnail).
  *
- *   [notes.md] -> Load as text -> Encrypt for… -> Send email
+ *   [launch-notes.md] -> Load as text -> Encrypt for… -> Send email
+ *   [launch-teaser.mp4] -> Make thumbnail -> Send email (an image is a file)
  */
-
-interface WorkspaceFile {
-  id: string;
-  size: string;
-  contents: string;
-}
-
-const FILES: WorkspaceFile[] = [
-  {
-    id: "launch-notes.md",
-    size: "1.2 KB",
-    contents: "Launch is Thursday 10:00. Keep the pricing page dark until the press embargo lifts.",
-  },
-  {
-    id: "q3-forecast.csv",
-    size: "4.8 KB",
-    contents: "month,signups,churn\njul,412,3.1\naug,498,2.8\nsep,566,2.6",
-  },
-  {
-    id: "contract-draft.txt",
-    size: "9.1 KB",
-    contents: "Mutual NDA between Circle Surrogacy and Duplo. Term: 24 months from signature.",
-  },
-  {
-    id: "recovery-codes.txt",
-    size: "0.3 KB",
-    contents: "7F3K-2LQ9  M8PD-4XWA  R2VN-6TYC  H9JB-1ZSE",
-  },
-];
 
 const toEntity = (f: WorkspaceFile): Entity => ({
   id: f.id,
   label: f.id,
-  hint: f.size,
-  icon: "FileText",
+  hint: `${f.shape} · ${f.size}`,
+  icon: ICON[f.shape],
 });
 
-export const fileEntity: EntityType = {
-  name: "file",
-  async search(query, _ctx, opts) {
-    const q = query.trim().toLowerCase();
-    const found = FILES.filter((f) => f.id.includes(q)).map(toEntity);
-    return opts?.limit ? found.slice(0, opts.limit) : found;
-  },
-  async get(id) {
-    const f = FILES.find((x) => x.id === id);
-    return f ? toEntity(f) : null;
-  },
-};
+/** One registered shape: its own files, and where it sits in the tree. */
+function shapeCatalog(name: Shape, parent: string): EntityType {
+  return {
+    name,
+    extends: parent,
+    async search(query) {
+      const q = query.trim().toLowerCase();
+      return workspace
+        .ofShape(name)
+        .filter((f) => f.id.includes(q))
+        .map(toEntity);
+    },
+    async get(id) {
+      const f = workspace.find(id);
+      return f?.shape === name ? toEntity(f) : null;
+    },
+  };
+}
 
-/** A file as a value you can hand to a command. */
-export const fileSubject = (id: string): Piped => ({
-  type: { kind: "entity", entity: { type: "file" } },
-  value: id,
-  label: id,
+export const FILE_SHAPES: EntityType[] = [
+  { name: "file" },
+  shapeCatalog("document", "file"),
+  shapeCatalog("media-file", "file"),
+  shapeCatalog("image", "media-file"),
+];
+
+/** A workspace file as a value you can hand to a command, typed as what it IS. */
+export const fileSubject = (f: WorkspaceFile): Piped => ({
+  type: { kind: "entity", entity: { type: f.shape } },
+  value: f.id,
+  label: f.id,
 });
 
 export const readFile: CommandNode = {
   id: "files.read",
   title: "Load as text",
-  subtitle: "file → text",
+  subtitle: "document → text",
   summary:
-    "Read a workspace file and hand its contents on as text, ready to pipe into Encrypt or Send email. Reads only.",
+    "Read a document and hand its contents on as text, ready to pipe into Encrypt or Send email. Takes documents only: a video has no text to load. Reads only.",
   category: "Files",
   icon: "FileInput",
   weight: 30,
@@ -77,17 +64,16 @@ export const readFile: CommandNode = {
   args: [
     {
       id: "file",
-      label: "file",
+      label: "document",
       kind: "entity",
       required: true,
-      placeholder: "which file…",
-      entity: { type: "file" },
+      placeholder: "which document…",
+      entity: { type: "document" },
     },
   ],
   output: { kind: "text", label: "file contents" },
   run: async (a) => {
-    const f = FILES.find((x) => x.id === a.file);
-    const contents = f?.contents ?? "";
+    const contents = workspace.find(String(a.file))?.contents ?? "";
     return {
       kind: "data",
       message: `Loaded ${a.file} · ${contents.length} chars`,
@@ -99,23 +85,23 @@ export const readFile: CommandNode = {
 export const filesCategory: CommandNode = {
   id: "files",
   title: "Files",
-  subtitle: "workspace · pipe a file into a command",
+  subtitle: "documents · media · images",
   summary:
-    "Files in the workspace. Each one is a subject: pick it, then pipe it into any command that takes a file (Load as text, Send email as an attachment).",
+    "Files in the workspace, each typed by shape (document, media-file, image - all of them files). Each one is a subject: pick it, then pipe it into any command that takes its shape.",
   icon: "FolderOpen",
   weight: 46,
   enumerate: "free",
   resolve: async () => [
-    ...FILES.map(
+    ...workspace.all().map(
       (f): CommandNode => ({
         id: `files.entity.${f.id}`,
         title: f.id,
-        subtitle: f.size,
-        icon: "FileText",
-        keywords: ["file"],
-        // the files are what you came to this folder for; the reader comes after them
+        subtitle: `${f.shape} · ${f.size}`,
+        icon: ICON[f.shape],
+        keywords: ["file", f.shape],
+        // the files are what you came to this folder for; the commands come after them
         weight: 40,
-        subject: fileSubject(f.id),
+        subject: fileSubject(f),
       }),
     ),
     readFile,

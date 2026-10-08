@@ -69,6 +69,7 @@ export {
   type EntitySearchOptions,
   type EntityType,
   entityOption,
+  sameShape,
 } from "./entity.js";
 // a run() that fails for a reason a caller can act on throws one of these
 export { CommandError, isCommandError } from "./errors.js";
@@ -137,6 +138,7 @@ export {
   bindInput,
   describeType,
   fitsExactly,
+  type IsA,
   outputNode,
   outputOf,
 } from "./pipe.js";

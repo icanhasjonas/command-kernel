@@ -50,11 +50,11 @@ export function usePalettePipe({ kernel, ctx, pipe, query, token, beginExecute }
   const pick = useCallback(
     (action: PipeAction) => {
       if (!subject) return;
-      const bound = bindInput(action.node, {}, subject);
+      const bound = bindInput(action.node, {}, subject, kernel.isA);
       if ("error" in bound) return; // routing already chose an arg that fits
       beginExecute(action.node, { values: bound.values, priorKey: action.priorKey });
     },
-    [subject, beginExecute],
+    [subject, beginExecute, kernel],
   );
 
   return { pipeRows: rows, pipeLoading: loading, pick };

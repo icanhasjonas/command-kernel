@@ -72,7 +72,7 @@ export async function command(
     tip = node;
     let written = seg.args;
     if (req.input && i === segs.length - 1) {
-      const bound = bindInput(node, seg.args ?? {}, req.input);
+      const bound = bindInput(node, seg.args ?? {}, req.input, deps.entities?.isA);
       if ("error" in bound) {
         const items = await argCompletions(
           node,

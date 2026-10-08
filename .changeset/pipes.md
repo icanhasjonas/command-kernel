@@ -22,3 +22,9 @@ Pipes: one command's output is the next command's input.
   `pipeNothing`, `pipeLandsIn`, `hintPipe`.
 - Fix: `theme.css` now carries `@source` for the palette's own files, so Tailwind
   generates its classes in a consuming app.
+- Shapes: `EntityType.extends` registers one shape as a kind of another (a `media-file`
+  IS a `file`). `EntityRegistry.isA` answers it; searching or hydrating a shape also
+  covers every shape that extends it; a shape without `search` is abstract. Routing,
+  binding and the pipe type check are covariant: a media file goes where a file is
+  asked for, never the reverse. `Entity.type` carries the concrete shape. `kernel.isA`.
+  Type-level: `EntityType.search` is now optional (call it through the registry).

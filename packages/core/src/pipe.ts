@@ -1,4 +1,5 @@
 import type { ArgKind, ArgSpec, ArgValue, ArgValues, Piped, ValueType } from "./args.js";
+import { sameShape } from "./entity.js";
 import { getOwn, setOwn } from "./own.js";
 import { type ArgError, validateArgs } from "./schema.js";
 import { canonicalJson } from "./signing.js";
@@ -21,40 +22,60 @@ const TEXT_INTO = new Set<ArgKind>(["string", "text"]);
 const TEXT_FROM = new Set<ArgKind>(["string", "text", "email"]);
 
 /**
- * Can this arg take a value of this type? An entity needs the same entity type; a
+ * Which entity shape is a kind of which: `EntityRegistry.isA` (the kernel passes its
+ * registry's). Without a registry a shape is only itself.
+ */
+export type IsA = (sub: string, sup: string) => boolean;
+
+/**
+ * Can this arg take a value of this type? An entity needs a shape that IS the arg's
+ * shape (a `media-file` goes where a `file` is asked for, never the other way); a
  * closed `enum` never takes a piped value (it would only ever be refused); text
  * flows into text; anything else needs the same kind. A list only fits a list arg.
  */
-export function accepts(arg: ArgSpec, type: ValueType): boolean {
+export function accepts(arg: ArgSpec, type: ValueType, isA: IsA = sameShape): boolean {
   if (type.multiple && !arg.multiple) return false;
-  if (type.entity || arg.entity) return arg.entity?.type === type.entity?.type;
+  if (type.entity || arg.entity) {
+    return type.entity !== undefined && arg.entity !== undefined
+      ? isA(type.entity.type, arg.entity.type)
+      : false;
+  }
   if (arg.kind === "enum" || arg.kind === "entity") return false;
   if (arg.kind === type.kind) return true;
   return TEXT_INTO.has(arg.kind) && TEXT_FROM.has(type.kind);
 }
 
 /**
- * The arg a value of this type lands in: the node's declared `input` when it fits;
- * else the one arg that accepts it; else, when several do, the positional one.
- * Null when nothing fits or the choice would be a guess. `input` breaks a tie, it
- * does not close the door: "Send email" names `body` for text, and a file still
- * lands in `attachments`, the only arg that takes one.
+ * A fit that is no stretch: the node named this arg as its input, or the arg asks
+ * for the value's own shape (text into `text`, not into a `string` search query; a
+ * `media-file` into a `media-file`, not into any `file`). Routing lists these first.
  */
-export function acceptingArg(node: CommandNode, type: ValueType): ArgSpec | null {
-  const fits = (node.args ?? []).filter((a) => accepts(a, type));
-  const declared = fits.find((a) => a.id === node.input);
-  if (declared) return declared;
-  if (fits.length === 1) return fits[0] ?? null;
-  return fits.find((a) => a.positional) ?? null;
+export function fitsExactly(node: CommandNode, arg: ArgSpec, type: ValueType): boolean {
+  if (node.input === arg.id) return true;
+  if (type.entity || arg.entity) return arg.entity?.type === type.entity?.type;
+  return arg.kind === type.kind;
 }
 
 /**
- * A fit that is no stretch: the node named this arg as its input, or the arg is of
- * the value's own kind (text into `text`, not text into a `string` search query).
- * Routing lists these first.
+ * The arg a value of this type lands in: the node's declared `input` when it fits;
+ * else the one arg that accepts it; else the one arg made for exactly this shape;
+ * else, when several fit, the positional one. Null when nothing fits or the choice
+ * would be a guess. `input` breaks a tie, it does not close the door: "Send email"
+ * names `body` for text, and a file still lands in `attachments`, the only arg that
+ * takes one.
  */
-export function fitsExactly(node: CommandNode, arg: ArgSpec, type: ValueType): boolean {
-  return node.input === arg.id || arg.kind === type.kind;
+export function acceptingArg(
+  node: CommandNode,
+  type: ValueType,
+  isA: IsA = sameShape,
+): ArgSpec | null {
+  const fits = (node.args ?? []).filter((a) => accepts(a, type, isA));
+  const declared = fits.find((a) => a.id === node.input);
+  if (declared) return declared;
+  if (fits.length === 1) return fits[0] ?? null;
+  const exact = fits.filter((a) => fitsExactly(node, a, type));
+  if (exact.length === 1) return exact[0] ?? null;
+  return fits.find((a) => a.positional) ?? null;
 }
 
 /** "a person", "text", "a list of file" - for messages. */
@@ -72,8 +93,13 @@ export type Bound = { values: ArgValues; arg: ArgSpec } | { error: ArgError };
  * into the args the caller wrote, before `prefill`: a piped value outranks a
  * context default, never an explicit one.
  */
-export function bindInput(node: CommandNode, written: ArgValues, piped: Piped): Bound {
-  const arg = acceptingArg(node, piped.type);
+export function bindInput(
+  node: CommandNode,
+  written: ArgValues,
+  piped: Piped,
+  isA: IsA = sameShape,
+): Bound {
+  const arg = acceptingArg(node, piped.type, isA);
   if (!arg) {
     const message = `${node.title} does not take ${describeType(piped.type)}`;
     return { error: { argId: node.input ?? "", message } };

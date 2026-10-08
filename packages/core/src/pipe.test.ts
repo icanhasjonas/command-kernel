@@ -56,14 +56,19 @@ describe("which arg a piped value lands in", () => {
     expect(acceptingArg(sendEmail, { kind: "text" })?.id).toBe("body");
   });
 
-  it("two args that both fit and no tiebreak is no guess", () => {
+  it("of two args that fit, the one made for the value wins; two of those is no guess", () => {
     const node: CommandNode = {
       id: "n",
       title: "N",
       args: [arg({ id: "x", kind: "text" }), arg({ id: "y", kind: "string" })],
     };
-    expect(acceptingArg(node, { kind: "text" })).toBeNull();
+    expect(acceptingArg(node, { kind: "text" })?.id).toBe("x");
     expect(acceptingArg({ ...node, input: "y" }, { kind: "text" })?.id).toBe("y");
+    const twins: CommandNode = {
+      ...node,
+      args: [arg({ id: "x", kind: "text" }), arg({ id: "z", kind: "text" })],
+    };
+    expect(acceptingArg(twins, { kind: "text" })).toBeNull();
   });
 });
 

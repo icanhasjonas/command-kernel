@@ -2,7 +2,7 @@ import type { ArgSpec, ValueType } from "./args.js";
 import { enumerateMode } from "./describe.js";
 import { type Hop, hopArgs, hopsKey } from "./hops-key.js";
 import { resolveChildren } from "./kernel.js";
-import { acceptingArg, fitsExactly } from "./pipe.js";
+import { acceptingArg, fitsExactly, type IsA } from "./pipe.js";
 import type { Ranker } from "./rank.js";
 import type { CommandNode, Ctx, PathSegment, Ranked } from "./types.js";
 
@@ -27,6 +27,8 @@ export interface PipeAction {
 export interface ActionsForOptions {
   /** how many levels below the roots to look (default 4) */
   maxDepth?: number;
+  /** which entity shape is a kind of which (the kernel passes its registry's `isA`) */
+  isA?: IsA;
 }
 
 /**
@@ -51,7 +53,7 @@ export async function actionsFor(
       if (node.when && !node.when(ctx)) continue;
       if (typeof node.hide === "function" ? node.hide(ctx) : node.hide) continue;
       if (hops.some((h) => h.node.id === node.id)) continue; // a cycle, not a deeper level
-      const arg = node.run ? acceptingArg(node, type) : null;
+      const arg = node.run ? acceptingArg(node, type, opts.isA) : null;
       if (arg) {
         const path = [...hops.map((h) => ({ id: h.node.id })), { id: node.id }];
         const exact = fitsExactly(node, arg, type);

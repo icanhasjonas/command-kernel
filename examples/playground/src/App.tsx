@@ -14,7 +14,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AgentPanel } from "./AgentPanel";
 import { InvokerPanel } from "./InvokerPanel";
 import { personEntity } from "./providers/entities";
-import { fileEntity } from "./providers/files";
+import { FILE_SHAPES } from "./providers/files";
 import { ROOTS } from "./providers/registry";
 
 const PLACES = [
@@ -83,7 +83,7 @@ export default function App() {
   // ONE kernel instance shared by every driver — same gate, same evidence, same
   // policy for the human palette and the AI agent. That sharing IS the invariant.
   const kernel = useMemo(
-    () => createKernel({ roots: ROOTS, entities: [personEntity, fileEntity] }),
+    () => createKernel({ roots: ROOTS, entities: [personEntity, ...FILE_SHAPES] }),
     [],
   );
   const [open, setOpen] = useState(false);

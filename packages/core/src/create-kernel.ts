@@ -1,7 +1,7 @@
 import type { ArgValues, ValueType } from "./args.js";
 import { type CommandRecord, toRecord } from "./audit.js";
 import { type CommandDeps, type CommandRequest, type CommandResponse, command } from "./command.js";
-import { createEntityRegistry, type EntityRegistry, type EntityType } from "./entity.js";
+import { createEntityRegistry, type EntityRegistry, type EntityType, sameShape } from "./entity.js";
 import { bindingKey, createMemoryEvidenceStore, type EvidenceStore } from "./evidence.js";
 import { evaluateGate, type GatePolicy } from "./gate.js";
 import {
@@ -129,6 +129,12 @@ export interface Kernel {
    * see every step. Pauses (resumably) when a step needs args or approval.
    */
   pipe(req: PipeRequest, ctx: Ctx): Promise<PipeResponse>;
+  /**
+   * Is a `sub` shape acceptable where a `sup` is asked for (the entity registry's
+   * answer; without one a shape is only itself). Pass it to `acceptingArg` /
+   * `bindInput` when a driver routes a value itself.
+   */
+  isA(sub: string, sup: string): boolean;
   /** the assembled root list (from the registry, or the static roots) */
   roots(ctx?: Ctx): CommandNode[];
   /** chord-leader lookup over the roots */
@@ -177,6 +183,7 @@ export function createKernel(config: KernelConfig = {}): Kernel {
   };
 
   const roots = (ctx?: Ctx): CommandNode[] => (registry ? registry.roots(ctx) : staticRoots);
+  const isA = entities ? entities.isA : sameShape;
   const onExecute = config.onExecute;
 
   const run = async (req: CommandRequest, ctx: Ctx, r?: CommandNode[]) => {
@@ -188,8 +195,11 @@ export function createKernel(config: KernelConfig = {}): Kernel {
   return {
     command: run,
     actionsFor: async (type, ctx, query = "") =>
-      rankActions(await actionsFor(roots(ctx), type, ctx), query, ctx, ranker).map((r) => r.action),
-    pipe: (req, ctx) => runPipe((r) => run(r, ctx), req),
+      rankActions(await actionsFor(roots(ctx), type, ctx, { isA }), query, ctx, ranker).map(
+        (r) => r.action,
+      ),
+    pipe: (req, ctx) => runPipe((r) => run(r, ctx), req, isA),
+    isA,
     search: (nodes, query, ctx) => searchNodes(nodes, query, ctx, ranker),
     resolveChildren,
     executeNode: (node, args, ctx, confirmation) =>

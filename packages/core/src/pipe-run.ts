@@ -1,6 +1,6 @@
 import type { Piped, ValueType } from "./args.js";
 import type { CommandRequest, CommandResponse } from "./command-types.js";
-import { acceptingArg, describeType, outputOf } from "./pipe.js";
+import { acceptingArg, describeType, type IsA, outputOf } from "./pipe.js";
 import type { CommandNode, CommandResult, PathSegment, Role } from "./types.js";
 
 /**
@@ -55,12 +55,13 @@ async function tipOf(call: Call, step: PipeStep, role?: Role): Promise<CommandNo
 async function typeCheck(
   call: Call,
   req: PipeRequest,
+  isA?: IsA,
 ): Promise<{ step: number; reason: string } | null> {
   let flowing: ValueType | undefined = req.input?.type;
   for (const [i, step] of req.steps.entries()) {
     const node = await tipOf(call, step, req.role);
     if (!node) return { step: i, reason: `step ${i + 1} addresses no command` };
-    if (flowing && !acceptingArg(node, flowing))
+    if (flowing && !acceptingArg(node, flowing, isA))
       return { step: i, reason: `${node.title} does not take ${describeType(flowing)}` };
     const last = i === req.steps.length - 1;
     if (!last && !node.output)
@@ -72,12 +73,13 @@ async function typeCheck(
 
 /**
  * Run a pipe through `call` (a kernel's bound `command`, so every step goes through
- * the same gate, evidence and audit hook as a single command does).
+ * the same gate, evidence and audit hook as a single command does). `isA` is the
+ * shape rule the type check uses; pass the same one `call` binds with.
  */
-export async function runPipe(call: Call, req: PipeRequest): Promise<PipeResponse> {
+export async function runPipe(call: Call, req: PipeRequest, isA?: IsA): Promise<PipeResponse> {
   const results: CommandResult[] = [];
   if (req.steps.length === 0) return { kind: "done", results };
-  const wrong = await typeCheck(call, req);
+  const wrong = await typeCheck(call, req, isA);
   if (wrong) return { kind: "broken", ...wrong, results };
 
   let input = req.input;
