@@ -22,7 +22,6 @@ export function Packages() {
   return (
     <Section
       id="packages"
-      index="06 · packages"
       title="What this page is made of"
       lede="Every panel above composes these packages the way an app would. The kernel is the product; each UI is a package you can swap."
     >

@@ -19,7 +19,6 @@ export function AgentSection() {
   return (
     <Section
       id="agent"
-      index="02 · agent"
       title="An agent drives the same tree"
       lede={
         <>

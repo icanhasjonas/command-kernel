@@ -49,7 +49,6 @@ export function GateSection() {
   return (
     <Section
       id="gate"
-      index="03 · gate"
       title="The gate lives in the kernel"
       lede={
         <>

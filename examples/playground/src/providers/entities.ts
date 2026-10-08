@@ -6,7 +6,7 @@ import { searchUsers, USERS, type User } from "./data";
  * backs any `entity: { type: "person" }` arg. Replaces the per-arg `complete`
  * closure sendEmail used to carry. In this demo a person is identified by email
  * (so the value an arg stores doubles as the address run() sends to), and any
- * well-formed address is a person too: `to: j@duplo.org` works without a user.
+ * well-formed address is a person too: `to: jo@example.com` works without a user.
  */
 const toEntity = (u: User): Entity => ({
   id: u.email,

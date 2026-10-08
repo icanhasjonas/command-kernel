@@ -1,23 +1,20 @@
 import type { ReactNode } from "react";
 
-/** One chapter of the demo: a numbered heading, a lede that says what to try, then the live thing. */
+/** One chapter of the demo: a heading, a lede that says what to try, then the live thing. */
 export function Section({
   id,
-  index,
   title,
   lede,
   children,
 }: {
   id: string;
-  index: string;
   title: string;
   lede: ReactNode;
   children: ReactNode;
 }) {
   return (
-    <section id={id} aria-labelledby={`${id}-title`} className="scroll-mt-24 pt-20">
-      <div className="font-mono text-[12px] text-pink-soft">{index}</div>
-      <h2 id={`${id}-title`} className="mt-2 font-semibold text-[26px] text-white tracking-tight">
+    <section id={id} aria-labelledby={`${id}-title`} className="scroll-mt-24 pt-24">
+      <h2 id={`${id}-title`} className="font-semibold text-[28px] text-white tracking-tight">
         {title}
       </h2>
       <div className="mt-3 max-w-[60ch] text-[15px] leading-relaxed text-white/60">{lede}</div>

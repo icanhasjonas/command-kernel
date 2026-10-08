@@ -17,7 +17,7 @@ const file = (id: string): WorkspaceFile => {
 };
 
 const email = (args: Record<string, string>): PipeStep => ({
-  path: [{ id: "email.send", args: { to: "j@duplo.org", subject: "Next steps", ...args } }],
+  path: [{ id: "email.send", args: { to: "jo@example.com", subject: "Next steps", ...args } }],
 });
 
 export const PRESETS: PipePreset[] = [

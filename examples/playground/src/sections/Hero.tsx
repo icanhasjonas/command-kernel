@@ -11,8 +11,7 @@ export function Hero() {
   const { openPalette } = useDemo();
   return (
     <section id="top" className="pt-16 lg:pt-24">
-      <p className="font-mono text-[12px] text-pink-soft">a headless command kernel</p>
-      <h1 className="mt-4 max-w-[19ch] text-balance font-semibold text-[40px] text-white leading-[1.05] tracking-tight sm:text-[60px]">
+      <h1 className="max-w-[19ch] text-balance font-semibold text-[40px] text-white leading-[1.05] tracking-tight sm:text-[60px]">
         One kernel. Every UI is a driver.
       </h1>
       <p className="mt-6 max-w-[56ch] text-[17px] leading-relaxed text-white/65">
@@ -36,18 +35,6 @@ export function Hero() {
           <Bot size={16} /> Ask the agent
         </a>
       </div>
-      <dl className="mt-12 grid max-w-[560px] gap-5 border-white/8 border-t pt-6 sm:grid-cols-3 sm:gap-6">
-        {[
-          ["1 verb", "command(path, args) for every driver"],
-          ["1 gate", "permissions live in the kernel, never a UI"],
-          ["1 schema", "chips, agent tools, URLs from one declaration"],
-        ].map(([k, v]) => (
-          <div key={k}>
-            <dt className="font-semibold text-[15px] text-white">{k}</dt>
-            <dd className="mt-1 text-[13px] leading-snug text-white/50">{v}</dd>
-          </div>
-        ))}
-      </dl>
     </section>
   );
 }

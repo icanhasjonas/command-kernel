@@ -16,7 +16,6 @@ export function PipesSection() {
   return (
     <Section
       id="pipes"
-      index="05 · pipes"
       title="One command's output is the next one's input"
       lede={
         <>

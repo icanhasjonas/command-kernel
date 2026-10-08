@@ -36,7 +36,6 @@ export function SchemaSection() {
   return (
     <Section
       id="schema"
-      index="04 · schema"
       title="One schema, every surface"
       lede={
         <>

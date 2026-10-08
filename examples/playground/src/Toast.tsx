@@ -3,7 +3,10 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useState } from "react";
 import { useDemo } from "./demo/demo-context";
 
-/** The last result, said once near where you are looking, then gone. The trace keeps the record. */
+/**
+ * The last result, said once, then gone. Only below the wide layout: there the
+ * trace rail is out of sight, and on a wide screen the rail already says it.
+ */
 export function Toast() {
   const { toast } = useDemo();
   const [shown, setShown] = useState<number | null>(null);
@@ -19,7 +22,7 @@ export function Toast() {
   return (
     <div
       aria-live="polite"
-      className="pointer-events-none fixed inset-x-0 bottom-6 z-[60] flex justify-center px-4"
+      className="pointer-events-none fixed inset-x-0 bottom-20 z-[60] flex justify-center px-4 lg:hidden"
     >
       <AnimatePresence>
         {toast && shown === toast.id && (

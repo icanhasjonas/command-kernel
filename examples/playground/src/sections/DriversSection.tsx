@@ -8,7 +8,6 @@ export function DriversSection() {
   return (
     <Section
       id="drivers"
-      index="01 · drivers"
       title="Many ways in, one verb"
       lede={
         <>

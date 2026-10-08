@@ -31,7 +31,8 @@ export function AgentConsole() {
   }
 
   return (
-    <div className="flex h-[460px] flex-col">
+    // grows with the conversation, then scrolls: no tall empty box before the first goal
+    <div className="flex max-h-[460px] flex-col">
       <div ref={log} className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4">
         {agent.lines.length === 0 && (
           <div>

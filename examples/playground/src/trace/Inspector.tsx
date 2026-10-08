@@ -2,6 +2,14 @@ import { Activity } from "lucide-react";
 import { TraceRow } from "./TraceRow";
 import { traceStore, useTrace } from "./trace-store";
 
+/** The four things the kernel does to every call, in order: the legend for each row's chips. */
+const STAGES = [
+  ["resolve", "walk the path to the command"],
+  ["args", "every required arg present and valid"],
+  ["gate", "allowed for this role, approval proven if owed"],
+  ["run", "the command's run() fires"],
+] as const;
+
 /**
  * The kernel rail: every executing call any driver on this page makes, newest
  * first, with how far it got (resolve, args, gate, run) and what the evidence did.
@@ -39,6 +47,14 @@ export function Inspector({ className }: { className?: string }) {
             click a link, ask the agent: each call shows up here with how far it got and what the
             gate decided.
           </p>
+          <dl className="mt-6 space-y-2.5 border-white/8 border-t pt-5 text-[12px]">
+            {STAGES.map(([name, what]) => (
+              <div key={name} className="flex gap-3">
+                <dt className="w-14 shrink-0 font-mono text-white/70">{name}</dt>
+                <dd>{what}</dd>
+              </div>
+            ))}
+          </dl>
         </div>
       ) : (
         <ul className="min-h-0 flex-1 overflow-y-auto">
