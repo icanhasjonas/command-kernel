@@ -29,7 +29,12 @@ export function FrameLog() {
           answer.
         </p>
       ) : (
-        <ol className="mt-3 max-h-[440px] space-y-1.5 overflow-y-auto pr-1 font-mono text-[11px]">
+        <ol
+          // biome-ignore lint/a11y/noNoninteractiveTabindex: a scroll region must take focus so a keyboard can scroll it (axe scrollable-region-focusable)
+          tabIndex={0}
+          aria-label="Frames on the wire, newest first"
+          className="mt-3 max-h-[440px] space-y-1.5 overflow-y-auto rounded pr-1 font-mono text-[11px] outline-none focus-visible:ring-2 focus-visible:ring-white/30"
+        >
           {frames.map((f) => (
             <li key={f.id} className="grid grid-cols-[3.25rem_minmax(0,1fr)] gap-2">
               <span className={cn(f.dir === "out" ? "text-sky-300" : "text-teal-soft")}>

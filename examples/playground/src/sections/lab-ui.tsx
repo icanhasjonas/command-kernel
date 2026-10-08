@@ -6,10 +6,10 @@ import type { ReactNode } from "react";
 export interface Attempt {
   label: string;
   /**
-   * what came of it: ran, still owed, refused by the gate, short of args, a note (no
-   * call), or stopped before any kernel saw it (the network, a rate limit)
+   * what came of it: ran, still owed, refused by the gate, short of args, a grant was
+   * minted, a note (no call), or stopped before any kernel saw it (network, rate limit)
    */
-  answer: "ran" | "owed" | "blocked" | "args" | "note" | "unreached";
+  answer: "ran" | "owed" | "blocked" | "args" | "granted" | "note" | "unreached";
   detail: string;
 }
 
@@ -24,6 +24,7 @@ const TONE: Record<Attempt["answer"], string> = {
   owed: "text-amber-soft",
   blocked: "text-red-300",
   args: "text-amber-soft",
+  granted: "text-amber-soft",
   note: "text-white/55",
   unreached: "text-red-300",
 };

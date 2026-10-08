@@ -16,7 +16,7 @@ import {
   rotateKey,
 } from "../../wire/spec";
 import { type Attempt, tamper } from "../lab-ui";
-import { labCall, type Via } from "./call";
+import { labCall, refusal, type Via } from "./call";
 
 export interface FeedItem extends LabChange {
   at: number;
@@ -145,11 +145,11 @@ export function useLab() {
         setGrant(g);
         log({
           label: "Confirm",
-          answer: "note",
+          answer: "granted",
           detail: "the server checked you and minted a grant",
         });
       } catch (e) {
-        log({ label: "Confirm", answer: "blocked", detail: e instanceof Error ? e.message : "" });
+        log({ label: "Confirm", ...refusal(e) });
       }
     },
     run: () => grant && rotate({ key }, "Run with the grant", grant),

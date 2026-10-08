@@ -91,8 +91,16 @@ export function RotatePanel({ lab, server }: { lab: Lab; server: LabStatus | nul
         </button>
       </div>
       {lab.grant && (
-        <div className="mt-3 break-all font-mono text-[11px] text-amber-soft/80">
+        <div
+          className={cn(
+            "mt-3 break-all font-mono text-[11px]",
+            lab.used ? "text-white/40" : "text-amber-soft/80",
+          )}
+        >
           grant · sig {lab.grant.sig}
+          {lab.used && (
+            <span className="text-white/60"> · spent, the server will not take it again</span>
+          )}
         </div>
       )}
     </div>

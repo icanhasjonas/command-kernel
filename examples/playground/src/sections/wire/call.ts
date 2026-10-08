@@ -22,6 +22,28 @@ const asAttempt: Partial<Record<Outcome, Attempt["answer"]>> = {
   args: "args",
 };
 
+const asError = (e: unknown) =>
+  e instanceof WireCallError
+    ? e
+    : new WireCallError({ code: "serverFail", message: String(e), status: 0 });
+
+/**
+ * A failed call as a log line: the gate's refusal reads as blocked or owed, the network
+ * or a rate limit as unreached. `withGrant`: a grant was presented, so "owed" means the
+ * server would not take it.
+ */
+export function refusal(e: unknown, withGrant = false): Omit<Attempt, "label"> {
+  const error = asError(e);
+  const outcome = REACHED[error.code] ?? "unreached";
+  return {
+    answer: asAttempt[outcome] ?? "unreached",
+    detail:
+      outcome === "owed" && withGrant
+        ? "the server did not accept that grant"
+        : `${error.status || "no answer"} ${error.code}`,
+  };
+}
+
 /**
  * One call to the lab through the wire client, recorded twice: in the kernel trace
  * (driver `wire`, so the rail shows the server's verdict next to the page's) and as a
@@ -51,11 +73,7 @@ export async function labCall<A extends object, O>(
     });
     answer = { ok: true, data };
   } catch (e) {
-    const error =
-      e instanceof WireCallError
-        ? e
-        : new WireCallError({ code: "serverFail", message: String(e), status: 0 });
-    answer = { ok: false, error };
+    answer = { ok: false, error: asError(e) };
   }
   if (opts.quiet) return answer;
   const outcome: Outcome = answer.ok ? "ran" : (REACHED[answer.error.code] ?? "unreached");
@@ -75,14 +93,7 @@ export async function labCall<A extends object, O>(
   opts.log(
     answer.ok
       ? { label: opts.label, answer: "ran", detail: opts.done?.(answer.data) ?? "done" }
-      : {
-          label: opts.label,
-          answer: asAttempt[outcome] ?? "unreached",
-          detail:
-            outcome === "owed" && evidence
-              ? "the server did not accept that grant"
-              : `${answer.error.status || "no answer"} ${answer.error.code}`,
-        },
+      : { label: opts.label, ...refusal(answer.error, evidence !== undefined) },
   );
   return answer;
 }

@@ -1,6 +1,6 @@
 import { cn } from "@command-kernel/ui";
 import type { ConnectionStatus } from "@command-kernel/wire";
-import type { LabRole, LabStatus } from "../../wire/spec";
+import type { LabStatus } from "../../wire/spec";
 import { btn } from "../lab-ui";
 import type { Via } from "./call";
 
@@ -28,7 +28,6 @@ export function ConnectionBar(p: {
   status: ConnectionStatus;
   server: LabStatus | null;
   online: number | null;
-  role: LabRole;
   via: Via;
   setVia: (v: Via) => void;
   cut: () => void;
@@ -45,7 +44,7 @@ export function ConnectionBar(p: {
         <span className="font-mono text-[12px] text-white/55">
           edge <span className="text-white/85">{p.server.colo}</span> · you are{" "}
           <span className="text-white/85">
-            {p.server.you.visitor} ({p.role})
+            {p.server.you.visitor} ({p.server.you.role})
           </span>
           {p.online !== null && (
             <>

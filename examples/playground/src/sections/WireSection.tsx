@@ -29,7 +29,6 @@ export function WireSection() {
           status={lab.status}
           server={lab.server}
           online={lab.online}
-          role={lab.role}
           via={lab.via}
           setVia={lab.setVia}
           cut={lab.cut}
