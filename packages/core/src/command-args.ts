@@ -2,6 +2,7 @@ import type { ArgOption, ArgValues, EntityRef } from "./args.js";
 import type { CommandResponse, Completion } from "./command.js";
 import { type Entity, type EntityRegistry, entityOption } from "./entity.js";
 import { getOwn, setOwn } from "./own.js";
+import type { ArgError } from "./schema.js";
 import type { CommandNode, Ctx } from "./types.js";
 import { isFilled } from "./values.js";
 
@@ -76,6 +77,33 @@ export async function resolveEntities(
     else if (out[0] !== undefined) setOwn(values, a.id, out[0]);
   }
   return null;
+}
+
+/**
+ * The check the lower verb (`executeNode`) makes, so no driver skips it: every value
+ * of a closed entity arg is the id of an entity that exists. Names were turned into
+ * ids before this (`resolveEntities`, or a pick from the arg's options); here an id
+ * that is nobody is an arg error. An `open` arg takes any value.
+ */
+export async function unknownEntities(
+  node: CommandNode,
+  values: ArgValues,
+  ctx: Ctx,
+  entities: EntityRegistry,
+): Promise<ArgError[]> {
+  const errors: ArgError[] = [];
+  for (const a of node.args ?? []) {
+    if (!a.entity || a.entity.open) continue;
+    const raw = getOwn(values, a.id);
+    const list = Array.isArray(raw) ? raw : raw === undefined ? [] : [raw];
+    for (const item of list) {
+      const v = typeof item === "string" ? item.trim() : "";
+      if (!v || (await entities.get(a.entity.type, v, ctx))) continue;
+      errors.push({ argId: a.id, message: `no ${a.entity.type} matches "${v}"` });
+      break;
+    }
+  }
+  return errors;
 }
 
 export async function argCompletions(

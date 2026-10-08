@@ -2,7 +2,8 @@
 "@command-kernel/core": minor
 ---
 
-An entity arg takes an entity. At the args stage, before any gate or run:
+An entity arg takes an entity. At the args stage, before any gate or run, in
+`command()` AND in `executeNode` (the lower verb a palette calls), so no driver skips it:
 
 - a value no registered entity matches is an arg error (`no person matches "x"`); it
   used to run with the string as given.

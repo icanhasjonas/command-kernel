@@ -1,6 +1,8 @@
 import type { ArgValues } from "./args.js";
 import { disabledReason } from "./availability.js";
 import { coerceArgs } from "./coerce.js";
+import { unknownEntities } from "./command-args.js";
+import type { EntityRegistry } from "./entity.js";
 import { bindingKey, type EvidenceStore } from "./evidence.js";
 import type { GatePolicy } from "./gate.js";
 import { getOwn } from "./own.js";
@@ -52,6 +54,11 @@ export interface ExecuteDeps {
    * to `Date.now`; absent (raw deps), the evidence store uses its own.
    */
   now?: () => number;
+  /**
+   * The entity catalog. With it, a closed entity arg whose value is no entity's id is
+   * an arg error here, in the verb every driver calls, not only in `command()`.
+   */
+  entities?: EntityRegistry;
 }
 
 /** How far `executeNode` goes. */
@@ -152,6 +159,9 @@ export async function executeNode(
   // VALIDATE next - the kernel checks what ANY driver sends, before the gate.
   // A node never runs with a present-but-invalid arg (a hallucinated email/enum).
   const argErrors = validateArgs(node, args);
+  // an entity arg takes an entity: an id nobody has is as invalid as a malformed one
+  if (argErrors.length === 0 && deps.entities)
+    argErrors.push(...(await unknownEntities(node, args, ctx, deps.entities)));
   if (argErrors.length > 0) {
     const checks = argErrors.map((e) => ({ label: e.message, ok: false }));
     return stopped({ allowed: false, needsConfirm: false, checks }, { argErrors });

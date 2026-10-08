@@ -96,6 +96,18 @@ describe("an entity arg takes an entity, not any string (B14)", () => {
     expect(many.kind === "args" && many.errors[0]?.message).toBe('"j" matches several persons');
   });
 
+  it("the lower verb refuses it too: a driver calling executeNode cannot skip the check", async () => {
+    const out = await k2.executeNode(email, { to: "ghost@nowhere.zz" }, ctx);
+    expect(out.result).toBeNull();
+    expect(out.argErrors).toEqual([
+      { argId: "to", message: 'no person matches "ghost@nowhere.zz"' },
+    ]);
+    const many = await k2.executeNode(cc, { who: ["jon@wall.north", "ghost"] }, ctx);
+    expect(many.argErrors[0]?.message).toBe('no person matches "ghost"');
+    const ok = await k2.executeNode(anyone, { to: "grace@navy.mil" }, ctx);
+    expect(ok.result?.message).toBe("to grace@navy.mil");
+  });
+
   it("an open entity arg still takes a value typed by hand", async () => {
     const r = await go("anyone", { to: "grace@navy.mil" });
     expect(r.kind === "result" && r.result.message).toBe("to grace@navy.mil");
