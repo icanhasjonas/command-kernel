@@ -27,7 +27,8 @@ export function GateSection() {
             {ASKED.id}(user: "{ASKED.args.user}")
           </div>
           <div className="mt-1 text-[12px] text-white/45">
-            gate: admin only, confirm every run · you are <Code>{ctx.user.role}</Code>
+            gate: admin only, confirm each run unless an always-allow rule covers it · you are{" "}
+            <Code>{ctx.user.role}</Code>
           </div>
           <ol className="mt-5 space-y-3">
             <Step n={1} label="Ask" done={lab.gate !== null}>
@@ -40,7 +41,7 @@ export function GateSection() {
                 Allow, as you
               </button>
             </Step>
-            <Step n={3} label="Run" done={lab.attempts.some((a) => a.answer === "ran")}>
+            <Step n={3} label="Run" done={lab.ranWithGrant}>
               <button
                 type="button"
                 className={btn}

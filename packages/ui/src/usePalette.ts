@@ -199,7 +199,23 @@ export function usePalette({
     [startPipe, gateActivate],
   );
 
+  // the palette was opened ON a command (a trigger), not browsed to it
+  const openedOn = useRef(false);
+
+  /** Leave the confirm (or the args) for the list, keeping the palette open. */
+  const dropConfirm = useCallback(() => {
+    // from here on it is a palette the person is browsing, not one opened on a command
+    openedOn.current = false;
+    setMode(pipe ? "pipe" : "browse");
+    setArg(null);
+    setConfirm(null);
+  }, [pipe, setMode, setConfirm]);
+
   const back = useCallback(() => {
+    // opened ON a command (a link, a chord, a button): its cancel closes the palette,
+    // there is no list behind it the person came from
+    if ((mode === "args" || mode === "confirm") && openedOn.current && !pipe && frames.length === 1)
+      return onClose();
     if (mode === "args" || mode === "confirm") {
       // a pipe step backs out to the value in hand, not to the browse list
       setMode(pipe ? "pipe" : "browse");
@@ -241,6 +257,7 @@ export function usePalette({
   // biome-ignore lint/correctness/useExhaustiveDependencies: open-edge reset only
   useEffect(() => {
     if (!open) return;
+    openedOn.current = false;
     setFrames([{ node: null, items: roots, dynamic: false, args: {} }]);
     setQuery("");
     setSelected(0);
@@ -256,6 +273,7 @@ export function usePalette({
     if (!trigger) return;
     const node = roots.find((n) => n.id === trigger.id);
     if (!node) return;
+    openedOn.current = true;
     // args the jump already knows (a deeplink's): ask only for the rest
     if (trigger.values) beginExecute(node, { values: trigger.values });
     else activate(node, false);
@@ -289,6 +307,7 @@ export function usePalette({
     startPipe,
     activate,
     back,
+    dropConfirm,
     commitArg,
     finishArg,
     confirmProceed,

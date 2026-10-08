@@ -1,5 +1,5 @@
 import type { ArgOption, ArgValues, CommandNode, Ctx, Kernel } from "@command-kernel/core";
-import { argList, entityOption, missingArgs } from "@command-kernel/core";
+import { argList, entityOption, freeValueError, missingArgs } from "@command-kernel/core";
 import { type RefObject, useCallback, useEffect, useState } from "react";
 import type { ArgSession, Mode } from "./palette-types.js";
 import type { Proceed } from "./usePaletteGate.js";
@@ -138,6 +138,17 @@ export function usePaletteArgs({
     (value: string) => {
       if (!arg) return;
       const spec = arg.node.args?.find((a) => a.id === arg.activeArg);
+      // a value typed by hand (not one of the options) for an entity arg: the kernel's
+      // own rule, asked now, so "bob at home" is refused here, not after every other arg
+      const typedByHand = !argOptions.some((o) => o.value === value);
+      const why =
+        spec?.entity && typedByHand && kernel.entities
+          ? freeValueError(spec.entity, value, kernel.entities)
+          : null;
+      if (why) {
+        setArg({ ...arg, error: why });
+        return;
+      }
       if (spec?.multiple) {
         const { error: _answered, ...rest } = arg;
         const next = [...argList(arg.values[arg.activeArg]), value];
@@ -148,7 +159,7 @@ export function usePaletteArgs({
       }
       advanceOrRun({ ...arg, values: { ...arg.values, [arg.activeArg]: value } });
     },
-    [arg, advanceOrRun, setArg, setArgQuery, setSelected],
+    [arg, argOptions, kernel, advanceOrRun, setArg, setArgQuery, setSelected],
   );
 
   // done adding to a `multiple` arg -> advance to the next missing arg (or run)

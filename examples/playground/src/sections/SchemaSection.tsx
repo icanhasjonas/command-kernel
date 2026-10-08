@@ -1,9 +1,9 @@
 import { toMcpTool } from "@command-kernel/agent";
-import { describeNode, serializePath } from "@command-kernel/core";
+import { type CommandNode, type Ctx, describeNode, serializePath } from "@command-kernel/core";
 import { cn, Icon } from "@command-kernel/ui";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useDemo } from "../demo/demo-context";
-import { kernel } from "../demo/kernel";
+import { kernel, viaAgent } from "../demo/kernel";
 import { Code, Panel, Section } from "./Section";
 import { authored, SAMPLE_ARGS } from "./schema/render";
 
@@ -24,11 +24,36 @@ function Block({ title, note, children }: { title: string; note: string; childre
   );
 }
 
+/** The gate's answer when the agent calls this node, before args: what it will meet. */
+function useAgentVerdict(node: CommandNode | undefined, ctx: Ctx) {
+  const [said, setSaid] = useState<string>("…");
+  useEffect(() => {
+    if (!node) return;
+    let live = true;
+    void kernel.preflight(node, viaAgent(ctx)).then((v) => {
+      if (!live) return;
+      const why = v.checks.filter((c) => c.ok && !c.label.startsWith("role:")).map((c) => c.label);
+      setSaid(
+        !v.allowed
+          ? `refused: ${v.checks.find((c) => !c.ok)?.label ?? "not permitted"}`
+          : v.needsConfirm
+            ? `waits for the person's OK${why.length ? `: ${why.join("; ")}` : ""}`
+            : "runs",
+      );
+    });
+    return () => {
+      live = false;
+    };
+  }, [node, ctx]);
+  return said;
+}
+
 /** Chapter 4: the keystone. One arg schema, rendered by every surface from the same object. */
 export function SchemaSection() {
   const [id, setId] = useState(nodes[0]?.id ?? "");
-  const { openPalette } = useDemo();
+  const { openPalette, ctx } = useDemo();
   const node = nodes.find((n) => n.id === id);
+  const asAgent = useAgentVerdict(node, ctx);
   if (!node) return null;
   const tool = toMcpTool(node);
   const link = `#${serializePath([{ id: node.id, args: SAMPLE_ARGS[node.id] ?? {} }])}`;
@@ -90,8 +115,19 @@ export function SchemaSection() {
           <Block title="As an agent tool" note="toMcpTool(node)">
             {JSON.stringify(tool, null, 2)}
           </Block>
-          <Block title="What an agent learns" note="describeNode(node)">
-            {JSON.stringify({ executable: d.executable, effect: d.effect, gate: d.gate }, null, 2)}
+          <Block title="What an agent learns" note="describeNode + preflight as the agent">
+            {JSON.stringify(
+              {
+                executable: d.executable,
+                effect: d.effect,
+                gate: d.gate,
+                // the declared gate is not the whole story: this app's policy adds a rule
+                // for what the agent asks (a write waits for the person), and says so
+                whenTheAgentCalls: asAgent,
+              },
+              null,
+              2,
+            )}
           </Block>
         </div>
       </Panel>

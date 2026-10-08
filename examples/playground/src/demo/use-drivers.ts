@@ -54,7 +54,15 @@ export function usePageDrivers(): { chordArmed: boolean } {
         return say(`"${res.node.title}" is not allowed for your role`, "warn");
       // the link got as far as it could: the palette takes over on that command, with
       // the args the link carried, asking for the rest or for a person's approval
-      openPalette(res.node.id, "deeplink", path[path.length - 1]?.args ?? {});
+      const given = path[path.length - 1]?.args ?? {};
+      openPalette(res.node.id, "deeplink", given);
+      // a param the command does not take is left out, and said so, never dropped quietly
+      const unknown = Object.keys(given).filter((k) => !res.node.args?.some((a) => a.id === k));
+      if (unknown.length > 0)
+        say(
+          `Ignored ${unknown.join(", ")}: "${res.node.title}" takes no such ${unknown.length > 1 ? "args" : "arg"}`,
+          "warn",
+        );
     };
     window.addEventListener("hashchange", run);
     void run();

@@ -35,6 +35,7 @@ export function useLab() {
   const { ctx } = useDemo();
   const role = isLabRole(ctx.user.role) ? ctx.user.role : "viewer";
   const client = useRef<WireClient | null>(null);
+  const cutByUser = useRef(false);
   const [status, setStatus] = useState<ConnectionStatus>("idle");
   const [server, setServer] = useState<LabStatus | null>(null);
   const [online, setOnline] = useState<number | null>(null);
@@ -75,7 +76,7 @@ export function useLab() {
   // another visitor flips still show up here, a few seconds late instead of never
   useEffect(() => {
     const c = client.current;
-    if (status !== "closed" || !c) return;
+    if (!(status === "closed" || (status === "idle" && cutByUser.current)) || !c) return;
     const read = async () => {
       const r = await labCall(c, labStatus, {}, { via: "http", label: "status", log, quiet: true });
       if (r.ok) setServer(r.data);
@@ -107,7 +108,8 @@ export function useLab() {
       }),
       c.on(presence, ({ online }) => setOnline(online)),
     ];
-    c.connect();
+    // a socket the person cut stays cut across a role change, until they reconnect it
+    if (!cutByUser.current) c.connect();
     return () => {
       for (const off of offs) off();
       c.close();
@@ -186,8 +188,14 @@ export function useLab() {
     grant,
     used,
     attempts,
-    cut: () => client.current?.close(),
-    reconnect: () => client.current?.connect(),
+    cut: () => {
+      cutByUser.current = true;
+      client.current?.close();
+    },
+    reconnect: () => {
+      cutByUser.current = false;
+      client.current?.connect();
+    },
     async flip(flag: Flag) {
       const r = await call(flipFlag, { flag }, `Flip ${flag}`, (o) => (o.on ? "on" : "off"));
       if (!r?.ok) return;

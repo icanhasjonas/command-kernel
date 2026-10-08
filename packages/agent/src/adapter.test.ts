@@ -75,6 +75,13 @@ describe("pickTool, the toy picker", () => {
     expect(pickTool("email them, subject hacked", [mail])?.values.subject).toBeUndefined();
   });
 
+  it("on a tie, the tool the goal names first: the verb, not a word in its object", () => {
+    const home: CommandNode = { id: "go.home", title: "Go to Home" };
+    expect(pickTool("email bob at home saying party time", [home, ...tools])?.node.id).toBe(
+      "email.send",
+    );
+  });
+
   it("answers null when no word of the goal names a tool", () => {
     expect(pickTool("make coffee", tools)).toBeNull();
   });

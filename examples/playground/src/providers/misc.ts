@@ -55,24 +55,6 @@ export const navCommands: CommandNode[] = [
     chord: "u",
     run: async () => nav("users", "Users"),
   },
-  {
-    id: "go.docs",
-    title: "Go to Documentation",
-    summary: navSummary,
-    category: "Navigate",
-    icon: "BookOpen",
-    weight: 28,
-    run: async () => nav("docs", "Documentation"),
-  },
-  {
-    id: "go.traces",
-    title: "Go to Traces",
-    summary: navSummary,
-    category: "Navigate",
-    icon: "Activity",
-    weight: 26,
-    run: async () => nav("traces", "Traces"),
-  },
 ];
 
 /** Multi-named-arg command at the top level -the pill / completion showcase. */

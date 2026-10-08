@@ -51,7 +51,8 @@ export function ResultRow({
       onClick={(e) => onActivate(e.metaKey || e.ctrlKey)}
       className={cn(
         "group flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors",
-        active ? "bg-white/[0.07]" : "hover:bg-white/[0.035]",
+        // one highlight only: the pointer moves the selection, so hover paints nothing
+        active && "bg-white/[0.07]",
       )}
     >
       <span

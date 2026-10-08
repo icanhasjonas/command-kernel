@@ -29,6 +29,10 @@ The palette on a phone, and for a screen reader:
 - A role the gate refuses is shown before any arg is asked for (`kernel.preflight`).
 - A link's value for an arg the command does not have is left out instead of stranding
   the palette on an error with no input to fix it in.
+- New text in the search box drops a confirm on screen, so Enter cannot approve a gated
+  run you moved past. Esc on a palette opened on a command (link, chord, button) closes it.
+- A hand-typed value for an entity arg is checked when committed (`freeValueError`).
+- One highlight: the pointer moves the selection, so hover paints nothing of its own.
 - Row key badges (`tab`, a chord key) hide on a touch screen, like the footer.
 - An arg with nothing to search says `typeValue` ("type a value, then ↵") instead of
   "start typing to search…". New label, overridable like the rest.

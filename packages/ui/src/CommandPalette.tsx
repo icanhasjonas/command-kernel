@@ -182,6 +182,9 @@ export function CommandPalette({
     }
 
     if (p.mode === "confirm") {
+      // typing means you moved on: the approval is dropped, and what you type is a new
+      // search, so Enter can never fire a gated run you had already turned away from
+      if (e.key.length === 1 && !e.metaKey && !e.ctrlKey) return p.dropConfirm();
       if (e.key === "Enter" && !p.confirm?.blocked) p.confirmProceed();
       return;
     }
@@ -380,6 +383,9 @@ export function CommandPalette({
                         ref={browseRef}
                         value={p.query}
                         onChange={(e) => {
+                          // new text, however it arrived (keys, paste, IME): the confirm on
+                          // screen is dropped, so Enter cannot approve what you moved past
+                          if (p.mode === "confirm") p.dropConfirm();
                           p.setQuery(e.target.value);
                           p.setSelected(0);
                         }}

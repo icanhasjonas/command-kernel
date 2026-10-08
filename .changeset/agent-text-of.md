@@ -10,3 +10,6 @@ for a caller that resolves more words itself (a name it turned into a person arg
 
 A closed-list arg gets the option the goal names ("email a reminder" picks Reminder),
 and nothing when it names none: it no longer fills a `subject` with the first option.
+
+On a tie, the tool the goal names first wins (its verb): "email bob at home" is Send
+email, not Go to Home.

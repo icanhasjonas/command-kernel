@@ -43,16 +43,35 @@ const wordsOf = (s: string) =>
 
 /**
  * How well a tool fits: whole words only ("submission" does not match "submissions"),
- * a title word counts twice a keyword, and a tie goes to the tool more of whose title
- * the goal names ("go to submissions" is Go to Submissions, not Re-sync submission).
+ * a title word counts twice a keyword. A tie goes first to the tool the goal names
+ * earliest (its verb: "email bob at home" is an email, not Go to Home), then to the
+ * tool more of whose title the goal names ("go to submissions" is Go to Submissions).
  */
-function fit(goal: Set<string>, t: CommandNode): { points: number; share: number } {
+interface Fit {
+  points: number;
+  first: number;
+  share: number;
+}
+
+function fit(goal: string[], t: CommandNode): Fit {
   const title = wordsOf(t.title);
   const keys = (t.keywords ?? []).flatMap(wordsOf);
-  const inTitle = title.filter((w) => goal.has(w)).length;
-  const inKeys = keys.filter((w) => goal.has(w)).length;
-  return { points: inTitle * 2 + inKeys, share: title.length > 0 ? inTitle / title.length : 0 };
+  const inTitle = title.filter((w) => goal.includes(w)).length;
+  const inKeys = keys.filter((w) => goal.includes(w)).length;
+  const at = [...title, ...keys].map((w) => goal.indexOf(w)).filter((i) => i >= 0);
+  return {
+    points: inTitle * 2 + inKeys,
+    first: at.length > 0 ? Math.min(...at) : Number.POSITIVE_INFINITY,
+    share: title.length > 0 ? inTitle / title.length : 0,
+  };
 }
+
+const better = (a: Fit, b: Fit) =>
+  a.points !== b.points
+    ? a.points > b.points
+    : a.first !== b.first
+      ? a.first < b.first
+      : a.share > b.share;
 
 /**
  * Pick the best-matching tool for a natural-language goal and pre-fill its args
@@ -63,12 +82,12 @@ function fit(goal: Set<string>, t: CommandNode): { points: number; share: number
  * downstream (the `command()` walk, the gate, the grant) is unchanged.
  */
 export function pickTool(goal: string, tools: CommandNode[]): ToolPick | null {
-  const words = new Set(wordsOf(goal));
+  const words = wordsOf(goal);
   let best: CommandNode | null = null;
-  let top = { points: 0, share: 0 };
+  let top: Fit = { points: 0, first: Number.POSITIVE_INFINITY, share: 0 };
   for (const t of tools) {
     const f = fit(words, t);
-    if (f.points > top.points || (f.points === top.points && f.share > top.share)) {
+    if (better(f, top)) {
       top = f;
       best = t;
     }

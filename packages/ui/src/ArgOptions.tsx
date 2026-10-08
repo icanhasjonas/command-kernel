@@ -50,7 +50,8 @@ export function ArgOptions({
           onClick={() => onPick(o.value)}
           className={cn(
             "flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left",
-            i === selected ? "bg-white/[0.07]" : "hover:bg-white/[0.035]",
+            // one highlight only: the pointer moves the selection, so hover paints nothing
+            i === selected && "bg-white/[0.07]",
           )}
         >
           {/* an option without an icon gets none, not a placeholder circle */}

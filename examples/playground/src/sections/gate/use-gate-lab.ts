@@ -31,13 +31,29 @@ export function useGateLab() {
   const [life, setLife] = useState<GrantLife>("live");
   const [attempts, setAttempts] = useState<Attempt[]>([]);
 
-  // "New session" up top rotated the key: a grant in hand is void, and the card says so
+  // the run step is done only by a run that used the grant, not by any "ran" in the log
+  const [ranWithGrant, setRanWithGrant] = useState(false);
+
+  // "New session" up top rotated the key and dropped every rule: a grant in hand is void,
+  // the card says so, and the lab starts over from step 1
   const session = useSessionEpoch();
   const seen = useRef(session);
   useEffect(() => {
     if (session === seen.current) return;
     seen.current = session;
     setLife((l) => (l === "live" ? "void" : l));
+    setGate(null);
+    setRanWithGrant(false);
+    setAttempts((xs) =>
+      [
+        {
+          label: "New session",
+          answer: "note" as const,
+          detail: "a new key and no always-allow rules: any grant from before is void",
+        },
+        ...xs,
+      ].slice(0, 6),
+    );
   }, [session]);
 
   const log = (a: Attempt) => setAttempts((xs) => [a, ...xs].slice(0, 6));
@@ -59,8 +75,19 @@ export function useGateLab() {
     if (res.kind === "result") {
       ran(ASKED.id);
       // a grant is good once: the run that used it spent it
-      if (evidence) setLife("spent");
-      log({ label, answer: "ran", detail: res.result.message });
+      if (evidence) {
+        setLife("spent");
+        setRanWithGrant(true);
+      }
+      // no grant and it ran anyway: a standing rule set earlier (the agent's "Always")
+      const ruled = !evidence && kernel.policy.match(ASKED.id, args) !== null;
+      log({
+        label,
+        answer: "ran",
+        detail: ruled
+          ? `${res.result.message}, with no approval: an always-allow rule set earlier covers it (New session, top right, clears it)`
+          : res.result.message,
+      });
     } else if (res.kind === "gate") {
       const failed = res.verdict.checks.find((c) => !c.ok);
       if (!res.verdict.allowed)
@@ -83,9 +110,11 @@ export function useGateLab() {
     gate,
     grant,
     life,
+    ranWithGrant,
     attempts,
     async ask() {
       setGrant(null);
+      setRanWithGrant(false);
       const res = await send("Ask, no evidence", ASKED.args);
       setGate(res.kind === "gate" && res.verdict.allowed ? res : null);
     },

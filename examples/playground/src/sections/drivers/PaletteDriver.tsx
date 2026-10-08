@@ -55,7 +55,7 @@ export function PaletteDriver() {
           "Resend this submission" jumps to the top, already bound).
         </div>
         <div className="mt-3 flex flex-wrap gap-2">
-          {/* a command can take you somewhere without a chip (Docs): it gets one while you are there */}
+          {/* a command can take you somewhere without a chip: it gets one while you are there */}
           {[
             ...PLACES,
             ...(PLACES.some((p) => same(p, ctx.location))

@@ -59,6 +59,23 @@ export function tap(
     ...kernel,
     command,
     pipe: (req, ctx) => runPipe((r) => command(r, ctx), req, kernel.isA),
+    // the gate asked early (before the args) and said no: that refusal is a call the
+    // person made, so it lands in the rail like any other; a yes is not a call yet
+    preflight: async (node, ctx, args) => {
+      const verdict = await kernel.preflight(node, ctx, args);
+      if (!verdict.allowed)
+        traceStore.record({
+          driver,
+          command: node.id,
+          title: node.title,
+          args: args ?? {},
+          outcome: "blocked",
+          checks: verdict.checks,
+          problems: [],
+          grant: "none",
+        });
+      return verdict;
+    },
     executeNode: async (node, args, ctx, confirmation) => {
       const once = confirmation && { ...confirmation, spend: confirmation.spend ?? spend };
       const out = await kernel.executeNode(node, args, ctx, once);
