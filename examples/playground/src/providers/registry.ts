@@ -4,7 +4,7 @@ import { encryptText } from "./crypto";
 import { filesCategory, readFile } from "./files";
 import { formsCategory } from "./forms";
 import { makeThumbnail } from "./media";
-import { broadcastEmail, connectionsCategory, navCommands, sendEmail, toggleTheme } from "./misc";
+import { broadcastEmail, clearTrace, connectionsCategory, navCommands, sendEmail } from "./misc";
 import { resendHere, submissionsCategory } from "./submissions";
 import { usersCategory } from "./users";
 
@@ -29,5 +29,5 @@ export const ROOTS: CommandNode[] = [
   resyncSubmission,
   resendHere,
   ...navCommands,
-  toggleTheme,
+  clearTrace,
 ];

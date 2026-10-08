@@ -1,4 +1,5 @@
 import { argList, type CommandNode, type CommandResult } from "@command-kernel/core";
+import { traceStore } from "../trace/trace-store";
 import { CONNECTIONS } from "./data";
 
 const toast = (message: string): Promise<CommandResult> =>
@@ -190,12 +191,16 @@ export const connectionsCategory: CommandNode = {
     })),
 };
 
-export const toggleTheme: CommandNode = {
-  id: "ui.theme",
-  title: "Toggle backdrop density",
-  summary: "Flip the UI backdrop density. A local view preference -no data is written.",
+export const clearTrace: CommandNode = {
+  id: "trace.clear",
+  title: "Clear the kernel trace",
+  summary: "Empty the trace rail on this page. Local view state: no data is written.",
   category: "Actions",
-  icon: "SunMoon",
+  icon: "Activity",
   weight: 12,
-  run: async () => ({ kind: "toast", message: "Toggled backdrop", payload: { toggle: "density" } }),
+  effect: "writes",
+  run: async () => {
+    traceStore.clear();
+    return { kind: "toast", message: "Cleared the kernel trace" };
+  },
 };

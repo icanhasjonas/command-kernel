@@ -3,8 +3,11 @@ import { useEffect } from "react";
 import { useDemo } from "./demo-context";
 import { drivers, kernel } from "./kernel";
 
+/** The chord leader: press it, then a command's `chord` key. */
+export const CHORD_LEADER = "mod+j";
+
 /**
- * The page-level drivers: the keyboard (⌘K, and ⌘+letter chords straight into a
+ * The page-level drivers: the keyboard (⌘K, and ⌘J-then-a-key chords straight into a
  * command) and the URL hash (`#/cmd/<path>` runs that command). Neither decides
  * anything: the keyboard opens the palette on a node, the hash calls `command()`,
  * and a gated command answers with a gate whatever asked.
@@ -15,8 +18,10 @@ export function usePageDrivers() {
   useEffect(() => {
     const kb = createKeyboard();
     kb.pushLayer({ "mod+k": () => openPalette() }, { base: true, id: "palette-launcher" });
+    // ⌘J, then the command's key (the GUIDE's leader): a bare ⌘+letter would take
+    // the browser's own shortcuts (⌘S save, ⌘F find, ⌘H hide)
     kb.registerShortcuts(
-      new Map([...kernel.chords(getCtx())].map(([c, n]) => [`mod+${c}`, n] as const)),
+      new Map([...kernel.chords(getCtx())].map(([c, n]) => [`${CHORD_LEADER} ${c}`, n] as const)),
       { onActivate: (n) => openPalette(n.id, "chord") },
     );
     const onKey = (e: KeyboardEvent) => kb.handleKeydown(e);

@@ -16,22 +16,25 @@ const file = (id: string): WorkspaceFile => {
   return f;
 };
 
+const ADA = "ada@analytical.engine";
+
 const email = (args: Record<string, string>): PipeStep => ({
-  path: [{ id: "email.send", args: { to: "jo@example.com", subject: "Next steps", ...args } }],
+  path: [{ id: "email.send", args: { to: ADA, subject: "Next steps", ...args } }],
 });
 
 export const PRESETS: PipePreset[] = [
   {
     id: "seal",
     from: fileSubject(file("launch-notes.md")),
-    expect: "a document becomes text, the text becomes ciphertext, the ciphertext becomes the body",
+    expect:
+      "a document becomes text, the text becomes ciphertext for Ada, and that is the body of her email",
     steps: [
       { label: "Load as text", step: { path: [{ id: "files.read" }] } },
       {
         label: "Encrypt for Ada",
-        step: { path: [{ id: "crypto.encrypt", args: { to: "ada@analytical.engine" } }] },
+        step: { path: [{ id: "crypto.encrypt", args: { to: ADA } }] },
       },
-      { label: "Send email", step: email({}) },
+      { label: "Email it to Ada", step: email({}) },
     ],
   },
   {

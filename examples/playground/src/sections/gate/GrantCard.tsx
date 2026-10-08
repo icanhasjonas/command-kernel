@@ -1,14 +1,30 @@
 import type { Grant } from "@command-kernel/core";
 import { cn } from "@command-kernel/ui";
 import { ShieldCheck } from "lucide-react";
-import { ASKED } from "./use-gate-lab";
+import { ASKED, type GrantLife } from "./use-gate-lab";
+
+const SAYS: Record<GrantLife, string> = {
+  live: "Grant",
+  spent: "Grant · spent: it ran once and will not run again",
+  void: "Grant · void: the key that signed it is gone",
+};
 
 /**
  * The grant as the kernel minted it: the signature, and everything it is bound to.
  * Before an approval the same card shows what WILL be bound, unsigned, so the
- * visitor sees the shape of the thing they are about to create.
+ * visitor sees the shape of the thing they are about to create. A grant that can no
+ * longer run (spent, or its key rotated) greys out and says why.
  */
-export function GrantCard({ grant, principal }: { grant: Grant | null; principal: string }) {
+export function GrantCard({
+  grant,
+  principal,
+  life,
+}: {
+  grant: Grant | null;
+  principal: string;
+  life: GrantLife;
+}) {
+  const live = grant !== null && life === "live";
   const minutes = grant?.expiresAt
     ? Math.max(0, Math.round((grant.expiresAt - Date.now()) / 60_000))
     : null;
@@ -25,16 +41,18 @@ export function GrantCard({ grant, principal }: { grant: Grant | null; principal
     <div
       className={cn(
         "rounded-lg border p-4",
-        grant ? "border-amber-soft/30 bg-amber-soft/[0.04]" : "border-white/10 border-dashed",
+        live && "border-amber-soft/30 bg-amber-soft/[0.04]",
+        grant && !live && "border-white/12 bg-white/[0.02]",
+        !grant && "border-white/10 border-dashed",
       )}
     >
       <div
         className={cn(
           "flex items-center gap-2 font-medium text-[13px]",
-          grant ? "text-amber-soft" : "text-white/55",
+          live ? "text-amber-soft" : "text-white/55",
         )}
       >
-        <ShieldCheck size={15} /> {grant ? "Grant" : "Grant, once you Allow"}
+        <ShieldCheck size={15} /> {grant ? SAYS[life] : "Grant, once you Allow"}
       </div>
       <dl className="mt-3 grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1.5 font-mono text-[12px]">
         {rows.map(([k, v]) => (
@@ -46,7 +64,12 @@ export function GrantCard({ grant, principal }: { grant: Grant | null; principal
           </div>
         ))}
         <dt className="text-white/45">sig</dt>
-        <dd className={grant ? "break-all text-amber-soft/90" : "text-white/35"}>
+        <dd
+          className={cn(
+            "break-all",
+            live ? "text-amber-soft/90" : grant ? "text-white/40 line-through" : "text-white/35",
+          )}
+        >
           {grant?.sig ?? "HMAC-SHA256 over all of the above"}
         </dd>
       </dl>

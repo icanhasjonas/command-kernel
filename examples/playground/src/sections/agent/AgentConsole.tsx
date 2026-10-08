@@ -76,6 +76,22 @@ export function AgentConsole() {
           ),
         )}
       </div>
+      {/* once the chat has started, the examples stay in reach (the agent points at them) */}
+      {agent.lines.length > 0 && (
+        <div className="flex items-center gap-2 overflow-x-auto border-white/8 border-t px-3 py-2">
+          <span className="shrink-0 text-[11px] text-white/40">Try</span>
+          {EXAMPLES.map((ex) => (
+            <button
+              key={ex}
+              type="button"
+              onClick={() => void agent.ask(ex)}
+              className="shrink-0 rounded-md border border-white/10 px-2 py-1 text-[11px] text-white/60 hover:border-violet-300/40 hover:text-white"
+            >
+              {ex}
+            </button>
+          ))}
+        </div>
+      )}
       <form onSubmit={submit} className="flex items-center gap-2 border-white/8 border-t p-3">
         <input
           value={input}

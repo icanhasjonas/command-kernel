@@ -8,6 +8,9 @@ export const ASKED = { id: "users.send_reset", args: { user: "jon@wall.north" } 
 
 type Gate = Extract<CommandResponse, { kind: "gate" }>;
 
+/** What the grant in hand is good for now: one run, nothing (used), or nothing (key gone). */
+export type GrantLife = "live" | "spent" | "void";
+
 /**
  * The gate lab: one gated request, one human approval, and the ways an approval
  * must NOT be reusable. Every attempt is a real `command()` call on the shared
@@ -17,6 +20,7 @@ export function useGateLab() {
   const { getCtx, ran } = useDemo();
   const [gate, setGate] = useState<Gate | null>(null);
   const [grant, setGrant] = useState<Grant | null>(null);
+  const [life, setLife] = useState<GrantLife>("live");
   const [attempts, setAttempts] = useState<Attempt[]>([]);
 
   const log = (a: Attempt) => setAttempts((xs) => [a, ...xs].slice(0, 6));
@@ -28,6 +32,8 @@ export function useGateLab() {
     );
     if (res.kind === "result") {
       ran(ASKED.id);
+      // a grant is good once: the run that used it spent it
+      if (evidence) setLife("spent");
       log({ label, answer: "ran", detail: res.result.message });
     } else if (res.kind === "gate") {
       const failed = res.verdict.checks.find((c) => !c.ok);
@@ -49,6 +55,7 @@ export function useGateLab() {
   return {
     gate,
     grant,
+    life,
     attempts,
     async ask() {
       setGrant(null);
@@ -56,7 +63,9 @@ export function useGateLab() {
       setGate(res.kind === "gate" && res.verdict.allowed ? res : null);
     },
     approve() {
-      if (gate) setGrant(drivers.gateLab.grantFor(gate));
+      if (!gate) return;
+      setGrant(drivers.gateLab.grantFor(gate));
+      setLife("live");
     },
     run: () => grant && send("Run with the grant", ASKED.args, grant),
     otherArgs: () =>
@@ -65,10 +74,11 @@ export function useGateLab() {
       grant && send("One hex digit changed", ASKED.args, { ...grant, sig: tamper(grant.sig) }),
     rotate() {
       kernel.evidence.rotate();
+      if (grant) setLife("void");
       log({
-        label: "New session",
+        label: "Rotate the key",
         answer: "note",
-        detail: "signing key rotated; old grants are dead",
+        detail: "a new signing key: every grant signed with the old one is void",
       });
     },
   };

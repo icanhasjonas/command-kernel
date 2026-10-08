@@ -12,7 +12,7 @@ const byId = (id: string) => {
   return n;
 };
 const goUsers = byId("go.users");
-const toggle = byId("ui.theme");
+const clear = byId("trace.clear");
 const GATED: PathSegment[] = [{ id: resendHere.id, args: { submissionId: "sub_4819" } }];
 
 /**
@@ -56,15 +56,15 @@ export function InvokerDriver() {
           path={[{ id: goUsers.id }]}
           className="rounded-lg border border-sky-300/25 px-3 py-1.5 text-[13px] text-sky-200 hover:bg-sky-300/10"
         >
-          Go to Users (renders an &lt;a&gt;)
+          Go to Users (an &lt;a&gt;: the URL driver runs it)
         </KernelInvoker>
         <KernelInvoker
-          node={toggle}
-          path={[{ id: toggle.id }]}
+          node={clear}
+          path={[{ id: clear.id }]}
           as="button"
           className="rounded-lg border border-white/12 px-3 py-1.5 text-[13px] text-white/80 hover:bg-white/[0.06]"
         >
-          Toggle density
+          Clear the kernel trace
         </KernelInvoker>
         <KernelInvoker
           node={resendHere}
@@ -74,7 +74,7 @@ export function InvokerDriver() {
           Resend sub_4819 (gated)
         </KernelInvoker>
       </div>
-      <pre className="mt-4 overflow-x-auto rounded-lg bg-black/30 px-3 py-2.5 font-mono text-[12px] leading-relaxed text-white/60">
+      <pre className="mt-4 whitespace-pre-wrap break-all rounded-lg bg-black/30 px-3 py-2.5 font-mono text-[12px] leading-relaxed text-white/60">
         {`<button command="${commandAttr(GATED)}"\n        commandfor="${KERNEL_HOST_ID}">`}
       </pre>
     </div>

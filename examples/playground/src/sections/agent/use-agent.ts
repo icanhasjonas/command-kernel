@@ -53,7 +53,11 @@ export function useAgent() {
     if (!goal.trim()) return;
     say("you", goal);
     const pick = pickTool(goal, AGENT_TOOLS);
-    if (!pick) return say("agent", "No tool fits that. Try one of the examples.");
+    if (!pick)
+      return say(
+        "agent",
+        "No tool fits that. This agent only matches keywords to tool names; try a goal below.",
+      );
     const res = await call(pick.node, pick.values);
     if (res.kind === "gate") {
       const status = res.verdict.allowed ? "owed" : "blocked";

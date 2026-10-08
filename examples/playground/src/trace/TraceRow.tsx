@@ -52,7 +52,6 @@ export function TraceRow({ e }: { e: TraceEntry }) {
   const time = new Date(e.at).toLocaleTimeString([], { hour12: false });
   return (
     <motion.li
-      layout
       initial={{ opacity: 0, y: -6 }}
       animate={{ opacity: 1, y: 0 }}
       className="border-white/6 border-b px-4 py-3 last:border-b-0"

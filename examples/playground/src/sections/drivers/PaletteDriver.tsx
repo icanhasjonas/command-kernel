@@ -19,7 +19,7 @@ export function PaletteDriver() {
       <DriverHead
         driver="palette"
         title="Palette and chords"
-        how="Search, drill into a category, fill named args as pills. Each chord opens the palette straight on its command."
+        how="Search commands or people, drill into a category, fill named args as pills. A chord, ⌘J then a key, opens the palette straight on its command."
       />
       <div className="mt-4 flex flex-wrap gap-2">
         <button
@@ -36,7 +36,7 @@ export function PaletteDriver() {
             onClick={() => openPalette(node.id, "chord")}
             className="flex items-center gap-2 rounded-lg border border-white/10 px-2.5 py-1.5 text-[13px] text-white/75 hover:bg-white/[0.05] hover:text-white"
           >
-            <Kbd>⌘{key.toUpperCase()}</Kbd> {node.title}
+            <Kbd>⌘J {key.toUpperCase()}</Kbd> {node.title}
           </button>
         ))}
       </div>

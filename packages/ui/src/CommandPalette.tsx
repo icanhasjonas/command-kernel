@@ -382,15 +382,16 @@ export function CommandPalette({
                       p.mode === "browse" || p.mode === "pipe" ? text.hintSelect : text.hintConfirm
                     }
                   />
-                  {p.mode === "browse" && <Hint k="→" label={text.hintDrill} />}
+                  {/* keyboard-only hints wait for a screen wide enough to have a keyboard */}
+                  {p.mode === "browse" && <Hint k="→" label={text.hintDrill} keyboardOnly />}
                   {p.mode === "browse" && p.ranked[p.selected]?.node.subject && (
                     <Hint k="tab" label={text.hintPipe} />
                   )}
-                  {p.mode === "browse" && <Hint k="⌘↵" label={text.hintRunAsPage} />}
+                  {p.mode === "browse" && <Hint k="⌘↵" label={text.hintRunAsPage} keyboardOnly />}
                   <Hint k="esc" label={text.hintBack} />
                   <span
                     className={cn(
-                      "ml-auto flex items-center gap-1.5 transition-opacity",
+                      "ml-auto hidden items-center gap-1.5 whitespace-nowrap transition-opacity sm:flex",
                       modHeld ? "opacity-100" : "opacity-50",
                     )}
                   >
@@ -406,9 +407,14 @@ export function CommandPalette({
   );
 }
 
-function Hint({ k, label }: { k: string; label: string }) {
+function Hint({ k, label, keyboardOnly }: { k: string; label: string; keyboardOnly?: boolean }) {
   return (
-    <span className="flex items-center gap-1.5">
+    <span
+      className={cn(
+        "items-center gap-1.5 whitespace-nowrap",
+        keyboardOnly ? "hidden sm:flex" : "flex",
+      )}
+    >
       <Kbd>{k}</Kbd> {label}
     </span>
   );

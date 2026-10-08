@@ -81,7 +81,7 @@ export function GateSection() {
           </div>
         </div>
         <div className="p-5">
-          <GrantCard grant={lab.grant} principal={ctx.user.id} />
+          <GrantCard grant={lab.grant} principal={ctx.user.id} life={lab.life} />
           <div className="mt-5">
             <AttemptLog attempts={lab.attempts} />
           </div>
