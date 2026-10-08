@@ -55,6 +55,12 @@ export interface EntityType {
   search?(query: string, ctx: Ctx, opts?: EntitySearchOptions): Promise<Entity[]>;
   /** hydrate one entity by its id (so run() can read the full object) */
   get?(id: string, ctx: Ctx): Promise<Entity | null>;
+  /**
+   * A value outside the catalog that still stands for one of these, where an arg is
+   * `open` (any well-formed address is someone you can email; "not an email" is not).
+   * Absent: an open arg takes any value.
+   */
+  accepts?(value: string): boolean;
 }
 
 export interface EntityRegistry {

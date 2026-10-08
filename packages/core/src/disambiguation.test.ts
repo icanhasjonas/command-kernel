@@ -108,6 +108,20 @@ describe("an entity arg takes an entity, not any string (B14)", () => {
     expect(ok.result?.message).toBe("to grace@navy.mil");
   });
 
+  it("an open arg takes a hand-typed value only of the kind its type accepts", async () => {
+    const strict = createKernel({
+      roots: [anyone],
+      entities: [{ ...personType, accepts: (v) => v.includes("@") }],
+    });
+    const typed = (to: string) =>
+      strict.command({ path: [{ id: "anyone", args: { to } }], execute: true }, ctx);
+    const bad = await typed("not an email");
+    expect(bad.kind === "args" && bad.errors[0]?.message).toBe('"not an email" is not a person');
+    expect((await strict.executeNode(anyone, { to: "not an email" }, ctx)).result).toBeNull();
+    const ok = await typed("grace@navy.mil");
+    expect(ok.kind === "result" && ok.result.message).toBe("to grace@navy.mil");
+  });
+
   it("an open entity arg still takes a value typed by hand", async () => {
     const r = await go("anyone", { to: "grace@navy.mil" });
     expect(r.kind === "result" && r.result.message).toBe("to grace@navy.mil");

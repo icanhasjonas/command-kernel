@@ -13,4 +13,6 @@ An entity arg takes an entity. At the args stage, before any gate or run, in
 - `entity: { type, open: true }` keeps the old leniency for an arg that means it: a
   value typed by hand that is nobody in the catalog (an address to email).
 
-If an entity arg of yours takes free values, mark it `open: true`.
+If an entity arg of yours takes free values, mark it `open: true`. An `open` arg still
+takes only a value its type `accepts(value)` (new, optional on `EntityType`): an address
+for a person, never "not an email" (`"not an email" is not a person`).

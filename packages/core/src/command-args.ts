@@ -35,6 +35,16 @@ async function findEntity(
 }
 
 /**
+ * Why a value no entity has is refused, or null when the arg takes it: an `open` arg
+ * takes it if its type accepts that kind of value (or says nothing about it).
+ */
+function refusedFree(ref: EntityRef, v: string, entities: EntityRegistry): string | null {
+  if (!ref.open) return `no ${ref.type} matches "${v}"`;
+  const accepts = entities.type(ref.type)?.accepts;
+  return !accepts || accepts(v) ? null : `"${v}" is not a ${ref.type}`;
+}
+
+/**
  * Resolve a node's entity-typed args before running: a value that's already a
  * valid entity id passes; a single search match auto-resolves to its id; many
  * matches surface a `disambiguate` response; no match is an arg error, unless the
@@ -66,8 +76,11 @@ export async function resolveEntities(
       if (!v) continue;
       const found = await findEntity(a.entity, v, ctx, entities);
       if ("id" in found) out.push(found.id);
-      else if (a.entity.open) out.push(v);
-      else if ("many" in found) {
+      else if (a.entity.open) {
+        const why = refusedFree(a.entity, v, entities);
+        if (why) return refuse(a.id, why);
+        out.push(v);
+      } else if ("many" in found) {
         if (!Array.isArray(raw))
           return { kind: "disambiguate", node, arg: a, query: v, candidates: found.many };
         return refuse(a.id, `"${v}" matches several ${a.entity.type}s`);
@@ -83,7 +96,7 @@ export async function resolveEntities(
  * The check the lower verb (`executeNode`) makes, so no driver skips it: every value
  * of a closed entity arg is the id of an entity that exists. Names were turned into
  * ids before this (`resolveEntities`, or a pick from the arg's options); here an id
- * that is nobody is an arg error. An `open` arg takes any value.
+ * that is nobody is an arg error. An `open` arg takes a value its type accepts.
  */
 export async function unknownEntities(
   node: CommandNode,
@@ -93,13 +106,15 @@ export async function unknownEntities(
 ): Promise<ArgError[]> {
   const errors: ArgError[] = [];
   for (const a of node.args ?? []) {
-    if (!a.entity || a.entity.open) continue;
+    if (!a.entity) continue;
     const raw = getOwn(values, a.id);
     const list = Array.isArray(raw) ? raw : raw === undefined ? [] : [raw];
     for (const item of list) {
       const v = typeof item === "string" ? item.trim() : "";
       if (!v || (await entities.get(a.entity.type, v, ctx))) continue;
-      errors.push({ argId: a.id, message: `no ${a.entity.type} matches "${v}"` });
+      const why = refusedFree(a.entity, v, entities);
+      if (!why) continue;
+      errors.push({ argId: a.id, message: why });
       break;
     }
   }
