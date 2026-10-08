@@ -2,6 +2,7 @@ import { argText } from "@command-kernel/core";
 import { cn, Icon } from "@command-kernel/ui";
 import { motion } from "framer-motion";
 import { DRIVER_META } from "./drivers";
+import { needs } from "./needs";
 import type { Outcome, TraceEntry } from "./trace-store";
 
 type Mark = "ok" | "fail" | "wait" | "off";
@@ -41,7 +42,6 @@ const VERDICT: Record<Outcome, string> = {
 };
 
 /** A failed role check names what the command REQUIRES, never what the caller is. */
-const failedCheck = (label: string) => (label.startsWith("role: ") ? `needs ${label}` : label);
 
 const GRANT: Record<TraceEntry["grant"], string> = {
   none: "",
@@ -95,7 +95,7 @@ export function TraceRow({ e }: { e: TraceEntry }) {
       </ol>
       {(failed || e.problems.length > 0) && (
         <div className="mt-1.5 text-[11px] text-red-300/90">
-          {failed ? failedCheck(failed.label) : e.problems.join(" · ")}
+          {failed ? needs(failed.label) : e.problems.join(" · ")}
         </div>
       )}
       {e.grant !== "none" && (

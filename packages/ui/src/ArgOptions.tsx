@@ -9,6 +9,7 @@ export function ArgOptions({
   loading,
   selected,
   freeText,
+  searchable,
   typed,
   labels,
   onPick,
@@ -18,6 +19,8 @@ export function ArgOptions({
   loading: boolean;
   selected: number;
   freeText: boolean;
+  /** the arg has options to search (enum, entity, a `complete`), not only a value to write */
+  searchable: boolean;
   typed: string;
   labels: PaletteLabels;
   onPick: (value: string) => void;
@@ -64,7 +67,9 @@ export function ArgOptions({
       )}
 
       {!loading && options.length === 0 && !typed.trim() && (
-        <div className="px-3 py-2 text-[12px] text-white/35">{labels.startTyping}</div>
+        <div className="px-3 py-2 text-[12px] text-white/35">
+          {searchable ? labels.startTyping : labels.typeValue}
+        </div>
       )}
     </div>
   );

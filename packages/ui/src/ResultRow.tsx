@@ -6,6 +6,9 @@ import { Highlight } from "./Highlight.js";
 import { Icon } from "./icon.js";
 import { Kbd } from "./Kbd.js";
 
+/** a key a touch screen has no use for: hidden without a fine pointer or a wide screen */
+const KEYS_ONLY = "max-sm:hidden pointer-coarse:hidden";
+
 export function ResultRow({
   id,
   item,
@@ -84,7 +87,7 @@ export function ResultRow({
           </span>
         )}
         {pipeable && !landsIn && (
-          <Kbd glow={active} className={cn(!active && "opacity-40")}>
+          <Kbd glow={active} className={cn(KEYS_ONLY, !active && "opacity-40")}>
             tab
           </Kbd>
         )}
@@ -92,7 +95,7 @@ export function ResultRow({
           <span className="font-mono text-[11px] tabular-nums text-white/25">{node.weight}</span>
         )}
         {node.chord && (
-          <Kbd glow={modHeld} className={cn(!modHeld && "opacity-40")}>
+          <Kbd glow={modHeld} className={cn(KEYS_ONLY, !modHeld && "opacity-40")}>
             {node.chord.toUpperCase()}
           </Kbd>
         )}

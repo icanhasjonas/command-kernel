@@ -86,28 +86,29 @@ export function ConfirmPanel({
         )}
       </div>
 
-      <div className="mt-4 flex items-center gap-3">
+      {/* narrow screens stack the two choices full width; the key hints are keyboard-only */}
+      <div className="mt-4 flex flex-wrap items-center gap-2 sm:gap-3">
         {blocked ? (
           <div className="flex items-center gap-2 text-[12px] text-white/40">
-            <Kbd>esc</Kbd> {labels.blockedHint}
+            <Kbd className="pointer-coarse:hidden">esc</Kbd> {labels.blockedHint}
           </div>
         ) : (
           <>
             <button
               type="button"
               onClick={onProceed}
-              className="rounded-lg bg-pink px-3.5 py-2 text-[13px] font-semibold text-white shadow-ck-glow transition hover:bg-ck-accent-soft"
+              className="whitespace-nowrap rounded-lg bg-pink px-3.5 py-2 text-[13px] font-semibold text-white shadow-ck-glow transition hover:bg-ck-accent-soft max-sm:w-full"
             >
               {labels.confirmRun}
             </button>
             <button
               type="button"
               onClick={onAlways}
-              className="rounded-lg border border-white/15 bg-white/[0.04] px-3 py-2 text-[12px] text-white/70 transition hover:bg-white/[0.08] hover:text-white/90"
+              className="whitespace-nowrap rounded-lg border border-white/15 bg-white/[0.04] px-3 py-2 text-[12px] text-white/70 transition hover:bg-white/[0.08] hover:text-white/90 max-sm:w-full max-sm:truncate"
             >
               {alwaysLabel}
             </button>
-            <span className="flex items-center gap-1.5 text-[12px] text-white/40">
+            <span className="flex items-center gap-1.5 text-[12px] text-white/40 max-sm:hidden pointer-coarse:hidden">
               <Kbd glow>↵</Kbd> {labels.hintConfirm} <Kbd>esc</Kbd> {labels.hintCancel}
             </span>
           </>

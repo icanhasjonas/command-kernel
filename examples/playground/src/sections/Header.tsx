@@ -1,6 +1,7 @@
 import type { Role } from "@command-kernel/core";
 import { cn } from "@command-kernel/ui";
 import { RotateCcw } from "lucide-react";
+import { useLayoutEffect, useRef } from "react";
 import { useDemo } from "../demo/demo-context";
 import { kernel } from "../demo/kernel";
 import { LabBanner } from "./wire/LabBanner";
@@ -22,8 +23,13 @@ const NAV = [
  */
 export function Header() {
   const { ctx, setRole, say } = useDemo();
+  const ref = useHeaderHeight();
   return (
-    <header className="sticky top-0 z-30 border-white/8 border-b bg-[#0a0b10]/85 backdrop-blur-xl">
+    <header
+      ref={ref}
+      className="sticky top-0 z-30 border-white/8 border-b bg-[#0a0b10]/85 backdrop-blur-xl"
+    >
+      <LabBanner />
       <div className="mx-auto flex max-w-[1320px] items-center gap-4 px-6 py-3 md:gap-6">
         <a href="#top" className="flex items-center gap-2">
           <span className="size-2 rounded-full bg-pink" />
@@ -32,7 +38,6 @@ export function Header() {
           </span>
         </a>
         <SectionNav className="hidden xl:flex" />
-        <LabBanner className="hidden xl:flex" />
         <div className="ml-auto flex items-center gap-2">
           <fieldset className="flex items-center rounded-lg border border-white/10 bg-white/[0.03] p-0.5">
             <legend className="sr-only">Your role</legend>
@@ -53,6 +58,7 @@ export function Header() {
           </fieldset>
           <button
             type="button"
+            aria-label="New session"
             title="Rotate the signing key and forget always-allow rules: every grant minted so far stops verifying"
             onClick={() => {
               kernel.evidence.rotate();
@@ -65,13 +71,28 @@ export function Header() {
           </button>
         </div>
       </div>
-      {/* narrower screens: the sections and the banner get a row of their own, always there */}
+      {/* narrower screens: the sections get a row of their own, always there */}
       <div className="mx-auto flex max-w-[1320px] items-center gap-3 overflow-x-auto px-6 pb-2.5 xl:hidden">
         <SectionNav className="flex" />
-        <LabBanner className="ml-auto" />
       </div>
     </header>
   );
+}
+
+/** Publishes the header's height as `--header-h`, so the rail and anchors clear it. */
+function useHeaderHeight() {
+  const ref = useRef<HTMLElement>(null);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const root = document.documentElement;
+    const obs = new ResizeObserver(() =>
+      root.style.setProperty("--header-h", `${el.offsetHeight}px`),
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
+  return ref;
 }
 
 function SectionNav({ className }: { className?: string }) {

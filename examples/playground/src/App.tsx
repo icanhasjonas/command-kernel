@@ -1,5 +1,6 @@
 import type { PaletteLabelOverrides } from "@command-kernel/ui";
 import { CommandPalette } from "@command-kernel/ui";
+import { ChordHint } from "./ChordHint";
 import { DemoProvider, useDemo } from "./demo/demo-context";
 import { drivers } from "./demo/kernel";
 import { usePageDrivers } from "./demo/use-drivers";
@@ -21,7 +22,7 @@ import { MobileTrace } from "./trace/MobileTrace";
 // English defaults ("Commands", "Search commands…") and names no app.
 const PALETTE_LABELS: PaletteLabelOverrides = {
   root: "Backoffice",
-  placeholder: "Search commands, people, files, submissions…",
+  placeholder: "Search commands, people, files…",
   searchLabel: "Search the backoffice",
 };
 
@@ -29,7 +30,7 @@ const PALETTE_LABELS: PaletteLabelOverrides = {
 const SUBJECTS = ["person", "file"] as const;
 
 function Page() {
-  usePageDrivers();
+  const { chordArmed } = usePageDrivers();
   const { ctx, palette, closePalette, showResult, ran } = useDemo();
   return (
     <>
@@ -46,8 +47,8 @@ function Page() {
           <Packages />
         </main>
         <aside className="hidden lg:block">
-          {/* below xl the header has a second row (sections), so the rail starts lower */}
-          <div className="sticky top-[112px] flex h-[calc(100vh-136px)] pt-16 xl:top-[76px] xl:h-[calc(100vh-100px)]">
+          {/* the header grows (a section row below xl, the lab's banner): the rail follows it */}
+          <div className="sticky top-[calc(var(--header-h)+16px)] flex h-[calc(100vh-var(--header-h)-40px)] pt-16">
             <Inspector className="min-h-0 flex-1" />
           </div>
         </aside>
@@ -66,6 +67,7 @@ function Page() {
         onExecuted={ran}
       />
       <Toast />
+      <ChordHint armed={chordArmed} />
     </>
   );
 }

@@ -17,16 +17,27 @@ describe("the demo agent's two honesty rules", () => {
     expect(verbItCannotDo("go to users", usersCategory)).toBeNull();
   });
 
-  it("fills the person a goal names, and the text after 'about'", async () => {
+  it("fills the person a goal names, and keeps the name out of the message", async () => {
     const values = await fillFromNames(
       "email ada about the launch",
       sendEmail,
-      { body: "email ada about the launch" },
+      { body: "ada about the launch" },
       kernel.entities,
       ctx,
     );
     expect(values.to).toBe("ada@analytical.engine");
     expect(values.body).toBe("the launch");
+  });
+
+  it("never fills an optional list: a welcome note attaches no file", async () => {
+    const values = await fillFromNames(
+      "email jane.doe@gmail.com a welcome note",
+      sendEmail,
+      { to: "jane.doe@gmail.com" },
+      kernel.entities,
+      ctx,
+    );
+    expect(values.attachments).toBeUndefined();
   });
 
   it("an ambiguous name fills nothing: asking beats guessing", async () => {

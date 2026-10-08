@@ -65,7 +65,8 @@ export function useLab() {
       );
       if (r.ok) {
         setServer(r.data);
-        setOnline(r.data.online);
+        // a count is only live while the socket is: presence events keep it true
+        if (c.status === "open") setOnline(r.data.online);
       }
     },
     [via, log],
@@ -81,6 +82,8 @@ export function useLab() {
       c.onStatus((s) => {
         setStatus(s);
         if (s === "open") void refreshNow.current(c);
+        // a tab off the socket hears no presence: it shows no count rather than a stale one
+        else setOnline(null);
       }),
       c.on(labChanged, (d) => {
         // a change this tab made comes back as an event too: the server's tag says whose

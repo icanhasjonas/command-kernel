@@ -56,10 +56,10 @@ export function RotatePanel({ lab, server }: { lab: Lab; server: LabStatus | nul
           <button
             type="button"
             className={btn}
-            disabled={!lab.grant}
+            disabled={!lab.grant || lab.used}
             onClick={() => void lab.run()}
           >
-            Run with the grant
+            Run it on the server
           </button>
         </Step>
       </ol>
@@ -87,7 +87,7 @@ export function RotatePanel({ lab, server }: { lab: Lab; server: LabStatus | nul
           disabled={!lab.grant}
           onClick={() => void lab.forge()}
         >
-          Change one hex digit
+          Tamper with the signature
         </button>
       </div>
       {lab.grant && (

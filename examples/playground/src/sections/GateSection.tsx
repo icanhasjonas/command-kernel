@@ -47,7 +47,12 @@ export function GateSection() {
                 disabled={!lab.grant}
                 onClick={() => void lab.run()}
               >
-                Run with the grant
+                {/* still a live button once spent: trying it again is the lesson */}
+                {lab.life === "live"
+                  ? "Run with the grant"
+                  : lab.life === "spent"
+                    ? "Run it again, same grant"
+                    : "Run with the voided grant"}
               </button>
             </Step>
           </ol>

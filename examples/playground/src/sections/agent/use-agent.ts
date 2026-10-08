@@ -63,7 +63,7 @@ export function useAgent() {
     if (verb)
       return say(
         "agent",
-        `No tool here can ${verb} that, and I will not swap in "${found.node.title}" instead.`,
+        `None of my tools can ${verb} anything, so I am not running one. Ask an admin to do it by hand.`,
       );
     const pick = {
       node: found.node,

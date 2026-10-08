@@ -65,7 +65,10 @@ describe("labCall: every wire call is accounted for", () => {
       label: "Flip",
       log,
     });
-    expect(logged[0]).toMatchObject({ answer: "unreached", detail: "no answer disconnected" });
+    expect(logged[0]).toMatchObject({
+      answer: "unreached",
+      detail: "the server did not answer: check the connection",
+    });
     expect(traceStore.snapshot()[0]?.outcome).toBe("unreached");
   });
 

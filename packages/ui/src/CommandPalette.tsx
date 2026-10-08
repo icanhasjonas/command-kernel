@@ -254,6 +254,7 @@ export function CommandPalette({
                               ))}
                               <input
                                 ref={argRef}
+                                aria-label={spec.label}
                                 value={p.argQuery}
                                 onChange={(e) => {
                                   p.setArgQuery(e.target.value);
@@ -347,6 +348,12 @@ export function CommandPalette({
                       loading={p.argLoading}
                       selected={p.selected}
                       freeText={freeText}
+                      searchable={
+                        !!activeSpec &&
+                        (activeSpec.kind === "enum" ||
+                          activeSpec.kind === "entity" ||
+                          !!activeSpec.complete)
+                      }
                       typed={p.argQuery}
                       labels={text}
                       onPick={p.commitArg}

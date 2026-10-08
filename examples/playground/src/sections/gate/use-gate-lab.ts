@@ -2,6 +2,7 @@ import type { CommandResponse, Grant } from "@command-kernel/core";
 import { useState } from "react";
 import { useDemo } from "../../demo/demo-context";
 import { drivers, kernel } from "../../demo/kernel";
+import { needs } from "../../trace/needs";
 import { type Attempt, tamper } from "../lab-ui";
 
 export const ASKED = { id: "users.send_reset", args: { user: "jon@wall.north" } };
@@ -53,7 +54,7 @@ export function useGateLab() {
     } else if (res.kind === "gate") {
       const failed = res.verdict.checks.find((c) => !c.ok);
       if (!res.verdict.allowed)
-        log({ label, answer: "blocked", detail: failed?.label ?? "not permitted" });
+        log({ label, answer: "blocked", detail: failed ? needs(failed.label) : "not permitted" });
       else
         log({
           label,
@@ -79,6 +80,11 @@ export function useGateLab() {
       if (!gate) return;
       setGrant(drivers.gateLab.grantFor(gate));
       setLife("live");
+      log({
+        label: "Allow, as you",
+        answer: "granted",
+        detail: "a grant for this exact call, signed by the kernel, good for one run",
+      });
     },
     run: () =>
       grant &&

@@ -94,7 +94,42 @@ function fill(goal: string, node: CommandNode): ArgValues {
     }
     if (a.id === "submissionId" && sub) values[a.id] = sub;
     if (a.id === "subject" && a.enumValues?.[0]) values[a.id] = a.enumValues[0].value;
-    if (a.kind === "text") values[a.id] = goal;
+    if (a.kind === "text") {
+      const text = textOf(goal, node);
+      if (text) values[a.id] = text;
+    }
   }
   return values;
+}
+
+/** words that only join the request to its target: dropped from the ends of a text arg */
+const JOINERS = new Set(["to", "for", "with", "about", "of", "and", "a", "an"]);
+
+/**
+ * The part of a goal that is the text itself. The words that picked the tool (its
+ * title and keywords), the address, the submission id, and any `also` words (a name
+ * the caller resolved to an arg) cut the goal into runs; the longest run, joiners
+ * trimmed, is the text. "encrypt the launch date for ada@x.y" seals "the launch date".
+ */
+export function textOf(goal: string, node: CommandNode, also: readonly string[] = []): string {
+  const said = new Set([
+    ...wordsOf(node.title),
+    ...(node.keywords ?? []).flatMap(wordsOf),
+    ...also.map((w) => w.toLowerCase()),
+  ]);
+  const cut = (w: string) => EMAIL.test(w) || SUB.test(w) || said.has(w.toLowerCase());
+  const runs: string[][] = [[]];
+  for (const w of goal.split(/\s+/).filter(Boolean)) {
+    if (cut(w)) runs.push([]);
+    else runs.at(-1)?.push(w);
+  }
+  const joins = (w: string | undefined) => w !== undefined && JOINERS.has(w.toLowerCase());
+  let best = "";
+  for (const run of runs) {
+    while (joins(run[0])) run.shift();
+    while (joins(run.at(-1))) run.pop();
+    const text = run.join(" ");
+    if (text.length > best.length) best = text;
+  }
+  return best;
 }

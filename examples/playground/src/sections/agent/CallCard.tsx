@@ -2,6 +2,7 @@ import type { ArgValues, CommandNode, CommandResponse } from "@command-kernel/co
 import { allowLabel, argText, ruleForNode } from "@command-kernel/core";
 import { Icon } from "@command-kernel/ui";
 import { Check, ShieldAlert, ShieldX } from "lucide-react";
+import { needs } from "../../trace/needs";
 
 export type CallStatus = "owed" | "blocked" | "done" | "denied";
 
@@ -91,7 +92,7 @@ export function CallCard({
         )}
         {status === "blocked" && (
           <div className="flex items-center gap-1.5 text-[12px] text-red-300">
-            <ShieldX size={13} /> Blocked: {failed?.label ?? "not permitted"}
+            <ShieldX size={13} /> The gate refused: {failed ? needs(failed.label) : "not permitted"}
           </div>
         )}
         {status === "done" && (

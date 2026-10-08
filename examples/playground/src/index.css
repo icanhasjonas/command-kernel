@@ -35,6 +35,16 @@
   --shadow-glow: 0 0 0 1px rgba(228, 19, 98, 0.35), 0 8px 32px -8px rgba(228, 19, 98, 0.45);
 }
 
+/* the sticky header's height, measured live by <Header>; these are the first-paint guesses */
+:root {
+  --header-h: 96px;
+}
+@media (width >= 80rem) {
+  :root {
+    --header-h: 57px;
+  }
+}
+
 @layer base {
   * {
     box-sizing: border-box;

@@ -1,7 +1,7 @@
 import type { CommandResult, PipeResponse } from "@command-kernel/core";
 import { argText } from "@command-kernel/core";
 import { cn } from "@command-kernel/ui";
-import { ArrowRight, Play } from "lucide-react";
+import { ArrowRight, Check, Play, X } from "lucide-react";
 import { useState } from "react";
 import { useDemo } from "../../demo/demo-context";
 import { drivers } from "../../demo/kernel";
@@ -72,14 +72,17 @@ export function PipeRun({ preset }: { preset: PipePreset }) {
             return (
               <span key={s.label} className="flex items-center gap-2">
                 <ArrowRight size={14} className="text-white/30" />
+                {/* a step is a stage of the run, not a control: text with its result, no box */}
                 <span
                   className={cn(
-                    "rounded-lg border px-2.5 py-1 text-[13px] transition-colors",
-                    st.kind === "ok" && "border-teal-soft/40 text-white",
-                    st.kind === "stop" && "border-danger/60 text-red-200",
-                    st.kind === "idle" && "border-white/12 text-white/70",
+                    "flex items-center gap-1 text-[13px] transition-colors",
+                    st.kind === "ok" && "text-white",
+                    st.kind === "stop" && "text-red-200",
+                    st.kind === "idle" && "text-white/60",
                   )}
                 >
+                  {st.kind === "ok" && <Check size={13} className="text-teal-soft" />}
+                  {st.kind === "stop" && <X size={13} className="text-ck-danger" />}
                   {s.label}
                 </span>
               </span>

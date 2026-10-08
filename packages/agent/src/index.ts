@@ -7,7 +7,7 @@
  * the reusable seam: turn a goal + a tool list into a chosen `command()` call.
  */
 
-export { pickTool, type ToolPick } from "./adapter.js";
+export { pickTool, type ToolPick, textOf } from "./adapter.js";
 export {
   createProjection,
   type Projection,

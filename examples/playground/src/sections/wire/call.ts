@@ -1,5 +1,6 @@
 import type { ArgValues, Grant } from "@command-kernel/core";
 import { WireCallError, type WireClient, type WireSpec } from "@command-kernel/wire";
+import { needs } from "../../trace/needs";
 import { type Outcome, traceStore } from "../../trace/trace-store";
 import type { Attempt } from "../lab-ui";
 
@@ -20,6 +21,14 @@ const asAttempt: Partial<Record<Outcome, Attempt["answer"]>> = {
   owed: "owed",
   blocked: "blocked",
   args: "args",
+};
+
+/** What each refusal means, said to a person; the status code rides along for the curious. */
+const SAYS: Record<string, string> = {
+  unknownCommand: "the server knows no such command",
+  invalidArguments: "the server refused those args",
+  confirmRequired: "the server wants an admin's approval first",
+  rateLimited: "too many calls, the server asked to slow down",
 };
 
 const asError = (e: unknown) =>
@@ -43,8 +52,10 @@ export function refusal(e: unknown, grantWhy?: string): Omit<Attempt, "label"> {
       outcome === "owed" && grantWhy
         ? `${grantWhy}, so the server owes the approval again`
         : failed
-          ? `${error.status} ${failed.label}`
-          : `${error.status || "no answer"} ${error.code}`,
+          ? `the server's gate refused: ${needs(failed.label)} (${error.status})`
+          : error.status
+            ? `${SAYS[error.code] ?? error.message} (${error.status})`
+            : "the server did not answer: check the connection",
   };
 }
 

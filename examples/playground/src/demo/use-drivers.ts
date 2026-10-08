@@ -1,5 +1,5 @@
 import { createKeyboard, parseDeeplink } from "@command-kernel/core";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useDemo } from "./demo-context";
 import { drivers, kernel } from "./kernel";
 
@@ -12,11 +12,14 @@ export const CHORD_LEADER = "mod+j";
  * anything: the keyboard opens the palette on a node, the hash calls `command()`,
  * and a gated command answers with a gate whatever asked.
  */
-export function usePageDrivers() {
+export function usePageDrivers(): { chordArmed: boolean } {
   const { getCtx, openPalette, showResult, say, ran } = useDemo();
+  const [chordArmed, setChordArmed] = useState(false);
 
   useEffect(() => {
     const kb = createKeyboard();
+    // ⌘J armed: the page shows which keys finish a chord until one does, or it times out
+    const offChord = kb.subscribeChordMode((prefix) => setChordArmed(prefix !== null));
     kb.pushLayer({ "mod+k": () => openPalette() }, { base: true, id: "palette-launcher" });
     // ⌘J, then the command's key (the GUIDE's leader): a bare ⌘+letter would take
     // the browser's own shortcuts (⌘S save, ⌘F find, ⌘H hide)
@@ -26,7 +29,10 @@ export function usePageDrivers() {
     );
     const onKey = (e: KeyboardEvent) => kb.handleKeydown(e);
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    return () => {
+      offChord();
+      window.removeEventListener("keydown", onKey);
+    };
   }, [getCtx, openPalette]);
 
   useEffect(() => {
@@ -34,6 +40,8 @@ export function usePageDrivers() {
       const h = window.location.hash.replace(/^#\/?/, "");
       if (!h.startsWith("cmd/")) return;
       const path = parseDeeplink(h);
+      // a link is a one-shot call: drop it from the URL so the same link fires again
+      window.history.replaceState(null, "", window.location.pathname + window.location.search);
       // an approval the link hands to the palette is logged once, by the palette's call
       const res = await drivers.deeplink.command({ path, execute: true }, getCtx());
       if (res.kind === "result") {
@@ -52,4 +60,6 @@ export function usePageDrivers() {
     void run();
     return () => window.removeEventListener("hashchange", run);
   }, [getCtx, showResult, say, ran, openPalette]);
+
+  return { chordArmed };
 }

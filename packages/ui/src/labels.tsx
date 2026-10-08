@@ -40,6 +40,8 @@ export interface PaletteLabels {
   freeTextOption: (typed: string) => ReactNode;
   /** no options yet and nothing typed */
   startTyping: string;
+  /** nothing typed yet into an arg that has no options to search: a value you write */
+  typeValue: string;
 
   // ── pipes ─────────────────────────────────────────────────────────────────
   /** search placeholder while a value is in hand (the chip beside it names the value) */
@@ -101,6 +103,7 @@ export const defaultLabels: PaletteLabels = {
     </>
   ),
   startTyping: "start typing to search…",
+  typeValue: "type a value, then ↵",
 
   pipePlaceholder: "Pipe into…",
   pipeInto: (value) => `Pipe ${value} into a command`,
