@@ -2,7 +2,7 @@ import { encodeFrame, serverStatus } from "@command-kernel/wire";
 import { DurableObject } from "cloudflare:workers";
 import { presence } from "../src/wire/spec";
 import { createLab, freshState, type Lab, type LabState, type Visitor } from "./lab";
-import { createLimiter, visitorFrom, visitorFromQuery } from "./visitor";
+import { createLimiter, onlineVisitors, visitorFrom, visitorFromQuery } from "./visitor";
 
 /** The edge's data centre, set by the Worker in front (index.ts); a caller's own value is overwritten. */
 export const COLO_HEADER = "x-lab-colo";
@@ -153,13 +153,15 @@ export class LabDO extends DurableObject<Env> {
     }
   }
 
-  /**
-   * Visitors, not sockets: a tab that reconnected, reloaded or double-mounted (React dev)
-   * can leave a socket the runtime has not noticed is dead yet; it is the same visitor.
-   */
+  /** Visitors online (visitor.ts): one per visitor id, however many sockets it left behind. */
   private visitors(leaving?: WebSocket): number {
-    const ids = this.open(leaving).map((ws) => (ws.deserializeAttachment() as Attachment).visitor.id);
-    return new Set(ids).size;
+    return onlineVisitors(
+      this.ctx.getWebSockets().map((ws) => ({
+        open: ws !== leaving && ws.readyState === WebSocket.OPEN,
+        // every socket gets its attachment at the upgrade, before it is accepted
+        visitorId: (ws.deserializeAttachment() as Attachment).visitor.id,
+      })),
+    );
   }
 
   private sendPresence(leaving?: WebSocket) {

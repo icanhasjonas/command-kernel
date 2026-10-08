@@ -23,7 +23,7 @@ export function Header() {
   const { ctx, setRole, say } = useDemo();
   return (
     <header className="sticky top-0 z-30 border-white/8 border-b bg-[#0a0b10]/85 backdrop-blur-xl">
-      <div className="mx-auto flex max-w-[1320px] items-center gap-6 px-6 py-3">
+      <div className="mx-auto flex max-w-[1320px] items-center gap-4 px-6 py-3 md:gap-6">
         <a href="#top" className="flex items-center gap-2">
           <span className="size-2 rounded-full bg-pink" />
           <span className="whitespace-nowrap font-semibold text-[14px] text-white">
@@ -51,7 +51,7 @@ export function Header() {
                 aria-pressed={ctx.user.role === r}
                 onClick={() => setRole(r)}
                 className={cn(
-                  "rounded-md px-2.5 py-1 text-[12px] capitalize transition-colors",
+                  "rounded-md px-2 py-1 text-[12px] capitalize transition-colors sm:px-2.5",
                   ctx.user.role === r ? "bg-pink text-white" : "text-white/55 hover:text-white/90",
                 )}
               >

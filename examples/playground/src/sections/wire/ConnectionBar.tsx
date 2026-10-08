@@ -55,7 +55,7 @@ export function ConnectionBar(p: {
           )}
         </span>
       )}
-      <div className="ml-auto flex items-center gap-2">
+      <div className="flex w-full flex-wrap items-center gap-2 whitespace-nowrap sm:ml-auto sm:w-auto">
         <fieldset className="flex rounded-lg border border-white/12 p-0.5" aria-label="Transport">
           {(["auto", "http"] as const).map((v) => (
             <label

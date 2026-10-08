@@ -2,7 +2,7 @@ import { describe, expect, it } from "bun:test";
 import type { Grant } from "@command-kernel/core";
 import { labChanged } from "../src/wire/spec";
 import { createLab, freshState, type Visitor } from "./lab";
-import { createLimiter, visitorFrom, visitorFromQuery } from "./visitor";
+import { createLimiter, onlineVisitors, visitorFrom, visitorFromQuery } from "./visitor";
 
 /** A lab on in-memory storage, and every frame it broadcast. */
 function lab() {
@@ -120,6 +120,17 @@ describe("who is calling, and how often", () => {
     expect(visitorFrom((n) => (n === "x-lab-role" ? "admin" : "../x"))).toBeNull();
     const url = new URL("https://lab.test/ws?visitor=abcdef1234&role=viewer");
     expect(visitorFromQuery(url)).toEqual({ id: "abcdef1234", role: "viewer" });
+  });
+
+  it("counts visitors, not sockets: a reload's leftover socket is the same visitor", () => {
+    expect(
+      onlineVisitors([
+        { open: true, visitorId: "a" },
+        { open: true, visitorId: "a" }, // React's dev double-mount, or a reload not yet noticed
+        { open: false, visitorId: "b" }, // closing
+        { open: true, visitorId: "c" },
+      ]),
+    ).toBe(2);
   });
 
   it("limits each key to `max` calls a window, and starts over after it", () => {

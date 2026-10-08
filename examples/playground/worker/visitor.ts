@@ -18,6 +18,14 @@ export function visitorFromQuery(url: URL): Visitor | null {
   return visitorFrom((name) => url.searchParams.get(name.replace(/^x-lab-/, "")));
 }
 
+/**
+ * Visitors online, not sockets: a tab that reconnected, reloaded or double-mounted (React
+ * dev) can leave a socket the runtime has not noticed is dead yet; it is the same visitor.
+ */
+export function onlineVisitors(sockets: Array<{ open: boolean; visitorId: string }>): number {
+  return new Set(sockets.filter((s) => s.open).map((s) => s.visitorId)).size;
+}
+
 /** Fixed-window rate limit per key: at most `max` calls each `windowMs`. */
 export function createLimiter(max: number, windowMs: number, now = () => Date.now()) {
   const windows = new Map<string, { start: number; count: number }>();
