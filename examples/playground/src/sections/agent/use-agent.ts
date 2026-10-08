@@ -9,6 +9,25 @@ import { traceStore } from "../../trace/trace-store";
 import type { Call, CallStatus } from "./CallCard";
 import { fillFromNames, verbItCannotDo } from "./understand";
 
+/**
+ * What the agent says when the kernel sent its call back for args: what it got wrong,
+ * then what it still needs, by the args' names and in words a person would use.
+ */
+function askFor(
+  node: CommandNode,
+  missing: string[],
+  errors: { argId: string; message: string }[],
+): string {
+  const label = (id: string) => node.args?.find((a) => a.id === id)?.label ?? id;
+  const wrong = errors.map((e) => `${label(e.argId)}: ${e.message}.`).join(" ");
+  const need = missing.map(label);
+  const ask =
+    need.length > 0
+      ? ` To ${node.title.toLowerCase()} I still need the ${need.join(" and the ")}. Say it again with ${need.length > 1 ? "them" : "it"}.`
+      : " Say it again with a value that exists.";
+  return `${wrong ? `That did not check out. ${wrong}` : "Not enough to go on."}${ask}`;
+}
+
 export type Line =
   | { id: number; kind: "you" | "agent"; text: string }
   | { id: number; kind: "call"; call: Call };
@@ -75,10 +94,7 @@ export function useAgent() {
       const status = res.verdict.allowed ? "owed" : "blocked";
       return addCall({ node: pick.node, values: pick.values, status, gate: res });
     }
-    if (res.kind === "args") {
-      const need = [...res.missing, ...res.errors.map((e) => e.message)].join(", ");
-      return say("agent", `I still need: ${need}`);
-    }
+    if (res.kind === "args") return say("agent", askFor(pick.node, res.missing, res.errors));
     const result = settle(pick.node, res);
     addCall({
       node: pick.node,

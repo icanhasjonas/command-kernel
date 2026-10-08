@@ -1,4 +1,4 @@
-import type { ArgValues, CommandNode } from "@command-kernel/core";
+import type { ArgOption, ArgValues, CommandNode } from "@command-kernel/core";
 
 /**
  * The agent adapter - the headless projection of the kernel as a TOOL SURFACE.
@@ -93,13 +93,28 @@ function fill(goal: string, node: CommandNode): ArgValues {
       addressed = true;
     }
     if (a.id === "submissionId" && sub) values[a.id] = sub;
-    if (a.id === "subject" && a.enumValues?.[0]) values[a.id] = a.enumValues[0].value;
+    // a closed list: the option the goal names, never a default the goal never said
+    if (a.enumValues) {
+      const named = namedOption(goal, a.enumValues);
+      if (named !== undefined) values[a.id] = named;
+    }
     if (a.kind === "text") {
       const text = textOf(goal, node);
       if (text) values[a.id] = text;
     }
   }
   return values;
+}
+
+/** The option of a closed list that shares the most words with the goal, if any does. */
+function namedOption(goal: string, options: ArgOption[]): string | undefined {
+  const said = new Set(wordsOf(goal));
+  let best: { value: string; hits: number } | undefined;
+  for (const o of options) {
+    const hits = wordsOf(o.label).filter((w) => said.has(w)).length;
+    if (hits > 0 && (!best || hits > best.hits)) best = { value: o.value, hits };
+  }
+  return best?.value;
 }
 
 /** words that only join the request to its target: dropped from the ends of a text arg */

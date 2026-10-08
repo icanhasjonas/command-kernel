@@ -44,17 +44,24 @@ export function usePaletteArgs({
 }: ArgsHookArgs) {
   const [argOptions, setArgOptions] = useState<ArgOption[]>([]);
   const [argLoading, setArgLoading] = useState(false);
+  // the query the options on screen were found for: Enter must not commit a row found
+  // for what was typed a keystroke ago (type an address fast, hit Enter, get a stranger)
+  const [optionsFor, setOptionsFor] = useState<string | null>(null);
 
   // arg-scoped value completion
   useEffect(() => {
     if (mode !== "args" || !arg) return;
+    const show = (opts: ArgOption[]) => {
+      setArgOptions(opts);
+      setOptionsFor(argQuery);
+    };
     const spec = arg.node.args?.find((a) => a.id === arg.activeArg);
-    if (!spec) return setArgOptions([]);
+    if (!spec) return show([]);
     if (spec.enumValues) {
       const q = argQuery.toLowerCase();
       const hits = spec.enumValues.filter((o) => o.label.toLowerCase().includes(q));
       // a closed list that matches nothing still shows every choice (the palette says so)
-      return setArgOptions(hits.length > 0 ? hits : spec.enumValues);
+      return show(hits.length > 0 ? hits : spec.enumValues);
     }
     // entity-typed arg: the registered entity catalog is the completion source
     if (spec.entity && kernel.entities) {
@@ -69,17 +76,17 @@ export function usePaletteArgs({
         )
         .then((found) => {
           if (mine !== token.current) return;
-          setArgOptions(found.map(entityOption));
+          show(found.map(entityOption));
           setArgLoading(false);
         });
       return;
     }
-    if (!spec.complete) return setArgOptions([]);
+    if (!spec.complete) return show([]);
     const mine = ++token.current;
     setArgLoading(true);
     spec.complete(argQuery, ctx).then((opts) => {
       if (mine !== token.current) return;
-      setArgOptions(opts);
+      show(opts);
       setArgLoading(false);
     });
   }, [mode, arg, argQuery, ctx, kernel, token]);
@@ -130,5 +137,11 @@ export function usePaletteArgs({
     if (arg) advanceOrRun(arg);
   }, [arg, advanceOrRun]);
 
-  return { argOptions, argLoading, commitArg, finishArg };
+  return {
+    argOptions,
+    argLoading,
+    argOptionsFresh: optionsFor === argQuery,
+    commitArg,
+    finishArg,
+  };
 }

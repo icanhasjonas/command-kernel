@@ -22,7 +22,11 @@ function submissionActions(s: Submission): CommandNode[] {
       title: "Resend confirmation email",
       category: s.id,
       icon: "Send",
-      gate: { confirm: true, reason: "sends a real email to the applicant" },
+      gate: {
+        roles: ["advisor", "admin"],
+        confirm: true,
+        reason: "sends a real email to the applicant",
+      },
       run: async () => toast(`Confirmation resent for ${s.id} → ${s.email}`),
     },
     {
@@ -98,7 +102,11 @@ export const resendHere: CommandNode = {
   when: (c) => c.location.module === "submissions" && Boolean(c.location.recordId),
   boost: () => 1000,
   prefill: (c) => ({ submissionId: c.location.recordId ?? "" }),
-  gate: { confirm: true, reason: "sends a real email to the applicant" },
+  gate: {
+    roles: ["advisor", "admin"],
+    confirm: true,
+    reason: "sends a real email to the applicant",
+  },
   args: [
     {
       id: "submissionId",

@@ -28,6 +28,11 @@ describe("the schema refuses what no entity matches, before the gate", () => {
     const r = await run("email.send", { to: "grace@navy.mil", subject: "Reminder", body: "hi" });
     expect(r.kind).toBe("result");
   });
+
+  it("but not any string: an open `to` takes an address, not 'not an email'", async () => {
+    const r = await run("email.send", { to: "not an email", subject: "Reminder", body: "hi" });
+    expect(r.kind === "args" && r.errors[0]?.message).toBe('"not an email" is not a person');
+  });
 });
 
 describe("a link never writes on its own", () => {

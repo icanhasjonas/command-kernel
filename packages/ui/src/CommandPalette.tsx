@@ -9,7 +9,7 @@ import {
 } from "@command-kernel/core";
 import * as Dialog from "@radix-ui/react-dialog";
 import { AnimatePresence, motion } from "framer-motion";
-import { Loader2, Search, SearchX, Workflow } from "lucide-react";
+import { ChevronLeft, Loader2, Search, SearchX, Workflow } from "lucide-react";
 import { type KeyboardEvent, useEffect, useId, useRef, useState } from "react";
 import { ArgOptions } from "./ArgOptions.js";
 import { ConfirmPanel } from "./ConfirmPanel.js";
@@ -120,7 +120,36 @@ export function CommandPalette({
   // the value being piped, named, while the list shows what can take it
   const inHand = p.mode === "pipe" && p.pipe ? subjectLabel(p.pipe.subject) : "";
 
+  // an arrow key since the last keystroke: the highlighted row is a choice, not a default
+  const [picked, setPicked] = useState(false);
+  const pendingCommit = useRef(false);
+
+  /** Enter on an arg: the highlighted row, else the typed value where the arg takes one. */
+  function commitArg() {
+    // a closed arg that matches nothing commits nothing until a row is actually chosen
+    const opt = unmatched && !picked ? undefined : p.argOptions[p.selected];
+    if (opt) return p.commitArg(opt.value);
+    if (freeText && p.argQuery.trim()) return p.commitArg(p.argQuery.trim());
+    // a multiple arg: Enter on an empty input means "done adding" -> advance
+    if (activeSpec?.multiple && !p.argQuery.trim()) return p.finishArg();
+  }
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: fires when the rows catch up
+  useEffect(() => {
+    if (!p.argOptionsFresh || !pendingCommit.current) return;
+    pendingCommit.current = false;
+    commitArg();
+  }, [p.argOptionsFresh]);
+
   function onKeyDown(e: KeyboardEvent) {
+    if (p.mode === "args" && (e.key === "ArrowDown" || e.key === "ArrowUp")) {
+      setPicked(true);
+      // nothing was highlighted: the first arrow lands on the first row
+      if (unmatched && !picked) {
+        e.preventDefault();
+        return p.setSelected(0);
+      }
+    }
     const listLength =
       p.mode === "args"
         ? p.argOptions.length
@@ -148,11 +177,12 @@ export function CommandPalette({
     if (p.mode === "args") {
       if (e.key === "Enter" || e.key === "Tab") {
         e.preventDefault();
-        const opt = p.argOptions[p.selected];
-        if (opt) return p.commitArg(opt.value);
-        if (freeText && p.argQuery.trim()) return p.commitArg(p.argQuery.trim());
-        // a multiple arg: Enter on an empty input means "done adding" -> advance
-        if (activeSpec?.multiple) return p.finishArg();
+        // the rows on screen were found for older text: commit once they catch up
+        if (!p.argOptionsFresh) {
+          pendingCommit.current = true;
+          return;
+        }
+        commitArg();
       }
       return;
     }
@@ -222,12 +252,25 @@ export function CommandPalette({
 
                 {/* breadcrumb + context */}
                 <div className="flex items-center justify-between gap-3 border-white/5 border-b px-4 py-2 text-[12px]">
-                  <PaletteCrumbs
-                    items={[
-                      ...p.frames.map((f) => f.node?.title ?? text.root),
-                      ...(p.pipe?.trail ?? []),
-                    ]}
-                  />
+                  <div className="flex min-w-0 items-center gap-1">
+                    {/* Esc's twin for a touch screen, which has no Esc: one step back */}
+                    {(p.mode !== "browse" || p.frames.length > 1) && (
+                      <button
+                        type="button"
+                        onClick={p.back}
+                        aria-label={text.back}
+                        className="-ml-2 flex shrink-0 items-center rounded-md p-1 text-white/50 transition-colors hover:bg-white/[0.06] hover:text-white/90"
+                      >
+                        <ChevronLeft size={16} />
+                      </button>
+                    )}
+                    <PaletteCrumbs
+                      items={[
+                        ...p.frames.map((f) => f.node?.title ?? text.root),
+                        ...(p.pipe?.trail ?? []),
+                      ]}
+                    />
+                  </div>
                   <span className="flex shrink-0 items-center gap-2 font-mono text-white/40">
                     <span className="text-ck-accent-soft/80">
                       {ctx.location.label ?? ctx.location.module}
@@ -272,6 +315,7 @@ export function CommandPalette({
                                 onChange={(e) => {
                                   p.setArgQuery(e.target.value);
                                   p.setSelected(0);
+                                  setPicked(false);
                                 }}
                                 placeholder={
                                   spec.multiple
@@ -359,7 +403,8 @@ export function CommandPalette({
                     <ArgOptions
                       options={p.argOptions}
                       loading={p.argLoading}
-                      selected={p.selected}
+                      // nothing highlighted until an unmatched closed arg gets a real pick
+                      selected={unmatched && !picked ? -1 : p.selected}
                       freeText={freeText}
                       searchable={
                         !!activeSpec &&

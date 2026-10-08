@@ -39,7 +39,11 @@ export const personEntity: EntityType = {
     const user = USERS.find((u) => u.email === id);
     return user ? toEntity(user) : null;
   },
+  // an open arg (Send email's `to`) takes an address that is nobody's, never any string
+  accepts: (value) => ADDRESS.test(value),
 };
+
+const ADDRESS = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
 /** A submission, by id: the catalog behind every `submissionId`, so "banana" is refused. */
 export const submissionEntity: EntityType = {

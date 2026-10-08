@@ -213,7 +213,9 @@ export function useLab() {
       if (!c) return;
       try {
         const g = await c.confirm(rotateKey, { key }, via === "http" ? { via: "http" } : {});
+        // a fresh grant is unused: Run and the break-its are live again
         setGrant(g);
+        setUsed(false);
         log({
           label: "Confirm",
           answer: "granted",

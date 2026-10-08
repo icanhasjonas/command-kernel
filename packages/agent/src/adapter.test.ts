@@ -55,6 +55,26 @@ describe("pickTool, the toy picker", () => {
     expect(pickTool("send email to jo@example.com", tools)?.values.body).toBeUndefined();
   });
 
+  it("picks the closed-list option the goal names, and invents none", () => {
+    const mail: CommandNode = {
+      id: "mail",
+      title: "Send email",
+      args: [
+        {
+          id: "subject",
+          label: "subject",
+          kind: "enum",
+          enumValues: [
+            { value: "welcome", label: "Welcome to Circle" },
+            { value: "remind", label: "Reminder" },
+          ],
+        },
+      ],
+    };
+    expect(pickTool("email a reminder", [mail])?.values.subject).toBe("remind");
+    expect(pickTool("email them, subject hacked", [mail])?.values.subject).toBeUndefined();
+  });
+
   it("answers null when no word of the goal names a tool", () => {
     expect(pickTool("make coffee", tools)).toBeNull();
   });

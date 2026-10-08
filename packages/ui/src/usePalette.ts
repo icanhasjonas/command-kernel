@@ -167,7 +167,7 @@ export function usePalette({
     onOutput,
   });
 
-  const { argOptions, argLoading, commitArg, finishArg } = usePaletteArgs({
+  const { argOptions, argLoading, argOptionsFresh, commitArg, finishArg } = usePaletteArgs({
     ctx,
     kernel,
     mode,
@@ -277,6 +277,7 @@ export function usePalette({
     setArgQuery,
     argOptions,
     argLoading,
+    argOptionsFresh,
     confirm,
     confirmAlwaysLabel: confirm ? allowLabel(ruleForNode(confirm.node, confirm.values)) : "",
     pipe,

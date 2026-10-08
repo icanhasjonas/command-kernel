@@ -4,6 +4,7 @@ import { RotateCcw } from "lucide-react";
 import { useLayoutEffect, useRef } from "react";
 import { useDemo } from "../demo/demo-context";
 import { kernel } from "../demo/kernel";
+import { TracePill } from "../trace/TracePill";
 import { LabBanner } from "./wire/LabBanner";
 
 const ROLES: Role[] = ["admin", "advisor", "viewer"];
@@ -15,13 +16,14 @@ const NAV = [
   { href: "#wire", label: "Wire" },
   { href: "#schema", label: "Schema" },
   { href: "#pipes", label: "Pipes" },
+  { href: "#packages", label: "Packages" },
 ];
 
 /**
  * The two things that change what the kernel answers, always in reach: who you are
  * (the gate reads the role) and the session (a new one invalidates every grant).
  */
-export function Header() {
+export function Header({ onTrace }: { onTrace: () => void }) {
   const { ctx, setRole, say } = useDemo();
   const ref = useHeaderHeight();
   return (
@@ -71,9 +73,13 @@ export function Header() {
           </button>
         </div>
       </div>
-      {/* narrower screens: the sections get a row of their own, always there */}
-      <div className="mx-auto flex max-w-[1320px] items-center gap-3 overflow-x-auto px-6 pb-2.5 xl:hidden">
-        <SectionNav className="flex" />
+      {/* narrower screens: the sections get a row of their own, always there, and below
+          lg (no rail) the trace button sits at its end, never on the page's own controls */}
+      <div className="mx-auto flex max-w-[1320px] items-center gap-3 px-6 pb-2.5 xl:hidden">
+        <div className="min-w-0 flex-1 overflow-x-auto">
+          <SectionNav className="flex" />
+        </div>
+        <TracePill onOpen={onTrace} />
       </div>
     </header>
   );

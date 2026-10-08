@@ -81,6 +81,8 @@ export interface PaletteLabels {
   hintPipe: string;
   hintRunAsPage: string;
   hintBack: string;
+  /** the back button's accessible name (the touch screen's Esc) */
+  back: string;
   /** receives the rendered mod key, so word order is yours */
   chordHint: (modKey: ReactNode) => ReactNode;
 }
@@ -131,6 +133,7 @@ export const defaultLabels: PaletteLabels = {
   hintPipe: "pipe into…",
   hintRunAsPage: "run as page",
   hintBack: "back",
+  back: "Back",
   chordHint: (modKey) => <>hold {modKey} for chords</>,
 };
 
