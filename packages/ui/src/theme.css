@@ -12,6 +12,12 @@
   Then override:
     @theme { --color-ck-accent: #6366f1; }    // indigo accent instead of pink
 */
+
+/* Tailwind generates only the classes it scans, and it never scans a dependency on
+   its own: point it at the palette's sources (relative to this file), or the
+   palette renders with no layout. */
+@source "./";
+
 @theme {
   --color-ck-accent: var(--color-pink, #e41362);
   --color-ck-accent-soft: var(--color-pink-soft, #ff4d8d);
