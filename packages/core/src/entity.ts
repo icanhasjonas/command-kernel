@@ -61,6 +61,8 @@ export interface EntityType {
    * Absent: an open arg takes any value.
    */
   accepts?(value: string): boolean;
+  /** what `accepts` takes, for the refusal: "an address" ("x" is not a person or an address) */
+  acceptsLabel?: string;
 }
 
 export interface EntityRegistry {

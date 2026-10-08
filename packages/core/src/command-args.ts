@@ -40,8 +40,9 @@ async function findEntity(
  */
 function refusedFree(ref: EntityRef, v: string, entities: EntityRegistry): string | null {
   if (!ref.open) return `no ${ref.type} matches "${v}"`;
-  const accepts = entities.type(ref.type)?.accepts;
-  return !accepts || accepts(v) ? null : `"${v}" is not a ${ref.type}`;
+  const type = entities.type(ref.type);
+  if (!type?.accepts || type.accepts(v)) return null;
+  return `"${v}" is not a ${ref.type}${type.acceptsLabel ? ` or ${type.acceptsLabel}` : ""}`;
 }
 
 /**

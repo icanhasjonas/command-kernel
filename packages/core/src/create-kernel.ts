@@ -20,7 +20,7 @@ import { createMemoryPolicyStore, type PolicyStore } from "./policy.js";
 import { type Ranker, rank } from "./rank.js";
 import type { Registry } from "./registry.js";
 import { signingArgs } from "./signing.js";
-import type { CommandNode, Ctx, FallbackSearch, Grant, Ranked } from "./types.js";
+import type { CommandNode, Ctx, FallbackSearch, GateVerdict, Grant, Ranked } from "./types.js";
 
 /**
  * createKernel - where the SEAMS meet.
@@ -100,6 +100,13 @@ export interface Kernel {
   search(nodes: CommandNode[], query: string, ctx: Ctx): Ranked[];
   /** drill a node's children (pure passthrough) */
   resolveChildren(node: CommandNode, args: ArgValues, ctx: Ctx): Promise<CommandNode[]>;
+  /**
+   * The gate's answer before the args are in, so a driver can say "admin only" before
+   * asking for a user rather than after. Advice, never permission: it runs no evidence,
+   * no policy, no `run`, and `executeNode` asks the whole gate again with the real args.
+   * A gate that decides on args sees only the ones given here.
+   */
+  preflight(node: CommandNode, ctx: Ctx, args?: ArgValues): Promise<GateVerdict>;
   /** gate + run a node against the configured trust core */
   executeNode(
     node: CommandNode,
@@ -202,6 +209,7 @@ export function createKernel(config: KernelConfig = {}): Kernel {
     isA,
     search: (nodes, query, ctx) => searchNodes(nodes, query, ctx, ranker),
     resolveChildren,
+    preflight: async (node, ctx, args = {}) => gate(node, ctx, args),
     executeNode: (node, args, ctx, confirmation) =>
       executeNode(node, args, ctx, deps, confirmation),
     grantFor: (res) =>
