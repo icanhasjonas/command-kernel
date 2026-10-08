@@ -55,3 +55,23 @@ describe("collectTools", () => {
     ]);
   });
 });
+
+describe("toMcpTool - a node that feeds a pipe says what it returns", () => {
+  const load: CommandNode = {
+    id: "files.read",
+    title: "Load as text",
+    args: [{ id: "file", label: "file", kind: "string", required: true }],
+    output: { kind: "text", label: "file contents" },
+    run: async () => ({ kind: "data", message: "", value: "hi" }),
+  };
+
+  it("outputSchema is { value } typed like an arg; a node without output has none", () => {
+    expect(toMcpTool(load).outputSchema).toEqual({
+      type: "object",
+      properties: { value: { type: "string", description: "file contents" } },
+      required: ["value"],
+      additionalProperties: false,
+    });
+    expect(toMcpTool(send).outputSchema).toBeUndefined();
+  });
+});

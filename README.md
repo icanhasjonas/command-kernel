@@ -115,6 +115,50 @@ Render it for humans with `@command-kernel/ui`, project it to an LLM with
 the five seams, the trust-core explainer, and the write-your-own-driver /
 write-your-own-provider guides.
 
+## Pipes
+
+One command's output is the next command's input. A node declares what it
+produces (`output`), its run returns it (`result.value`), and the next command
+takes it in whichever arg accepts that type:
+
+```ts
+const read = {
+  id: "files.read",
+  title: "Load as text",
+  args: [{ id: "file", label: "file", kind: "entity", required: true, entity: { type: "file" } }],
+  output: { kind: "text" },
+  run: async (a) => ({ kind: "data", message: "loaded", value: await load(a.file) }),
+};
+
+// [file] -> Load as text -> Encrypt for... -> Send email (to: j@duplo.org)
+await kernel.pipe(
+  {
+    input: { type: { kind: "entity", entity: { type: "file" } }, value: "notes.md" },
+    steps: [
+      { path: [{ id: "files.read" }] },
+      { path: [{ id: "crypto.encrypt", args: { to: "j@duplo.org" } }] },
+      { path: [{ id: "email.send", args: { to: "j@duplo.org", subject: "Next steps" } }] },
+    ],
+  },
+  ctx,
+); // -> done | paused (args or gate, resumable) | broken (with the reason)
+```
+
+- **Routing.** A piped value lands in the arg that accepts its type: a person in
+  `to`, a file in `attachments`, text in `body`. When two args take the same type,
+  `input: "body"` names the one. `kernel.actionsFor(type, ctx)` answers "what can
+  I do with this?" across the whole tree (Quicksilver's second pane).
+- **No new trust path.** The value is bound into the args before anything looks at
+  them, so it is validated, gated and signed into the grant like a typed value. A
+  grant for `notes.md` does not cover `plan.txt`.
+- **Type-checked first.** `kernel.pipe` refuses to run step 1 when step 3 could not
+  take what step 2 makes, and checks every output against what its node declared.
+- **Subjects.** A node with `subject` stands for a value (a file, a contact). In the
+  palette, Tab on it opens every command that takes it; a command with an
+  `output` keeps the palette open on what it made.
+- **Agents.** A node with `output` gets an MCP `outputSchema` (`{ value }`), and a
+  tool result carries `value` to pass to the next tool.
+
 ## The extension seams
 
 Everything pluggable, each with a sensible default. `createKernel({ roots })` is

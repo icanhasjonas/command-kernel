@@ -270,6 +270,11 @@ for the full palette + agent demo.
 - [ ] `gate` on anything that writes or is privileged; **never** gated in a driver.
 - [ ] `effect`/`enumerate` correct (don't ship a `writes` command labeled `pure`).
 - [ ] `chord` on hot commands; reachable by palette **and** deeplink too.
+- [ ] Produces something another command could use (text, a file, a person)?
+      Declare `output` and return it as `result.value`; that makes it a pipe step.
+      Takes two args of the same type? Name the piped one with `input`.
+- [ ] A node that stands for a domain object (a row in a list) carries `subject`,
+      so it can be piped into every command that takes one.
 - [ ] No framework import reached the node definition — `packages/core` stays pure.
 
 ---

@@ -137,6 +137,7 @@ export {
   bindInput,
   describeType,
   fitsExactly,
+  outputNode,
   outputOf,
 } from "./pipe.js";
 export {

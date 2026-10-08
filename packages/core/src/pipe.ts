@@ -95,6 +95,16 @@ export function bindInput(node: CommandNode, written: ArgValues, piped: Piped): 
   return { values, arg };
 }
 
+/**
+ * A node's output declared the way args are: one required arg, `value`. So the
+ * value a run produces is checked by `validateArgs` and described to an agent by
+ * `toJsonSchema` (its MCP `outputSchema`) with the same rules as any input.
+ */
+export function outputNode(node: CommandNode, type: ValueType): CommandNode {
+  const spec: ArgSpec = { ...type, id: "value", label: type.label ?? "output", required: true };
+  return { id: node.id, title: node.title, args: [spec] };
+}
+
 function sameValue(a: ArgValue, b: ArgValue): boolean {
   return canonicalJson(a) === canonicalJson(b);
 }
@@ -109,11 +119,7 @@ export function outputOf(node: CommandNode, result: CommandResult): Piped | stri
   const type = node.output;
   if (!type) return `${node.title} produces nothing to pipe on`;
   if (result.value === undefined) return `${node.title} produced no ${describeType(type)}`;
-  const spec: ArgSpec = { ...type, id: "value", label: type.label ?? "output", required: true };
-  const errors = validateArgs(
-    { id: node.id, title: node.title, args: [spec] },
-    { value: result.value },
-  );
+  const errors = validateArgs(outputNode(node, type), { value: result.value });
   if (errors.length > 0) return `${node.title}: ${errors.map((e) => e.message).join("; ")}`;
   return { type, value: result.value, ...(type.label !== undefined && { label: type.label }) };
 }

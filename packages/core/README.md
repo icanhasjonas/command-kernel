@@ -233,6 +233,28 @@ command can't auto-fire - it returns a `gate`. `@command-kernel/agent`'s
 `collectTools` turns nodes into MCP `{ name, description, inputSchema }` tools off
 the same schema.
 
+## Pipes: one command's output, the next one's input
+
+A node declares what its run hands on (`output: ValueType`, same vocabulary as an
+arg) and returns it as `result.value`. A value in flight is a `Piped`
+(`{ type, value, label? }`), and it lands in the one arg that accepts its type:
+
+| Verb | What it does |
+|---|---|
+| `kernel.command({ path, input, execute })` | binds `input` into the tip's args, then everything as usual |
+| `kernel.actionsFor(type, ctx, query?)` | every runnable command that takes `type`, walked over free branches, ranked; each with `path`, `priorKey` and the `arg` it lands in |
+| `kernel.pipe({ input?, steps }, ctx)` | type-checks every step, then runs them; `done`, `paused` (with a `resume` request) or `broken` (with the reason) |
+| `acceptingArg(node, type)` / `bindInput(node, args, piped)` | the routing rule, for a driver that walks itself |
+
+Routing: an entity needs the same entity type, text flows into `text`/`string`
+(an `email` is text, text is not an email), a closed `enum` never takes a piped
+value, a list only fits a `multiple` arg. A node's `input` names the arg when two
+fit. A piped value never outranks a value the caller wrote: two different answers
+for one arg come back as an `args` error.
+
+Trust: the value is bound before validation, gate and signing, so it is part of
+the grant. Audit records carry `input`, and `replay` binds it again.
+
 ## Audit & replay
 
 ```ts

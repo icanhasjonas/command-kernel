@@ -34,7 +34,8 @@ import { type McpTool, toMcpTool } from "./tools.js";
 
 export type ProjectionResult =
   | { kind: "completions"; items: NodeDescriptor[] }
-  | { kind: "result"; message: string; payload?: unknown }
+  /** `value`: what a node with an `output` hands on - pass it as an arg of the next tool */
+  | { kind: "result"; message: string; payload?: unknown; value?: ArgValue }
   | { kind: "gate"; reason?: string; checks: Array<{ label: string; ok: boolean }> }
   | { kind: "needs-args"; missing: string[]; errors: Array<{ argId: string; message: string }> }
   | { kind: "disambiguate"; arg: string; query: string; candidates: Entity[] }
@@ -169,8 +170,10 @@ export function createProjection(kernel: Kernel, opts: ProjectionOptions = {}): 
 
   async function run(path: PathSegment[], ctx: Ctx): Promise<ProjectionResult> {
     const res = await kernel.command({ path, execute: true }, ctx);
-    if (res.kind === "result")
-      return { kind: "result", message: res.result.message, payload: res.result.payload };
+    if (res.kind === "result") {
+      const { message, payload, value } = res.result;
+      return { kind: "result", message, payload, ...(value !== undefined && { value }) };
+    }
     if (res.kind === "gate")
       return {
         kind: "gate",
