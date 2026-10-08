@@ -17,7 +17,8 @@ Pipes: one command's output is the next command's input.
 - Agent: a node with `output` gets an MCP `outputSchema` (`{ value }`); results carry
   `value`.
 - Palette: Tab on a subject row opens pipe mode; a command with an `output` keeps the
-  palette open on what it made. New labels: `pipeInto`, `pipeNothing`, `pipeLandsIn`,
-  `hintPipe`.
+  palette open on what it made; Esc steps back one value. New labels: `pipePlaceholder`,
+  `pipeInto` (the input's accessible name), `pipeCount` (live-region announcement),
+  `pipeNothing`, `pipeLandsIn`, `hintPipe`.
 - Fix: `theme.css` now carries `@source` for the palette's own files, so Tailwind
   generates its classes in a consuming app.
