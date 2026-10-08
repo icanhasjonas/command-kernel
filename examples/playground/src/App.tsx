@@ -61,14 +61,15 @@ const FEATURES = [
     body: "Switch where you are — the menu re-ranks and pre-binds args to the record you're on.",
   },
   {
-    icon: "Workflow",
-    title: "Pipes",
-    body: "Open Files, pick one, press Tab: Load as text → Encrypt for… → Send email. Typed end to end.",
-  },
-  {
     icon: "Bot",
     title: "Same kernel, agent",
     body: "Open the agent. It picks a command, fills args, hits the identical gate. One core.",
+  },
+  {
+    icon: "Workflow",
+    title: "Pipes",
+    body: "One command's output is the next one's input. Open Files, pick one, press Tab: Load as text → Encrypt for… → Send email. Each step typed, gated and signed like a value you typed.",
+    wide: true,
   },
 ];
 
@@ -350,7 +351,13 @@ export default function App() {
         {/* feature grid */}
         <div className="mt-9 grid w-full grid-cols-1 gap-3 pb-20 text-left sm:grid-cols-2 lg:grid-cols-3">
           {FEATURES.map((f) => (
-            <div key={f.title} className="rounded-xl border border-white/8 bg-white/[0.02] p-4">
+            <div
+              key={f.title}
+              className={cn(
+                "rounded-xl border border-white/8 bg-white/[0.02] p-4",
+                "wide" in f && "sm:col-span-2 lg:col-span-3",
+              )}
+            >
               <div className="flex size-8 items-center justify-center rounded-lg bg-pink/10 text-pink-soft">
                 <Icon name={f.icon} size={16} />
               </div>
