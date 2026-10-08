@@ -6,6 +6,7 @@ import { AGENT_TOOLS } from "../../agent-tools";
 import { useDemo } from "../../demo/demo-context";
 import { drivers } from "../../demo/kernel";
 import type { Call, CallStatus } from "./CallCard";
+import { fillFromNames, verbItCannotDo } from "./understand";
 
 export type Line =
   | { id: number; kind: "you" | "agent"; text: string }
@@ -28,10 +29,10 @@ export function useAgent() {
     const id = ++seq.current;
     setLines((ls) => [...ls, { id, kind: "call", call: { ...c, id } }]);
   };
-  const mark = (id: number, status: CallStatus) =>
+  const mark = (id: number, status: CallStatus, more: Partial<Call> = {}) =>
     setLines((ls) =>
       ls.map((l) =>
-        l.kind === "call" && l.call.id === id ? { ...l, call: { ...l.call, status } } : l,
+        l.kind === "call" && l.call.id === id ? { ...l, call: { ...l.call, status, ...more } } : l,
       ),
     );
 
@@ -52,12 +53,22 @@ export function useAgent() {
   async function ask(goal: string) {
     if (!goal.trim()) return;
     say("you", goal);
-    const pick = pickTool(goal, AGENT_TOOLS);
-    if (!pick)
+    const found = pickTool(goal, AGENT_TOOLS);
+    if (!found)
       return say(
         "agent",
         "No tool fits that. This agent only matches keywords to tool names; try a goal below.",
       );
+    const verb = verbItCannotDo(goal, found.node);
+    if (verb)
+      return say(
+        "agent",
+        `No tool here can ${verb} that, and I will not swap in "${found.node.title}" instead.`,
+      );
+    const pick = {
+      node: found.node,
+      values: await fillFromNames(goal, found.node, found.values, drivers.agent.entities, ctx),
+    };
     const res = await call(pick.node, pick.values);
     if (res.kind === "gate") {
       const status = res.verdict.allowed ? "owed" : "blocked";
@@ -82,6 +93,7 @@ export function useAgent() {
           : undefined;
     const res = await call(c.node, c.values, evidence);
     if (settle(c.node, res)) return mark(c.id, "done");
+    if (how === "forge") mark(c.id, "owed", { forged: true });
     say(
       "agent",
       how === "forge"

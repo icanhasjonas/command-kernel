@@ -58,8 +58,8 @@ export interface PaletteLabels {
   gateBlocked: string;
   /** headline when the gate said yes but a confirm is owed */
   gateConfirm: string;
-  /** one verdict check */
-  check: (label: string) => string;
+  /** one verdict check; `ok` is whether it passed (a passed check is often the gate's reason) */
+  check: (label: string, ok: boolean) => string;
   /** the principal, shown against a failed check */
   yourRole: (role: string) => string;
   /** the standing "this node declares confirm" line */
@@ -111,7 +111,7 @@ export const defaultLabels: PaletteLabels = {
 
   gateBlocked: "You can't run this here",
   gateConfirm: "This command is gated - confirm to continue",
-  check: (label) => `requires ${label}`,
+  check: (label, ok) => (ok ? label : `requires ${label}`),
   yourRole: (role) => `you: ${role}`,
   needsConfirm: "requires explicit confirm",
   blockedHint: "back - escalate to an admin to proceed",

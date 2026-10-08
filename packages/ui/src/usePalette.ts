@@ -5,9 +5,10 @@ import type {
   Ctx,
   Kernel,
   Piped,
+  Ranked,
 } from "@command-kernel/core";
 import { allowLabel, describeType, ruleForNode } from "@command-kernel/core";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ArgSession, PipeSession } from "./palette-types.js";
 import { usePaletteArgs } from "./usePaletteArgs.js";
 import { usePaletteFrames } from "./usePaletteFrames.js";
@@ -41,6 +42,23 @@ interface Hooks {
 }
 
 const NONE: readonly string[] = [];
+
+/**
+ * Commands and things in ONE ranking, by the kernel's own ranker: "ada" puts Ada
+ * Lovelace above a command that merely contains a, d, a. A thing the search found by
+ * something the ranker does not read (an email, a hint) still shows, after the rest.
+ */
+function withThings(
+  kernel: Kernel,
+  items: CommandNode[],
+  things: Ranked[],
+  query: string,
+  ctx: Ctx,
+): Ranked[] {
+  const ranked = kernel.search([...items, ...things.map((t) => t.node)], query, ctx);
+  const shown = new Set(ranked.map((r) => r.node.id));
+  return [...ranked, ...things.filter((t) => !shown.has(t.node.id))];
+}
 
 /** What to call a value in hand: its own label, its type's, or the type itself. */
 export const subjectLabel = (p: Piped) => p.label ?? p.type.label ?? describeType(p.type);
@@ -93,6 +111,10 @@ export function usePalette({
     active: mode === "browse" && frames.length === 1,
     types: subjects ?? NONE,
   });
+  const rows = useMemo(
+    () => (things.length > 0 ? withThings(kernel, frame.items, things, query, ctx) : ranked),
+    [things, ranked, kernel, frame.items, query, ctx],
+  );
 
   const enterPipe = useCallback(
     (next: PipeSession) => {
@@ -242,8 +264,7 @@ export function usePalette({
   return {
     frames,
     frame,
-    // commands first, then the things the query found
-    ranked: things.length > 0 ? [...ranked, ...things] : ranked,
+    ranked: rows,
     query,
     setQuery,
     selected,

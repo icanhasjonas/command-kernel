@@ -11,6 +11,12 @@ type Gate = Extract<CommandResponse, { kind: "gate" }>;
 /** What the grant in hand is good for now: one run, nothing (used), or nothing (key gone). */
 export type GrantLife = "live" | "spent" | "void";
 
+/** Why an unchanged grant is refused, by what has happened to it. */
+const WHY_UNUSABLE: Partial<Record<GrantLife, string>> = {
+  spent: "it was already used, and a grant runs once",
+  void: "the key that signed it was rotated",
+};
+
 /**
  * The gate lab: one gated request, one human approval, and the ways an approval
  * must NOT be reusable. Every attempt is a real `command()` call on the shared
@@ -25,7 +31,16 @@ export function useGateLab() {
 
   const log = (a: Attempt) => setAttempts((xs) => [a, ...xs].slice(0, 6));
 
-  async function send(label: string, args: Record<string, string>, evidence?: Grant) {
+  /**
+   * `why`: what this attempt changed about the grant, which is why the kernel will owe
+   * the approval again. The kernel only says "owed"; the lab knows what it tampered with.
+   */
+  async function send(
+    label: string,
+    args: Record<string, string>,
+    evidence?: Grant,
+    why = "the grant did not verify",
+  ) {
     const res = await drivers.gateLab.command(
       { path: [{ id: ASKED.id, args, ...(evidence && { evidence }) }], execute: true },
       getCtx(),
@@ -43,9 +58,7 @@ export function useGateLab() {
         log({
           label,
           answer: "owed",
-          detail: evidence
-            ? "the grant did not verify, so the approval is still owed"
-            : "approval owed",
+          detail: evidence ? `${why}, so the approval is owed again` : "approval owed",
         });
       return res;
     } else log({ label, answer: "args", detail: res.kind });
@@ -67,11 +80,30 @@ export function useGateLab() {
       setGrant(drivers.gateLab.grantFor(gate));
       setLife("live");
     },
-    run: () => grant && send("Run with the grant", ASKED.args, grant),
+    run: () =>
+      grant &&
+      send(
+        "Run with the grant",
+        ASKED.args,
+        grant,
+        WHY_UNUSABLE[life] ?? "the grant did not verify",
+      ),
     otherArgs: () =>
-      grant && send("Same grant, another user", { user: "ada@analytical.engine" }, grant),
+      grant &&
+      send(
+        "Same grant, another user",
+        { user: "ada@analytical.engine" },
+        grant,
+        "it was signed for jon, not ada",
+      ),
     forged: () =>
-      grant && send("One hex digit changed", ASKED.args, { ...grant, sig: tamper(grant.sig) }),
+      grant &&
+      send(
+        "One hex digit changed",
+        ASKED.args,
+        { ...grant, sig: tamper(grant.sig) },
+        "the signature no longer matches",
+      ),
     rotate() {
       kernel.evidence.rotate();
       if (grant) setLife("void");

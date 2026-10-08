@@ -43,7 +43,8 @@ export function useLab() {
   const [used, setUsed] = useState(false);
   const [attempts, setAttempts] = useState<Attempt[]>([]);
 
-  const log = useCallback((a: Attempt) => setAttempts((xs) => [a, ...xs].slice(0, 6)), []);
+  // short logs: the newest few say what happened; the frames and the trace keep the rest
+  const log = useCallback((a: Attempt) => setAttempts((xs) => [a, ...xs].slice(0, 4)), []);
 
   const refresh = useCallback(
     async (c = client.current) => {
@@ -76,7 +77,7 @@ export function useLab() {
       c.on(labChanged, (d) => {
         // a change this tab made comes back as an event too: the server's tag says whose
         const mine = d.by.tag === visitorId().slice(0, 6);
-        setFeed((xs) => [{ ...d, at: Date.now(), mine }, ...xs].slice(0, 8));
+        setFeed((xs) => [{ ...d, at: Date.now(), mine }, ...xs].slice(0, 4));
         setServer((s) => s && { ...s, flags: d.flags, keys: d.keys });
       }),
       c.on(presence, ({ online }) => setOnline(online)),

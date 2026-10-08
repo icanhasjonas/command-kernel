@@ -5,10 +5,15 @@ import { DriverHead } from "./DriverHead";
 
 const PLACES: (Place & { icon: string })[] = [
   { module: "home", label: "Home", icon: "Home" },
-  { module: "forms", recordId: "ip/long-form", label: "form ip/long-form", icon: "FileText" },
-  { module: "submissions", recordId: "sub_4819", label: "submission sub_4819", icon: "Inbox" },
   { module: "users", label: "Users", icon: "Users" },
+  { module: "forms", label: "Forms", icon: "FileText" },
+  { module: "forms", recordId: "ip/long-form", label: "form ip/long-form", icon: "FileText" },
+  { module: "submissions", label: "Submissions", icon: "Inbox" },
+  { module: "submissions", recordId: "sub_4819", label: "submission sub_4819", icon: "Inbox" },
 ];
+
+const same = (a: { module: string; recordId?: string }, b: { module: string; recordId?: string }) =>
+  a.module === b.module && a.recordId === b.recordId;
 
 /** Driver #1 and #2: the palette, and chords that jump straight into one command. */
 export function PaletteDriver() {
@@ -27,7 +32,8 @@ export function PaletteDriver() {
           onClick={() => openPalette()}
           className="flex items-center gap-2 rounded-lg bg-pink px-3 py-1.5 font-medium text-[13px] text-white hover:bg-pink-soft"
         >
-          Open the palette <Kbd className="border-white/30 bg-white/15 text-white">⌘K</Kbd>
+          Open the palette{" "}
+          <Kbd className="border-white/30 bg-white/15 text-white pointer-coarse:hidden">⌘K</Kbd>
         </button>
         {chords.map(([key, node]) => (
           <button
@@ -36,7 +42,7 @@ export function PaletteDriver() {
             onClick={() => openPalette(node.id, "chord")}
             className="flex items-center gap-2 rounded-lg border border-white/10 px-2.5 py-1.5 text-[13px] text-white/75 hover:bg-white/[0.05] hover:text-white"
           >
-            <Kbd>⌘J {key.toUpperCase()}</Kbd> {node.title}
+            <Kbd className="pointer-coarse:hidden">⌘J {key.toUpperCase()}</Kbd> {node.title}
           </button>
         ))}
       </div>
@@ -46,8 +52,20 @@ export function PaletteDriver() {
           "Resend this submission" jumps to the top, already bound).
         </div>
         <div className="mt-3 flex flex-wrap gap-2">
-          {PLACES.map((p) => {
-            const on = ctx.location.module === p.module && ctx.location.recordId === p.recordId;
+          {/* a command can take you somewhere without a chip (Docs): it gets one while you are there */}
+          {[
+            ...PLACES,
+            ...(PLACES.some((p) => same(p, ctx.location))
+              ? []
+              : [
+                  {
+                    ...ctx.location,
+                    label: ctx.location.label ?? ctx.location.module,
+                    icon: "Link",
+                  },
+                ]),
+          ].map((p) => {
+            const on = same(p, ctx.location);
             return (
               <button
                 key={p.label}

@@ -322,6 +322,7 @@ export function CommandPalette({
                   {p.mode === "confirm" && p.confirm ? (
                     <ConfirmPanel
                       node={p.confirm.node}
+                      values={p.confirm.values}
                       verdict={p.confirm.verdict}
                       blocked={p.confirm.blocked}
                       role={ctx.user.role}
@@ -374,8 +375,8 @@ export function CommandPalette({
                   )}
                 </div>
 
-                {/* footer */}
-                <div className="flex items-center gap-3 border-white/5 border-t px-4 py-2 text-[11px] text-white/35">
+                {/* footer: key hints, so none on a touch screen */}
+                <div className="flex items-center gap-3 border-white/5 border-t px-4 py-2 text-[11px] text-white/35 pointer-coarse:hidden">
                   <Hint
                     k="↵"
                     label={

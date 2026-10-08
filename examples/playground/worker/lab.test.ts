@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import type { Grant } from "@command-kernel/core";
 import { labChanged } from "../src/wire/spec";
-import { createLab, freshState, type Visitor } from "./lab";
+import { createLab, freshState, MAINTENANCE_CHECK, type Visitor } from "./lab";
 import { createLimiter, onlineVisitors, visitorFrom, visitorFromQuery } from "./visitor";
 
 /** A lab on in-memory storage, and every frame it broadcast. */
@@ -93,6 +93,23 @@ describe("the lab over the wire", () => {
     expect(state.keys.signing).not.toBe(before);
     const replay = await as(admin).frame({ t: "cmd", name: "lab.rotate", args, evidence: grant });
     expect(replay.error.code).toBe("confirmRequired");
+  });
+
+  it("maintenance, flipped by one visitor, makes the server's gate refuse every rotation", async () => {
+    const { as, state } = lab();
+    const advisor: Visitor = { id: "eeeeeeee55", role: "advisor" };
+    await as(advisor).frame({ t: "cmd", name: "lab.flag", args: { flag: "maintenance" } });
+    expect(state.flags.maintenance).toBe(true);
+    // the call names the reason; a confirm is refused too (forbidden, see B13 for its checks)
+    const r = await as(admin).frame({ t: "cmd", name: "lab.rotate", args: { key: "signing" } });
+    expect(r.error.code).toBe("forbidden");
+    expect(r.error.checks).toContainEqual({ label: MAINTENANCE_CHECK, ok: false });
+    const c = await as(admin).frame({ t: "confirm", name: "lab.rotate", args: { key: "signing" } });
+    expect(c.error.code).toBe("forbidden");
+    // the flag itself stays flippable, so maintenance can be ended
+    await as(advisor).frame({ t: "cmd", name: "lab.flag", args: { flag: "maintenance" } });
+    const ok = await as(admin).frame({ t: "confirm", name: "lab.rotate", args: { key: "signing" } });
+    expect(ok.t).toBe("ok");
   });
 
   it("a viewer cannot get a grant minted at all", async () => {

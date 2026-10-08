@@ -26,7 +26,8 @@ export function Hero() {
           onClick={() => openPalette()}
           className="flex items-center gap-2.5 rounded-xl bg-pink px-5 py-3 font-semibold text-[14px] text-white shadow-glow transition hover:bg-pink-soft"
         >
-          Open the palette <Kbd className="border-white/30 bg-white/15 text-white">⌘K</Kbd>
+          Open the palette{" "}
+          <Kbd className="border-white/30 bg-white/15 text-white pointer-coarse:hidden">⌘K</Kbd>
         </button>
         <a
           href="#agent"

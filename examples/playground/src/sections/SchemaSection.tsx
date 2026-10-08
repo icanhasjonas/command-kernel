@@ -17,7 +17,7 @@ function Block({ title, note, children }: { title: string; note: string; childre
         <h3 className="font-medium text-[13px] text-white/85">{title}</h3>
         <span className="text-[12px] text-white/45">{note}</span>
       </div>
-      <pre className="mt-2 max-h-[320px] overflow-auto whitespace-pre-wrap break-all rounded-lg bg-black/30 p-3 font-mono text-[12px] leading-relaxed text-white/70">
+      <pre className="mt-2 max-h-[320px] overflow-auto whitespace-pre-wrap [overflow-wrap:anywhere] rounded-lg bg-black/30 p-3 font-mono text-[12px] leading-relaxed text-white/70">
         {children}
       </pre>
     </div>

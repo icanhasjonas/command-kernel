@@ -66,6 +66,16 @@ function grantState(presented: Grant | undefined, ran: boolean, auto = false): G
   return ran ? "verified" : "refused";
 }
 
+/**
+ * Write one call to the rail by hand, for a driver that asked the kernel directly and
+ * decides afterwards whether this call is the one to show (a deeplink that hands over
+ * to the palette lets the palette's call stand for it, instead of logging the same ask
+ * twice).
+ */
+export function recordCall(driver: Driver, req: CommandRequest, res: CommandResponse) {
+  traceStore.record(fromResponse(driver, req, res));
+}
+
 function fromResponse(driver: Driver, req: CommandRequest, res: CommandResponse) {
   const tip = req.path?.[req.path.length - 1];
   const grant = tip?.evidence;

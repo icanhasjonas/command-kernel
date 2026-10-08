@@ -5,6 +5,7 @@ import { ArrowRight, Play } from "lucide-react";
 import { useState } from "react";
 import { useDemo } from "../../demo/demo-context";
 import { drivers } from "../../demo/kernel";
+import { traceStore } from "../../trace/trace-store";
 import type { PipePreset } from "./presets";
 
 type StepState =
@@ -35,6 +36,22 @@ export function PipeRun({ preset }: { preset: PipePreset }) {
       await new Promise((ok) => setTimeout(ok, 220));
       setStates((xs) => xs.map((x, j) => (j === i ? { kind: "ok", result: r } : x)));
       ran(preset.steps[i]?.step.path.at(-1)?.id ?? "");
+    }
+    // refused by the type check before any step ran: no call reached the kernel, so
+    // the pipe itself says so in the rail (a step that ran is already there)
+    if (res.kind === "broken" && res.results.length === 0) {
+      const step = preset.steps[res.step];
+      traceStore.record({
+        driver: "pipe",
+        command: step?.step.path.at(-1)?.id ?? "(pipe)",
+        title: step?.label ?? "",
+        args: {},
+        input: preset.from,
+        outcome: "args",
+        checks: [],
+        problems: [res.reason],
+        grant: "none",
+      });
     }
     if (res.kind === "broken" || res.kind === "paused") {
       const why = res.kind === "broken" ? res.reason : `paused: ${res.response.kind}`;

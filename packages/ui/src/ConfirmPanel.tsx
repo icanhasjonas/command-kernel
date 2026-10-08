@@ -1,4 +1,5 @@
-import type { CommandNode, GateVerdict } from "@command-kernel/core";
+import type { ArgValues, CommandNode, GateVerdict } from "@command-kernel/core";
+import { argText } from "@command-kernel/core";
 import { motion } from "framer-motion";
 import { Check, ShieldAlert, ShieldX, X } from "lucide-react";
 import { Icon } from "./icon.js";
@@ -7,6 +8,7 @@ import type { PaletteLabels } from "./labels.js";
 
 export function ConfirmPanel({
   node,
+  values,
   verdict,
   blocked,
   role,
@@ -16,6 +18,7 @@ export function ConfirmPanel({
   onAlways,
 }: {
   node: CommandNode;
+  values: ArgValues;
   verdict: GateVerdict;
   blocked: boolean;
   role: string;
@@ -40,6 +43,21 @@ export function ConfirmPanel({
         </div>
       </div>
 
+      {/* what exactly is being approved: the grant will be bound to these values */}
+      {Object.keys(values).length > 0 && (
+        <div className="mt-3 flex flex-wrap gap-1.5">
+          {Object.entries(values).map(([k, v]) => (
+            <span
+              key={k}
+              className="rounded-md border border-white/10 bg-white/[0.03] px-2 py-0.5 font-mono text-[12px]"
+            >
+              <span className="text-white/45">{k}</span>{" "}
+              <span className="text-white/85">{argText(v)}</span>
+            </span>
+          ))}
+        </div>
+      )}
+
       <div className="mt-3 space-y-1.5">
         {verdict.checks.map((c, i) => (
           <div
@@ -54,7 +72,7 @@ export function ConfirmPanel({
               <X size={14} className="text-ck-danger" />
             )}
             <span className={c.ok ? "text-white/70" : "text-ck-danger"}>
-              {labels.check(c.label)}
+              {labels.check(c.label, c.ok)}
             </span>
             {!c.ok && (
               <span className="ml-auto text-[12px] text-white/40">{labels.yourRole(role)}</span>

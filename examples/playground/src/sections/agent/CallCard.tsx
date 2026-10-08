@@ -12,6 +12,8 @@ export interface Call {
   status: CallStatus;
   /** the kernel's gate answer: the only thing a grant may be minted from */
   gate?: Extract<CommandResponse, { kind: "gate" }>;
+  /** the agent tried a made-up grant, and the kernel refused it */
+  forged?: boolean;
 }
 
 /** One tool call the agent made, and, when the gate wants a human, the operator's choices. */
@@ -43,6 +45,12 @@ export function CallCard({
       <div className="mt-3 border-white/8 border-t pt-3">
         {status === "owed" && (
           <div className="space-y-2.5">
+            {call.forged && (
+              <div className="flex items-center gap-1.5 text-[12px] text-red-300">
+                <ShieldX size={13} /> The agent's forged grant was refused. Only your Allow runs
+                this.
+              </div>
+            )}
             <div className="flex items-center gap-1.5 text-[12px] text-amber-soft">
               <ShieldAlert size={13} /> The gate wants your approval:{" "}
               {node.gate?.reason ?? "confirm"}
@@ -70,13 +78,15 @@ export function CallCard({
                 Deny
               </button>
             </div>
-            <button
-              type="button"
-              onClick={onForge}
-              className="text-[12px] text-white/45 underline decoration-dotted underline-offset-4 hover:text-white/75"
-            >
-              Let the agent forge a grant instead
-            </button>
+            {!call.forged && (
+              <button
+                type="button"
+                onClick={onForge}
+                className="text-[12px] text-white/45 underline decoration-dotted underline-offset-4 hover:text-white/75"
+              >
+                Let the agent forge a grant instead
+              </button>
+            )}
           </div>
         )}
         {status === "blocked" && (

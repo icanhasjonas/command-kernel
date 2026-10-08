@@ -1,7 +1,8 @@
 import { createKeyboard, parseDeeplink } from "@command-kernel/core";
 import { useEffect } from "react";
+import { recordCall } from "../trace/tap";
 import { useDemo } from "./demo-context";
-import { drivers, kernel } from "./kernel";
+import { kernel } from "./kernel";
 
 /** The chord leader: press it, then a command's `chord` key. */
 export const CHORD_LEADER = "mod+j";
@@ -34,17 +35,24 @@ export function usePageDrivers() {
       const h = window.location.hash.replace(/^#\/?/, "");
       if (!h.startsWith("cmd/")) return;
       const path = parseDeeplink(h);
-      const res = await drivers.deeplink.command({ path, execute: true }, getCtx());
+      const req = { path, execute: true };
+      // asked directly: if the palette takes over, ITS call is the one the rail shows
+      const res = await kernel.command(req, getCtx());
+      const handOver =
+        res.kind === "args" ||
+        res.kind === "disambiguate" ||
+        (res.kind === "gate" && res.verdict.allowed);
+      if (!handOver) recordCall("deeplink", req, res);
       if (res.kind === "result") {
         ran(res.node.id);
         showResult(res.result);
         return;
       }
       if (res.kind === "completions") return say("That link names no command", "warn");
-      // the link got as far as it could: the palette takes over on that command, with
-      // the args the link carried, asking for the rest or for a person's approval
       if (res.kind === "gate" && !res.verdict.allowed)
         return say(`"${res.node.title}" is not allowed for your role`, "warn");
+      // the link got as far as it could: the palette takes over on that command, with
+      // the args the link carried, asking for the rest or for a person's approval
       openPalette(res.node.id, "deeplink", path[path.length - 1]?.args ?? {});
     };
     window.addEventListener("hashchange", run);

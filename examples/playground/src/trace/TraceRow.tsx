@@ -38,6 +38,9 @@ const VERDICT: Record<Outcome, string> = {
   unreached: "never reached a kernel",
 };
 
+/** A failed role check names what the command REQUIRES, never what the caller is. */
+const failedCheck = (label: string) => (label.startsWith("role: ") ? `needs ${label}` : label);
+
 const GRANT: Record<TraceEntry["grant"], string> = {
   none: "",
   verified: "grant verified",
@@ -90,7 +93,7 @@ export function TraceRow({ e }: { e: TraceEntry }) {
       </ol>
       {(failed || e.problems.length > 0) && (
         <div className="mt-1.5 text-[11px] text-red-300/90">
-          {failed ? failed.label : e.problems.join(" · ")}
+          {failed ? failedCheck(failed.label) : e.problems.join(" · ")}
         </div>
       )}
       {e.grant !== "none" && (

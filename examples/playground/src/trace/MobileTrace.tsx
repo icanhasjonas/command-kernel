@@ -34,6 +34,14 @@ export function MobileTrace() {
     return () => clearTimeout(t);
   }, [latest]);
 
+  // a sheet closes the way sheets do: Escape, or a tap outside it
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open]);
+
   const live = latest && flash === latest.id ? latest : null;
   return (
     <div className="lg:hidden">
@@ -65,23 +73,40 @@ export function MobileTrace() {
       </button>
       <AnimatePresence>
         {open && (
-          <motion.div
-            initial={{ y: "100%" }}
-            animate={{ y: 0 }}
-            exit={{ y: "100%" }}
-            transition={{ type: "spring", stiffness: 380, damping: 38 }}
-            className="fixed inset-x-0 bottom-0 z-50 flex h-[75vh] flex-col p-3"
-          >
-            <button
+          <>
+            <motion.button
               type="button"
               aria-label="Close the trace"
+              tabIndex={-1}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
               onClick={() => setOpen(false)}
-              className="mb-2 ml-auto rounded-full bg-[#12141c] p-2 text-white/70"
+              className="fixed inset-0 z-50 bg-black/60"
+            />
+            <motion.div
+              role="dialog"
+              aria-label="Kernel trace"
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "100%" }}
+              transition={{ type: "spring", stiffness: 380, damping: 38 }}
+              className="fixed inset-x-0 bottom-0 z-50 flex h-[70vh] flex-col rounded-t-2xl border-white/10 border-t bg-[#0a0b10] px-3 pt-2 pb-3"
             >
-              <X size={16} />
-            </button>
-            <Inspector className="min-h-0 flex-1 shadow-float" />
-          </motion.div>
+              <div className="flex items-center justify-between px-1 pb-2">
+                <span className="mx-auto h-1 w-10 rounded-full bg-white/20" />
+                <button
+                  type="button"
+                  aria-label="Close the trace"
+                  onClick={() => setOpen(false)}
+                  className="absolute top-2 right-3 rounded-full p-2 text-white/60 hover:text-white"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+              <Inspector className="min-h-0 flex-1" />
+            </motion.div>
+          </>
         )}
       </AnimatePresence>
     </div>

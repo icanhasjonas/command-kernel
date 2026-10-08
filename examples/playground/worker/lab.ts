@@ -1,4 +1,10 @@
-import { type Ctx, createHmacEvidenceStore, createKernel } from "@command-kernel/core";
+import {
+  type Ctx,
+  createHmacEvidenceStore,
+  createKernel,
+  evaluateGate,
+  type GatePolicy,
+} from "@command-kernel/core";
 import { createWireServer, implement, type WireServer } from "@command-kernel/wire";
 import {
   type Flag,
@@ -62,6 +68,26 @@ export function freshState(): LabState {
 /** The first 6 characters of a visitor id: enough to tell visitors apart, too few to be one. */
 export const tagOf = (visitorId: string) => visitorId.slice(0, 6);
 
+export const MAINTENANCE_CHECK = "maintenance mode: key rotation is paused for everyone";
+
+/**
+ * The lab's gate: the stock role ladder, plus one rule that reads the SERVER's state.
+ * While `maintenance` is on, no one may rotate a key, whatever their role; the flag
+ * itself stays flippable, so it can be turned off again. One visitor flips it, and
+ * every other visitor's next rotation is refused by this function, on this server.
+ */
+export const labGate =
+  (state: LabState): GatePolicy =>
+  (node, ctx) => {
+    const verdict = evaluateGate(node, ctx);
+    if (!state.flags.maintenance || node.id !== rotateKey.node.id) return verdict;
+    return {
+      allowed: false,
+      needsConfirm: false,
+      checks: [...verdict.checks, { label: MAINTENANCE_CHECK, ok: false }],
+    };
+  };
+
 /** The demo's commands run with the ctx the host built; the role came from the caller. */
 const visitorOf = (ctx: Ctx): Visitor => ({ id: ctx.user.id, role: ctx.user.role as LabRole });
 
@@ -115,7 +141,11 @@ export function createLab(host: LabHost): Lab {
     ),
   ];
 
-  const kernel = createKernel({ roots, evidence: createHmacEvidenceStore(host.key) });
+  const kernel = createKernel({
+    roots,
+    evidence: createHmacEvidenceStore(host.key),
+    gate: labGate(state),
+  });
   const wire = createWireServer({
     kernel,
     specs: [...LAB_SPECS],

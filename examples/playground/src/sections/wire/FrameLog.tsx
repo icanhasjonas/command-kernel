@@ -40,7 +40,7 @@ export function FrameLog() {
               <span className={cn(f.dir === "out" ? "text-sky-300" : "text-teal-soft")}>
                 {f.dir === "out" ? "→" : "←"} {f.via}
               </span>
-              <span className="break-all text-white/75">
+              <span className="text-white/75 [overflow-wrap:anywhere]">
                 {f.head && <span className="text-white/95">{f.head} </span>}
                 {pretty(f.text)}
               </span>

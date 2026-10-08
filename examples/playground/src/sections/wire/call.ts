@@ -35,12 +35,16 @@ const asError = (e: unknown) =>
 export function refusal(e: unknown, withGrant = false): Omit<Attempt, "label"> {
   const error = asError(e);
   const outcome = REACHED[error.code] ?? "unreached";
+  // the gate's own reason beats a status code
+  const failed = error.checks.find((c) => !c.ok);
   return {
     answer: asAttempt[outcome] ?? "unreached",
     detail:
       outcome === "owed" && withGrant
         ? "the server did not accept that grant"
-        : `${error.status || "no answer"} ${error.code}`,
+        : failed
+          ? `${error.status} ${failed.label}`
+          : `${error.status || "no answer"} ${error.code}`,
   };
 }
 
@@ -88,7 +92,7 @@ export async function labCall<A extends object, O>(
     problems: answer.ok ? [] : answer.error.missing,
     grant: evidence ? (answer.ok ? "verified" : "refused") : "none",
     ...(evidence && { sig: `${evidence.sig.slice(0, 10)}…` }),
-    ...(!answer.ok && { message: `${answer.error.code}: ${answer.error.message}` }),
+    ...(!answer.ok && { message: answer.error.message }),
   });
   opts.log(
     answer.ok

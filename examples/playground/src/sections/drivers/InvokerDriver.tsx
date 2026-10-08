@@ -74,7 +74,7 @@ export function InvokerDriver() {
           Resend sub_4819 (gated)
         </KernelInvoker>
       </div>
-      <pre className="mt-4 whitespace-pre-wrap break-all rounded-lg bg-black/30 px-3 py-2.5 font-mono text-[12px] leading-relaxed text-white/60">
+      <pre className="mt-4 whitespace-pre-wrap [overflow-wrap:anywhere] rounded-lg bg-black/30 px-3 py-2.5 font-mono text-[12px] leading-relaxed text-white/60">
         {`<button command="${commandAttr(GATED)}"\n        commandfor="${KERNEL_HOST_ID}">`}
       </pre>
     </div>
