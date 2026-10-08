@@ -27,6 +27,8 @@ export interface PipeSession {
   subject: Piped;
   /** where the value came from, oldest first ("notes.md", "Load as text") */
   trail: string[];
+  /** the value in hand before the last step made this one: Esc goes back to it */
+  prev?: PipeSession;
 }
 
 /** How to run a node that was not reached by browsing to it. */

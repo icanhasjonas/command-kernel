@@ -141,3 +141,20 @@ test("text in hand: Encrypt asks only for the rest, a gated Send binds its grant
   await waitFor(() => expect(ran.send).toEqual({ body: "enc(hi)" }));
   expect(closed()).toBe(1);
 });
+
+test("Esc steps back one value at a time; only the first step returns to browse", async () => {
+  const { view } = mount();
+  act(() => view.result.current.startPipe(file));
+  await waitFor(() => expect(view.result.current.pipeRows.length).toBe(1));
+  await act(async () => view.result.current.pick(rowFor(view, "load").action));
+  await waitFor(() => expect(view.result.current.pipe?.subject.value).toBe("hello"));
+
+  act(() => view.result.current.back());
+  expect(view.result.current.mode).toBe("pipe");
+  expect(view.result.current.pipe?.subject).toEqual(file);
+  expect(view.result.current.pipe?.trail).toEqual(["notes.md"]);
+
+  act(() => view.result.current.back());
+  expect(view.result.current.mode).toBe("browse");
+  expect(view.result.current.pipe).toBeNull();
+});

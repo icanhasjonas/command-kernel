@@ -82,7 +82,11 @@ export function usePalette({
   const onOutput = useCallback(
     (value: Piped, from: CommandNode) => {
       setArg(null);
-      enterPipe({ subject: value, trail: [...(pipe?.trail ?? []), from.title] });
+      enterPipe({
+        subject: value,
+        trail: [...(pipe?.trail ?? []), from.title],
+        ...(pipe && { prev: pipe }),
+      });
     },
     [pipe, enterPipe],
   );
@@ -127,7 +131,6 @@ export function usePalette({
   const { pipeRows, pipeLoading, pick } = usePalettePipe({
     kernel,
     ctx,
-    mode,
     pipe,
     query,
     token,
@@ -152,6 +155,9 @@ export function usePalette({
       return;
     }
     if (mode === "pipe") {
+      // one step back along the chain: a value a run made is never thrown away
+      // with the whole pipe by a single key
+      if (pipe?.prev) return enterPipe(pipe.prev);
       setPipe(null);
       setMode("browse");
       setQuery("");
@@ -165,7 +171,18 @@ export function usePalette({
       return;
     }
     onClose();
-  }, [mode, pipe, frames.length, onClose, setMode, setConfirm, setFrames, setQuery, setSelected]);
+  }, [
+    mode,
+    pipe,
+    enterPipe,
+    frames.length,
+    onClose,
+    setMode,
+    setConfirm,
+    setFrames,
+    setQuery,
+    setSelected,
+  ]);
 
   // reset to root whenever the palette opens
   // biome-ignore lint/correctness/useExhaustiveDependencies: open-edge reset only

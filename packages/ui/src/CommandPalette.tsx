@@ -188,7 +188,7 @@ export function CommandPalette({
                 <Dialog.Title className="sr-only">Command palette</Dialog.Title>
 
                 {/* breadcrumb + context */}
-                <div className="flex items-center justify-between border-white/5 border-b px-4 py-2 text-[12px]">
+                <div className="flex items-center justify-between gap-3 border-white/5 border-b px-4 py-2 text-[12px]">
                   <PaletteCrumbs
                     items={[
                       ...p.frames.map((f) => f.node?.title ?? text.root),
@@ -266,7 +266,7 @@ export function CommandPalette({
                       </span>
                     </div>
                   ) : (
-                    <div className="flex items-center gap-2.5">
+                    <div className="flex min-h-[26px] items-center gap-2.5">
                       {inHand ? (
                         <span className="inline-flex max-w-[14rem] shrink-0 items-center gap-1.5 rounded-pill border border-ck-success/40 bg-ck-success/10 px-2.5 py-1 font-mono text-[12px] text-ck-success">
                           <Workflow size={13} className="shrink-0" />
@@ -282,11 +282,15 @@ export function CommandPalette({
                           p.setQuery(e.target.value);
                           p.setSelected(0);
                         }}
-                        aria-label={text.searchLabel}
-                        placeholder={inHand ? text.pipeInto(inHand) : text.placeholder}
-                        className="flex-1 bg-transparent text-[15px] text-white/90 outline-none placeholder:text-white/30"
+                        aria-label={inHand ? text.pipeInto(inHand) : text.searchLabel}
+                        placeholder={inHand ? text.pipePlaceholder : text.placeholder}
+                        className="min-w-0 flex-1 bg-transparent text-[15px] text-white/90 outline-none placeholder:text-white/30"
                       />
                       {p.resolving && <Loader2 size={15} className="animate-spin text-white/40" />}
+                      {/* the chip is visual; this says the same to a screen reader */}
+                      <span role="status" aria-live="polite" className="sr-only">
+                        {inHand && !p.pipeLoading ? text.pipeCount(inHand, p.pipeRows.length) : ""}
+                      </span>
                     </div>
                   )}
                 </div>
@@ -358,7 +362,7 @@ export function CommandPalette({
                   />
                   {p.mode === "browse" && <Hint k="→" label={text.hintDrill} />}
                   {p.mode === "browse" && p.ranked[p.selected]?.node.subject && (
-                    <Hint k="⇥" label={text.hintPipe} />
+                    <Hint k="tab" label={text.hintPipe} />
                   )}
                   {p.mode === "browse" && <Hint k="⌘↵" label={text.hintRunAsPage} />}
                   <Hint k="esc" label={text.hintBack} />

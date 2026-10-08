@@ -42,8 +42,12 @@ export interface PaletteLabels {
   startTyping: string;
 
   // ── pipes ─────────────────────────────────────────────────────────────────
-  /** search placeholder while a value is in hand */
+  /** search placeholder while a value is in hand (the chip beside it names the value) */
+  pipePlaceholder: string;
+  /** the search input's accessible name while a value is in hand */
   pipeInto: (value: string) => string;
+  /** announced to a screen reader when a value's commands are listed */
+  pipeCount: (value: string, count: number) => string;
   /** nothing in the tree takes the value in hand */
   pipeNothing: (value: string) => string;
   /** the arg a routed command will put the value in */
@@ -98,9 +102,12 @@ export const defaultLabels: PaletteLabels = {
   ),
   startTyping: "start typing to search…",
 
-  pipeInto: (value) => `Pipe ${value} into…`,
+  pipePlaceholder: "Pipe into…",
+  pipeInto: (value) => `Pipe ${value} into a command`,
+  pipeCount: (value, count) =>
+    count === 1 ? `${value}: 1 command can take it` : `${value}: ${count} commands can take it`,
   pipeNothing: (value) => `no command takes ${value}`,
-  pipeLandsIn: (arg) => `as ${arg}`,
+  pipeLandsIn: (arg) => `→ ${arg}`,
 
   gateBlocked: "You can't run this here",
   gateConfirm: "This command is gated - confirm to continue",

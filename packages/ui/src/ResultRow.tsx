@@ -69,13 +69,13 @@ export function ResultRow({
 
       <span className="flex shrink-0 items-center gap-2">
         {landsIn && (
-          <span className="rounded-md border border-white/10 px-1.5 py-0.5 font-mono text-[11px] text-white/45">
+          <span className="rounded-md border border-white/10 px-1.5 py-0.5 font-mono text-[11px] text-white/60">
             {landsIn}
           </span>
         )}
         {pipeable && !landsIn && (
           <Kbd glow={active} className={cn(!active && "opacity-40")}>
-            ⇥
+            tab
           </Kbd>
         )}
         {showWeight && typeof node.weight === "number" && node.weight > 0 && (
@@ -86,7 +86,8 @@ export function ResultRow({
             {node.chord.toUpperCase()}
           </Kbd>
         )}
-        {drillable && (
+        {/* a routed row runs with the value; there is nothing to drill into from pipe mode */}
+        {drillable && !landsIn && (
           <ChevronRight
             size={16}
             className={cn(
