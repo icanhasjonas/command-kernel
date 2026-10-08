@@ -10,6 +10,7 @@
     "examples/*/src",
     "examples/*/scripts",
     "examples/*/*.config.ts",
+    "examples/playground/worker/*.test.ts",
     "test"
   ]
 }

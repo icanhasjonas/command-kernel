@@ -1,15 +1,27 @@
 import type { ArgValue, ArgValues, GateCheck, Piped } from "@command-kernel/core";
 import { useSyncExternalStore } from "react";
 
-/** Which driver made a call. Each one holds its own tap on the ONE kernel. */
-export type Driver = "palette" | "chord" | "deeplink" | "invoker" | "agent" | "pipe" | "gate-lab";
+/**
+ * Which driver made a call. Each one holds its own tap on the page's ONE kernel, except
+ * `wire`, whose calls go to the server's kernel (the lab) over HTTP or a socket.
+ */
+export type Driver =
+  | "palette"
+  | "chord"
+  | "deeplink"
+  | "invoker"
+  | "agent"
+  | "pipe"
+  | "gate-lab"
+  | "wire";
 
 /**
  * How far a call got through the kernel:
  * unresolved (no such command) · args (missing or invalid) · blocked (the gate said no) ·
- * owed (the gate wants an approval) · ran.
+ * owed (the gate wants an approval) · ran · unreached (the network or a rate limit stopped
+ * it before any kernel saw it).
  */
-export type Outcome = "unresolved" | "args" | "pick" | "blocked" | "owed" | "ran";
+export type Outcome = "unresolved" | "args" | "pick" | "blocked" | "owed" | "ran" | "unreached";
 
 /** What the evidence did: none presented, verified, refused, or a standing always-allow rule. */
 export type GrantState = "none" | "verified" | "refused" | "policy";

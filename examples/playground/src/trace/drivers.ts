@@ -9,4 +9,5 @@ export const DRIVER_META: Record<Driver, { label: string; icon: string; tone: st
   agent: { label: "Agent", icon: "Bot", tone: "text-violet-300" },
   pipe: { label: "Pipe", icon: "Workflow", tone: "text-teal-soft" },
   "gate-lab": { label: "Gate lab", icon: "ShieldCheck", tone: "text-amber-soft" },
+  wire: { label: "Wire · server kernel", icon: "Cable", tone: "text-sky-300" },
 };

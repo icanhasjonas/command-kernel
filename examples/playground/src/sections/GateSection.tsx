@@ -1,46 +1,8 @@
-import { cn } from "@command-kernel/ui";
 import { useDemo } from "../demo/demo-context";
 import { GrantCard } from "./gate/GrantCard";
-import { ASKED, type Attempt, useGateLab } from "./gate/use-gate-lab";
+import { ASKED, useGateLab } from "./gate/use-gate-lab";
+import { AttemptLog, btn, Step } from "./lab-ui";
 import { Code, Panel, Section } from "./Section";
-
-const TONE: Record<Attempt["answer"], string> = {
-  ran: "text-teal-soft",
-  owed: "text-amber-soft",
-  blocked: "text-red-300",
-  args: "text-amber-soft",
-  note: "text-white/55",
-};
-
-function Step({
-  n,
-  label,
-  done,
-  children,
-}: {
-  n: number;
-  label: string;
-  done: boolean;
-  children: React.ReactNode;
-}) {
-  return (
-    <li className="flex items-center gap-3">
-      <span
-        className={cn(
-          "flex size-6 shrink-0 items-center justify-center rounded-full border font-mono text-[11px]",
-          done ? "border-teal-soft/50 bg-teal/25 text-teal-soft" : "border-white/15 text-white/50",
-        )}
-      >
-        {n}
-      </span>
-      <span className="w-20 shrink-0 text-[13px] text-white/70">{label}</span>
-      {children}
-    </li>
-  );
-}
-
-const btn =
-  "rounded-lg border border-white/12 px-3 py-1.5 text-[13px] text-white/85 hover:bg-white/[0.06] disabled:cursor-not-allowed disabled:opacity-35";
 
 /** Chapter 3: the trust core. One approval, bound to who, what, and where, and nothing else. */
 export function GateSection() {
@@ -120,17 +82,9 @@ export function GateSection() {
         </div>
         <div className="p-5">
           <GrantCard grant={lab.grant} principal={ctx.user.id} />
-          <ul className="mt-5 space-y-2" aria-live="polite">
-            {lab.attempts.map((a, i) => (
-              // attempts are a short, newest-first log with no stable id of their own
-              // biome-ignore lint/suspicious/noArrayIndexKey: positional log
-              <li key={i} className="text-[13px]">
-                <span className="text-white/80">{a.label}</span>{" "}
-                <span className={TONE[a.answer]}>→ {a.answer}</span>
-                {a.detail && <span className="text-white/45"> · {a.detail}</span>}
-              </li>
-            ))}
-          </ul>
+          <div className="mt-5">
+            <AttemptLog attempts={lab.attempts} />
+          </div>
         </div>
       </Panel>
     </Section>

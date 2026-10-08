@@ -15,6 +15,7 @@ function stages(o: Outcome): [string, Mark][] {
     blocked: ["ok", "ok", "fail", "off"],
     owed: ["ok", "ok", "wait", "off"],
     ran: ["ok", "ok", "ok", "ok"],
+    unreached: ["off", "off", "off", "off"],
   };
   const names = ["resolve", "args", "gate", "run"];
   return names.map((n, i) => [n, reached[o][i] ?? "off"]);
@@ -34,6 +35,7 @@ const VERDICT: Record<Outcome, string> = {
   blocked: "blocked by the gate",
   owed: "approval owed",
   ran: "ran",
+  unreached: "never reached a kernel",
 };
 
 const GRANT: Record<TraceEntry["grant"], string> = {

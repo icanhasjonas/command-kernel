@@ -42,7 +42,8 @@ export function Inspector({ className }: { className?: string }) {
         <div className="px-5 py-8 text-[13px] leading-relaxed text-white/50">
           <p className="text-white/75">Nothing has run yet.</p>
           <p className="mt-2">
-            Every driver on this page calls one kernel instance. Press{" "}
+            Every driver on this page calls one kernel instance in your browser; the wire calls the
+            server's. Press{" "}
             <kbd className="rounded border border-white/15 px-1 font-mono text-[11px]">⌘K</kbd>,
             click a link, ask the agent: each call shows up here with how far it got and what the
             gate decided.

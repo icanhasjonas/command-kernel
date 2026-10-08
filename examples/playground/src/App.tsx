@@ -12,6 +12,7 @@ import { Hero } from "./sections/Hero";
 import { Packages } from "./sections/Packages";
 import { PipesSection } from "./sections/PipesSection";
 import { SchemaSection } from "./sections/SchemaSection";
+import { WireSection } from "./sections/WireSection";
 import { Toast } from "./Toast";
 import { Inspector } from "./trace/Inspector";
 import { MobileTrace } from "./trace/MobileTrace";
@@ -36,6 +37,7 @@ function Page() {
           <DriversSection />
           <AgentSection />
           <GateSection />
+          <WireSection />
           <SchemaSection />
           <PipesSection />
           <Packages />

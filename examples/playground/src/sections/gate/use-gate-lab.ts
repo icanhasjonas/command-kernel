@@ -2,20 +2,11 @@ import type { CommandResponse, Grant } from "@command-kernel/core";
 import { useState } from "react";
 import { useDemo } from "../../demo/demo-context";
 import { drivers, kernel } from "../../demo/kernel";
+import { type Attempt, tamper } from "../lab-ui";
 
 export const ASKED = { id: "users.send_reset", args: { user: "jon@wall.north" } };
 
 type Gate = Extract<CommandResponse, { kind: "gate" }>;
-
-export interface Attempt {
-  label: string;
-  /** what came of it: ran, still owed, refused by the gate, short of args, or a note (no call) */
-  answer: "ran" | "owed" | "blocked" | "args" | "note";
-  detail: string;
-}
-
-/** Flip one hex digit: the smallest possible forgery. */
-const tamper = (sig: string) => `${sig.slice(0, -1)}${sig.endsWith("0") ? "1" : "0"}`;
 
 /**
  * The gate lab: one gated request, one human approval, and the ways an approval

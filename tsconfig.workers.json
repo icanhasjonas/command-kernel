@@ -7,6 +7,16 @@
     "types": ["@cloudflare/workers-types"],
     "noEmit": true
   },
-  "include": ["packages/core/src", "packages/wire/src"],
-  "exclude": ["packages/*/src/**/*.test.ts", "packages/*/src/**/*.test-util.ts"]
+  // plus the demo's own Worker, the first real consumer of both on the Workers runtime
+  "include": [
+    "packages/core/src",
+    "packages/wire/src",
+    "examples/playground/worker",
+    "examples/playground/src/wire/spec.ts"
+  ],
+  "exclude": [
+    "packages/*/src/**/*.test.ts",
+    "packages/*/src/**/*.test-util.ts",
+    "examples/playground/worker/**/*.test.ts"
+  ]
 }

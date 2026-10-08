@@ -4,16 +4,17 @@ import { Activity, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { DRIVER_META } from "./drivers";
 import { Inspector } from "./Inspector";
-import { useTrace } from "./trace-store";
+import { type Outcome, useTrace } from "./trace-store";
 
-const OUTCOME_TONE = {
+const OUTCOME_TONE: Record<Outcome, string> = {
   ran: "text-teal-soft",
   owed: "text-amber-soft",
   pick: "text-amber-soft",
   args: "text-amber-soft",
   blocked: "text-red-300",
   unresolved: "text-red-300",
-} as const;
+  unreached: "text-red-300",
+};
 
 /**
  * Below the wide layout the rail has no column: a pill opens it as a sheet, and
