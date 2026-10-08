@@ -93,6 +93,24 @@ up wrong is never `retryable`: a `headers()` that throws is `misconfigured`, and
 the command does not declare is `400 invalidArguments` naming it; a `multiple` arg sent as
 `[]` is no value, so `run()` sees the same absent arg over a socket and a GET route.
 
+A refusal the wire makes ITSELF for a declared command (bad args, the gate's verdict, a body
+or frame it cannot read or that is too big, a wrong method, a confirm it does not take) has
+no `details` unless the host gives some: `refusalDetails: ({ name, code }) => details |
+undefined` is asked for each one with no details of its own, on both transports, so a host
+can say what such a refusal means for its command (a send that answers `{ sent: false }`
+whenever nothing ran). It is never asked about an undeclared name, which answers word for
+word as one that does not exist, nor about anything a `run()`, gate, prefill or `confirm`
+policy threw, which carries its own. One that throws or answers something JSON cannot carry
+is reported to `onError`, and the refusal goes without details.
+
+```ts
+createWireServer({
+  kernel,
+  specs,
+  refusalDetails: ({ name }) => (name === "mail.send" ? { sent: false } : undefined),
+});
+```
+
 Socket responses may arrive out of order and are matched by `id`. A call in flight when the
 socket drops rejects with `disconnected` (`retryable: true`; it may or may not have run, so
 make mutations idempotent). The client reconnects with full-jitter exponential backoff and

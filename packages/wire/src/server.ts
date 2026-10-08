@@ -2,10 +2,10 @@ import type { ArgValues, Ctx, Grant, Kernel } from "@command-kernel/core";
 import { argGuards } from "./arg-guards.js";
 import { isBag } from "./bag.js";
 import { overLimit, readGrant } from "./body.js";
-import { frameId } from "./frame-id.js";
+import { frameField, frameId } from "./frame-id.js";
 import { httpHandler } from "./http-handler.js";
-import { type CallOptions, type Outcome, refused, runCall, thrown } from "./outcome.js";
-import { encodeFrame, type OkFrame, serverStatus } from "./protocol.js";
+import { type CallOptions, detailed, type Outcome, refused, runCall, thrown } from "./outcome.js";
+import { encodeFrame, type OkFrame, serverStatus, type WireError } from "./protocol.js";
 import { dataOf, jsonText, refusal, UNSENDABLE } from "./reply.js";
 import { compileRoutes } from "./route.js";
 import { checkSpecs, type ServedSpec } from "./spec-checks.js";
@@ -79,6 +79,12 @@ export function createWireServer(opts: WireServerOptions): WireServer {
   // an undeclared command answers word for word as one that does not exist
   const unknown = (name: string) => refusal("unknownCommand", `No command ${name}`);
 
+  // the host's details for a refusal the wire made itself, for a declared command only
+  const ownError = (name: unknown, error: WireError): WireError =>
+    typeof name === "string" && commandIds.has(name) ? detailed(error, name, opts) : error;
+  const own = (name: string, o: Outcome): Outcome =>
+    o.ok ? o : { ok: false, error: ownError(name, o.error) };
+
   const guards = argGuards(opts.kernel, opts.specs);
 
   const call = async (name: string, args: ArgValues, ctx: Ctx, evidence?: Grant) => {
@@ -89,7 +95,8 @@ export function createWireServer(opts: WireServerOptions): WireServer {
     } catch (err) {
       return thrown(err, name, opts); // a throwing prefill, as a throwing run()
     }
-    return refusedArgs ?? runCall(opts.kernel, name, args, ctx, evidence, opts);
+    if (refusedArgs) return own(name, refusedArgs);
+    return runCall(opts.kernel, name, args, ctx, evidence, opts);
   };
 
   /** The gate's verdict for a call (a dry run: never executed), turned into a grant when the host allows it. */
@@ -119,9 +126,13 @@ export function createWireServer(opts: WireServerOptions): WireServer {
 
   async function confirmCall(name: string, args: ArgValues, ctx: Ctx): Promise<Outcome> {
     if (!commandIds.has(name)) return unknown(name);
-    if (!opts.confirm) return refusal("forbidden", "Confirmations are not enabled here");
+    if (!opts.confirm) return own(name, refusal("forbidden", "Confirmations are not enabled here"));
     try {
-      return guards.check(name, args, ctx) ?? (await approve(opts.confirm, name, args, ctx));
+      // `approve` only answers what the wire decided; anything thrown is the host's
+      return own(
+        name,
+        guards.check(name, args, ctx) ?? (await approve(opts.confirm, name, args, ctx)),
+      );
     } catch (err) {
       // a throwing policy, gate or prefill answers as a throwing run() does
       return thrown(err, name, opts);
@@ -130,11 +141,18 @@ export function createWireServer(opts: WireServerOptions): WireServer {
 
   async function handleFrame(message: string, ctx: Ctx): Promise<string> {
     if (beat && message === beat.ping) return beat.pong;
-    const bad = (id: string | null, text: string, code = "badRequest") =>
-      encodeFrame({ t: "err", id, error: { code, message: text, status: serverStatus(code) } });
+    const bad = (id: string | null, text: string, code = "badRequest", name?: unknown) => {
+      const error = ownError(name, { code, message: text, status: serverStatus(code) });
+      return encodeFrame({ t: "err", id, error });
+    };
     if (overLimit(message, maxBytes))
       // answer the same code HTTP would, and recover the id so the caller's call settles
-      return bad(frameId(message), `Message over ${maxBytes} bytes`, "tooLarge");
+      return bad(
+        frameId(message),
+        `Message over ${maxBytes} bytes`,
+        "tooLarge",
+        frameField(message, "name"),
+      );
     let parsed: unknown;
     try {
       parsed = JSON.parse(message);
@@ -143,17 +161,25 @@ export function createWireServer(opts: WireServerOptions): WireServer {
     }
     if (!isBag(parsed)) return bad(null, "Message must be a JSON object");
     const id = typeof parsed.id === "string" ? parsed.id : null;
-    if ((parsed.t !== "cmd" && parsed.t !== "confirm") || !id || typeof parsed.name !== "string")
-      return bad(id, 'Expected {"t":"cmd","id":string,"name":string,"args"?:object}');
-    if (parsed.args !== undefined && !isBag(parsed.args)) return bad(id, "args must be an object");
+    const name = parsed.name;
+    if ((parsed.t !== "cmd" && parsed.t !== "confirm") || !id || typeof name !== "string")
+      return bad(
+        id,
+        'Expected {"t":"cmd","id":string,"name":string,"args"?:object}',
+        "badRequest",
+        name,
+      );
+    if (parsed.args !== undefined && !isBag(parsed.args))
+      return bad(id, "args must be an object", "badRequest", name);
     const evidence = readGrant(parsed.evidence);
-    if (evidence === "invalid") return bad(id, "evidence must be {nonce, sig, expiresAt?}");
+    if (evidence === "invalid")
+      return bad(id, "evidence must be {nonce, sig, expiresAt?}", "badRequest", name);
 
     const args = parsed.args ?? {};
     const outcome =
       parsed.t === "confirm"
-        ? await confirmCall(parsed.name, args, ctx)
-        : await call(parsed.name, args, ctx, evidence);
+        ? await confirmCall(name, args, ctx)
+        : await call(name, args, ctx, evidence);
     if (!outcome.ok) return encodeFrame({ t: "err", id, error: outcome.error });
     const r = outcome.result;
     const data = dataOf(r);
@@ -165,7 +191,7 @@ export function createWireServer(opts: WireServerOptions): WireServer {
 
   return {
     confirmCall,
-    handleHttp: httpHandler({ base, maxBytes, commandIds, routes, call, confirmCall }),
+    handleHttp: httpHandler({ base, maxBytes, commandIds, routes, call, confirmCall, ownError }),
     handleFrame,
     event: (name, data) => encodeFrame({ t: "evt", name, ...(data !== undefined && { data }) }),
   };

@@ -33,6 +33,18 @@ export interface CallOptions {
    * expires (5 minutes by default).
    */
   spend?: (nonce: string, expiresAt: number) => boolean | Promise<boolean>;
+  /**
+   * `details` for the wire's OWN refusals of a declared command, on both transports: the
+   * ones it answers before or instead of running it (bad args, the gate's verdict, a body
+   * or frame it cannot read or that is too big, a wrong method). Lets a host say what a
+   * refusal means for its command, e.g. "nothing was sent". Asked only when the refusal
+   * has no details of its own; undefined answers none. Never asked for a name that is not
+   * declared (that answers word for word as a command that does not exist), nor for what a
+   * run(), gate, prefill or confirm policy THREW: that error carries its own. One that
+   * throws, or answers something JSON cannot carry, is reported to `onError` and the
+   * refusal goes without details.
+   */
+  refusalDetails?: (refusal: { name: string; code: string }) => unknown;
 }
 
 function fail(code: string, message: string, extra: Partial<WireError> = {}): Outcome {
@@ -77,6 +89,25 @@ export function thrown(err: unknown, name: string, opts: CallOptions): Outcome {
   return fail("serverFail", "Something went wrong running this command");
 }
 
+/** A refusal the wire made itself for `name`, with the host's `refusalDetails` when it has none. */
+export function detailed(error: WireError, name: string, opts: CallOptions): WireError {
+  const ask = opts.refusalDetails;
+  if (!ask || error.details !== undefined) return error;
+  let details: unknown;
+  try {
+    details = ask({ name, code: error.code });
+  } catch (err) {
+    report(opts, err, name);
+    return error;
+  }
+  if (details === undefined) return error;
+  if (!sendable(details)) {
+    report(opts, new Error(`refusalDetails for ${name} cannot be sent as JSON`), name);
+    return error;
+  }
+  return { ...error, details };
+}
+
 /** Tell the host's `onError`; one that throws is swallowed, so the caller still gets its answer. */
 function report(opts: CallOptions, err: unknown, name: string): void {
   try {
@@ -107,7 +138,9 @@ export async function runCall(
       },
       ctx,
     );
-    return res.kind === "result" ? { ok: true, result: res.result } : refused(res, name);
+    if (res.kind === "result") return { ok: true, result: res.result };
+    const out = refused(res, name);
+    return out.ok ? out : { ok: false, error: detailed(out.error, name, opts) };
   } catch (err) {
     return thrown(err, name, opts);
   }
