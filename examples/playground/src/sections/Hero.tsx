@@ -1,6 +1,7 @@
 import { Kbd } from "@command-kernel/ui";
 import { Bot } from "lucide-react";
 import { useDemo } from "../demo/demo-context";
+import { AGENT_GOAL_ID } from "./agent/AgentConsole";
 import { Code } from "./Section";
 
 /**
@@ -31,12 +32,18 @@ export function Hero() {
             ⌘K
           </Kbd>
         </button>
-        <a
-          href="#agent"
+        <button
+          type="button"
+          // straight to typing: the cursor lands in the agent's goal box, not just near it
+          onClick={() => {
+            const goal = document.getElementById(AGENT_GOAL_ID);
+            goal?.scrollIntoView({ behavior: "smooth", block: "center" });
+            goal?.focus({ preventScroll: true });
+          }}
           className="flex items-center gap-2 rounded-xl border border-white/12 px-4 py-3 text-[14px] text-white/80 transition hover:bg-white/[0.05] hover:text-white"
         >
           <Bot size={16} /> Ask the agent
-        </a>
+        </button>
       </div>
     </section>
   );

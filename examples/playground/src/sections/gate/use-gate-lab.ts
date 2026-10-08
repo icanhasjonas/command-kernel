@@ -1,7 +1,8 @@
 import type { CommandResponse, Grant } from "@command-kernel/core";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useDemo } from "../../demo/demo-context";
 import { drivers, kernel } from "../../demo/kernel";
+import { useSessionEpoch } from "../../demo/session";
 import { needs } from "../../trace/needs";
 import { type Attempt, tamper } from "../lab-ui";
 
@@ -29,6 +30,15 @@ export function useGateLab() {
   const [grant, setGrant] = useState<Grant | null>(null);
   const [life, setLife] = useState<GrantLife>("live");
   const [attempts, setAttempts] = useState<Attempt[]>([]);
+
+  // "New session" up top rotated the key: a grant in hand is void, and the card says so
+  const session = useSessionEpoch();
+  const seen = useRef(session);
+  useEffect(() => {
+    if (session === seen.current) return;
+    seen.current = session;
+    setLife((l) => (l === "live" ? "void" : l));
+  }, [session]);
 
   const log = (a: Attempt) => setAttempts((xs) => [a, ...xs].slice(0, 6));
 

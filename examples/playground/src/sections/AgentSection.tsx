@@ -54,13 +54,13 @@ export function AgentSection() {
             ))}
           </div>
         </div>
-        {tab === "chat" ? (
+        {/* both stay mounted: a call waiting for your Allow survives a look at the tree */}
+        <div hidden={tab !== "chat"}>
           <AgentConsole />
-        ) : (
-          <div className="h-[460px]">
-            <Scout kernel={kernel} ctx={ctx} />
-          </div>
-        )}
+        </div>
+        <div hidden={tab === "chat"} className="h-[460px]">
+          <Scout kernel={kernel} ctx={ctx} />
+        </div>
       </Panel>
     </Section>
   );

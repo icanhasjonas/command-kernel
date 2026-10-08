@@ -56,7 +56,11 @@ export function CallCard({
             )}
             <div className="flex items-center gap-1.5 text-[12px] text-amber-soft">
               <ShieldAlert size={13} /> The gate wants your approval:{" "}
-              {node.gate?.reason ?? "confirm"}
+              {/* the gate's own reasons: a declared one, or the app's rule for the agent */}
+              {call.gate?.verdict.checks
+                .filter((c) => c.ok && !c.label.startsWith("role:"))
+                .map((c) => c.label)
+                .join("; ") || "confirm"}
             </div>
             <div className="flex flex-wrap gap-2">
               <button
@@ -85,7 +89,7 @@ export function CallCard({
               <button
                 type="button"
                 onClick={onForge}
-                className="text-[12px] text-white/45 underline decoration-dotted underline-offset-4 hover:text-white/75"
+                className="py-1 text-[12px] text-white/45 underline decoration-dotted underline-offset-4 hover:text-white/75 pointer-coarse:py-2.5"
               >
                 Let the agent forge a grant instead
               </button>

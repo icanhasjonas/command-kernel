@@ -9,8 +9,13 @@ import { useDemo } from "./demo/demo-context";
  * where the rail is out of sight; anything else ("New session") shows on every screen.
  */
 export function Toast() {
-  const { toast } = useDemo();
+  const { toast, palette } = useDemo();
   const [shown, setShown] = useState<number | null>(null);
+
+  // the palette opening is the next thing happening: an older note gives way to it
+  useEffect(() => {
+    if (palette.open) setShown(null);
+  }, [palette.open]);
 
   // each new toast shows for a few seconds; a click dismisses it early
   useEffect(() => {

@@ -41,6 +41,7 @@ export const personEntity: EntityType = {
   },
   // an open arg (Send email's `to`) takes an address that is nobody's, never any string
   accepts: (value) => ADDRESS.test(value),
+  acceptsLabel: "an address",
 };
 
 const ADDRESS = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;

@@ -92,7 +92,9 @@ export function PipeRun({ preset }: { preset: PipePreset }) {
         <button
           type="button"
           onClick={() => void run()}
-          className="flex shrink-0 items-center gap-1.5 rounded-lg bg-teal/60 px-3 py-1.5 text-[13px] text-white hover:bg-teal"
+          // three Run buttons on the page: each says which pipe it runs
+          aria-label={`Run: ${preset.from.label} → ${preset.steps.map((s) => s.label).join(" → ")}`}
+          className="flex shrink-0 items-center gap-1.5 rounded-lg bg-teal/60 px-3 py-1.5 text-[13px] text-white hover:bg-teal pointer-coarse:py-2.5"
         >
           <Play size={13} /> Run
         </button>

@@ -3,7 +3,7 @@ import { cn } from "@command-kernel/ui";
 import { RotateCcw } from "lucide-react";
 import { useLayoutEffect, useRef } from "react";
 import { useDemo } from "../demo/demo-context";
-import { kernel } from "../demo/kernel";
+import { newSession } from "../demo/session";
 import { TracePill } from "../trace/TracePill";
 import { LabBanner } from "./wire/LabBanner";
 
@@ -50,7 +50,7 @@ export function Header({ onTrace }: { onTrace: () => void }) {
                 aria-pressed={ctx.user.role === r}
                 onClick={() => setRole(r)}
                 className={cn(
-                  "rounded-md px-2 py-1 text-[12px] capitalize transition-colors sm:px-2.5",
+                  "rounded-md px-2 py-1 text-[12px] capitalize transition-colors sm:px-2.5 pointer-coarse:py-2",
                   ctx.user.role === r ? "bg-pink text-white" : "text-white/55 hover:text-white/90",
                 )}
               >
@@ -63,8 +63,7 @@ export function Header({ onTrace }: { onTrace: () => void }) {
             aria-label="New session"
             title="Rotate the signing key and forget always-allow rules: every grant minted so far stops verifying"
             onClick={() => {
-              kernel.evidence.rotate();
-              kernel.policy.clear();
+              newSession();
               say("New session: every grant and always-allow rule is now void", "warn");
             }}
             className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-1.5 text-[12px] text-white/70 hover:bg-white/[0.07] hover:text-white"
@@ -76,7 +75,8 @@ export function Header({ onTrace }: { onTrace: () => void }) {
       {/* narrower screens: the sections get a row of their own, always there, and below
           lg (no rail) the trace button sits at its end, never on the page's own controls */}
       <div className="mx-auto flex max-w-[1320px] items-center gap-3 px-6 pb-2.5 xl:hidden">
-        <div className="min-w-0 flex-1 overflow-x-auto">
+        {/* the strip scrolls sideways: its right edge fades, so more is seen to be there */}
+        <div className="min-w-0 flex-1 overflow-x-auto [mask-image:linear-gradient(to_right,black_80%,transparent)] md:[mask-image:none]">
           <SectionNav className="flex" />
         </div>
         <TracePill onOpen={onTrace} />
@@ -108,7 +108,7 @@ function SectionNav({ className }: { className?: string }) {
         <a
           key={n.href}
           href={n.href}
-          className="whitespace-nowrap rounded-md px-2.5 py-1 text-[13px] text-white/55 hover:bg-white/5 hover:text-white/90"
+          className="whitespace-nowrap rounded-md px-2.5 py-1 text-[13px] text-white/55 hover:bg-white/5 hover:text-white/90 pointer-coarse:py-2"
         >
           {n.label}
         </a>

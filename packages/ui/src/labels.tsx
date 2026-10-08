@@ -123,7 +123,7 @@ export const defaultLabels: PaletteLabels = {
   check: (label, ok) => (ok ? label : `requires ${label}`),
   yourRole: (role) => `you: ${role}`,
   needsConfirm: "requires explicit confirm",
-  blockedHint: "back - escalate to an admin to proceed",
+  blockedHint: "back: your role cannot run this; the check above says who can",
   confirmRun: "Confirm & run",
 
   hintSelect: "select",

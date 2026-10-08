@@ -4,7 +4,7 @@ import { ruleForNode } from "@command-kernel/core";
 import { useRef, useState } from "react";
 import { AGENT_TOOLS } from "../../agent-tools";
 import { useDemo } from "../../demo/demo-context";
-import { drivers } from "../../demo/kernel";
+import { drivers, viaAgent } from "../../demo/kernel";
 import { traceStore } from "../../trace/trace-store";
 import type { Call, CallStatus } from "./CallCard";
 import { fillFromNames, verbItCannotDo } from "./understand";
@@ -59,7 +59,8 @@ export function useAgent() {
   const call = (node: CommandNode, values: ArgValues, evidence?: Grant) =>
     drivers.agent.command(
       { path: [{ id: node.id, args: values, ...(evidence && { evidence }) }], execute: true },
-      ctx,
+      // the gate knows the agent chose this: a write waits for your Allow
+      viaAgent(ctx),
     );
 
   /** A run's answer, or null: it is shown on the call's own card, never as a loose line. */

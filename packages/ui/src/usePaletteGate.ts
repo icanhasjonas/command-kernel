@@ -73,7 +73,12 @@ export function usePaletteGate({
   );
 
   const proceedGate = useCallback(
-    async (node: CommandNode, values: ArgValues, opts: Proceed = {}) => {
+    async (node: CommandNode, given: ArgValues, opts: Proceed = {}) => {
+      // a value for an arg the command does not have (a link's `?evil=1`) has no pill to
+      // fix it in: the palette leaves it out, and the kernel checks the rest as always
+      const values = Object.fromEntries(
+        Object.entries(given).filter(([id]) => node.args?.some((a) => a.id === id)),
+      );
       const outcome = await kernel.executeNode(node, values, ctx, {
         ...(opts.grant !== undefined && { grant: opts.grant }),
         priorKey: opts.priorKey ?? ancestorKey(),
@@ -149,6 +154,12 @@ export function usePaletteGate({
       // refuses to run without them, so skipping the prompt just dead-ends.
       const missing = missingArgs(node, values);
       if (missing.length > 0) {
+        // ask the gate first: a role it refuses is said now, before any arg is typed
+        void kernel.preflight(node, ctx, values).then((verdict) => {
+          if (verdict.allowed) return;
+          setMode("confirm");
+          setConfirm({ node, values, verdict, blocked: true, ...keyed(start.priorKey) });
+        });
         setMode("args");
         setArg({ node, values, activeArg: missing[0] as string, ...keyed(start.priorKey) });
         setArgQuery("");
@@ -157,7 +168,7 @@ export function usePaletteGate({
       }
       void proceedGate(node, values, keyed(start.priorKey));
     },
-    [ctx, proceedGate, setMode, setArg, setArgQuery, setSelected],
+    [ctx, kernel, proceedGate, setMode, setArg, setArgQuery, setSelected],
   );
 
   const activate = useCallback(

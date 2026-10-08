@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { kernel, viaLink } from "../demo/kernel";
+import { kernel, viaAgent, viaLink } from "../demo/kernel";
 
 const ctx = {
   location: { module: "home" },
@@ -31,11 +31,13 @@ describe("the schema refuses what no entity matches, before the gate", () => {
 
   it("but not any string: an open `to` takes an address, not 'not an email'", async () => {
     const r = await run("email.send", { to: "not an email", subject: "Reminder", body: "hi" });
-    expect(r.kind === "args" && r.errors[0]?.message).toBe('"not an email" is not a person');
+    expect(r.kind === "args" && r.errors[0]?.message).toBe(
+      '"not an email" is not a person or an address',
+    );
   });
 });
 
-describe("a link never writes on its own", () => {
+describe("a link or the agent never writes on its own", () => {
   const sent = { to: "grace@navy.mil", subject: "Reminder", body: "cold" };
   it("a write reached through a link owes a confirm; the same call by hand runs", async () => {
     const linked = await kernel.command(
@@ -45,6 +47,14 @@ describe("a link never writes on its own", () => {
     expect(linked.kind === "gate" && linked.verdict.needsConfirm).toBe(true);
     const typed = await run("email.send", sent);
     expect(typed.kind).toBe("result");
+  });
+
+  it("nor does the agent: a write it chose waits for the person's OK", async () => {
+    const asked = await kernel.command(
+      { path: [{ id: "email.send", args: sent }], execute: true },
+      viaAgent(ctx),
+    );
+    expect(asked.kind === "gate" && asked.verdict.needsConfirm).toBe(true);
   });
 
   it("a link to something that only reads still just runs", async () => {

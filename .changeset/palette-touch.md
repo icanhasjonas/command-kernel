@@ -23,6 +23,12 @@ The palette on a phone, and for a screen reader:
 - An unmatched closed arg highlights nothing and Enter commits nothing until a row is
   chosen (arrow keys or a click).
 - A back button (`back` label) beside the breadcrumb: Esc for a touch screen.
+- Enter at the root waits for the people a query finds ("ada" + Enter is Ada, not the
+  command that matched first), and an entity arg's options are ordered by the kernel's
+  own ranker, as when you drill into the list.
+- A role the gate refuses is shown before any arg is asked for (`kernel.preflight`).
+- A link's value for an arg the command does not have is left out instead of stranding
+  the palette on an error with no input to fix it in.
 - Row key badges (`tab`, a chord key) hide on a touch screen, like the footer.
 - An arg with nothing to search says `typeValue` ("type a value, then ↵") instead of
   "start typing to search…". New label, overridable like the rest.

@@ -21,6 +21,25 @@ interface ArgsHookArgs {
 }
 
 /**
+ * An entity arg's options in the kernel's own order: the same ranker that orders the
+ * rows when you drill into a list, so "jon" puts Jon Snow above Jonas in both places.
+ * The catalog's search finds them; it does not get to rank them differently.
+ */
+function rankOptions(kernel: Kernel, opts: ArgOption[], query: string, ctx: Ctx): ArgOption[] {
+  if (!query.trim() || opts.length < 2) return opts;
+  const nodes: CommandNode[] = opts.map((o) => ({
+    id: o.value,
+    title: o.label,
+    ...(o.hint !== undefined && { keywords: [o.hint] }),
+  }));
+  const byId = new Map(opts.map((o) => [o.value, o]));
+  const ranked = kernel.search(nodes, query, ctx).flatMap((r) => byId.get(r.node.id) ?? []);
+  // the catalog found what the ranker does not match (a hint-only hit): keep it, last
+  const seen = new Set(ranked.map((o) => o.value));
+  return [...ranked, ...opts.filter((o) => !seen.has(o.value))];
+}
+
+/**
  * Argument collection's value side: the completion source for the active arg
  * (enum, entity catalog, or a custom `complete`), and advancing through a
  * node's remaining required args before handing off to `proceedGate`.
@@ -76,7 +95,7 @@ export function usePaletteArgs({
         )
         .then((found) => {
           if (mine !== token.current) return;
-          show(found.map(entityOption));
+          show(rankOptions(kernel, found.map(entityOption), argQuery, ctx));
           setArgLoading(false);
         });
       return;

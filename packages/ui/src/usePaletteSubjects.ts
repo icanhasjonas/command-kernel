@@ -34,17 +34,20 @@ export function usePaletteSubjects({
   /** only at the root, browsing */
   active: boolean;
   types: readonly string[];
-}): Ranked[] {
+}): { rows: Ranked[]; fresh: boolean } {
   const [rows, setRows] = useState<Ranked[]>([]);
+  // the query the rows were found for: Enter waits until they are this query's
+  const [rowsFor, setRowsFor] = useState("");
   // its own "latest query wins" counter: a slow search must not cancel a frame's
   const token = useRef(0);
   const q = query.trim();
   const key = types.join(",");
+  const searching = active && q.length >= 2 && Boolean(kernel.entities) && types.length > 0;
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: `key` stands for `types`
   useEffect(() => {
     const registry = kernel.entities;
-    if (!active || q.length < 2 || !registry || types.length === 0) return setRows([]);
+    if (!searching || !registry) return setRows([]);
     const mine = ++token.current;
     Promise.all(
       types.map((t) =>
@@ -56,8 +59,9 @@ export function usePaletteSubjects({
     ).then((found) => {
       if (mine !== token.current) return;
       setRows(found.flat().map((node) => ({ node, score: 0, positions: [] })));
+      setRowsFor(q);
     });
-  }, [active, q, key, ctx, kernel]);
+  }, [searching, q, key, ctx, kernel]);
 
-  return active && q.length >= 2 ? rows : [];
+  return { rows: searching ? rows : [], fresh: !searching || rowsFor === q };
 }

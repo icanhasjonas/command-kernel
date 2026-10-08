@@ -25,7 +25,7 @@ function submissionActions(s: Submission): CommandNode[] {
       gate: {
         roles: ["advisor", "admin"],
         confirm: true,
-        reason: "sends a real email to the applicant",
+        reason: "emails the applicant again",
       },
       run: async () => toast(`Confirmation resent for ${s.id} → ${s.email}`),
     },
@@ -105,7 +105,7 @@ export const resendHere: CommandNode = {
   gate: {
     roles: ["advisor", "admin"],
     confirm: true,
-    reason: "sends a real email to the applicant",
+    reason: "emails the applicant again",
   },
   args: [
     {

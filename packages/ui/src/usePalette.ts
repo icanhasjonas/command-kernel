@@ -104,7 +104,7 @@ export function usePalette({
     ancestorKey,
   } = usePaletteFrames({ kernel, ctx, roots, token });
 
-  const things = usePaletteSubjects({
+  const { rows: things, fresh: rankedFresh } = usePaletteSubjects({
     kernel,
     ctx,
     query,
@@ -265,6 +265,8 @@ export function usePalette({
     frames,
     frame,
     ranked: rows,
+    /** false while the people/things for the current query are still on their way */
+    rankedFresh,
     query,
     setQuery,
     selected,

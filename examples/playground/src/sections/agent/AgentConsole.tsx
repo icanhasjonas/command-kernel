@@ -6,6 +6,9 @@ import { CallCard } from "./CallCard";
 import { useAgent } from "./use-agent";
 
 /** The agent as a chat: say a goal, watch it become a tool call, approve what the gate holds. */
+/** The goal box, by id: the hero's "Ask the agent" puts the cursor here. */
+export const AGENT_GOAL_ID = "agent-goal";
+
 export function AgentConsole() {
   const agent = useAgent();
   const [input, setInput] = useState("");
@@ -36,7 +39,7 @@ export function AgentConsole() {
                   key={ex}
                   type="button"
                   onClick={() => void agent.ask(ex)}
-                  className="rounded-lg border border-white/10 px-2.5 py-1.5 text-left text-[12px] text-white/70 hover:border-violet-300/40 hover:text-white"
+                  className="rounded-lg border border-white/10 px-2.5 py-1.5 text-left text-[12px] text-white/70 hover:border-violet-300/40 hover:text-white pointer-coarse:py-2.5"
                 >
                   {ex}
                 </button>
@@ -87,6 +90,7 @@ export function AgentConsole() {
       )}
       <form onSubmit={submit} className="flex items-center gap-2 border-white/8 border-t p-3">
         <input
+          id={AGENT_GOAL_ID}
           value={input}
           onChange={(e) => setInput(e.target.value)}
           aria-label="Goal for the agent"

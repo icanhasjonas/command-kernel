@@ -13,7 +13,11 @@ export function authored(node: CommandNode): string {
   }
   if (node.input) lines.push(`  input: "${node.input}",`);
   if (node.output) lines.push(`  output: ${valueType(node.output)},`);
-  if (node.gate) lines.push(`  gate: ${JSON.stringify(node.gate).replace(/"(\w+)":/g, "$1: ")},`);
+  if (node.gate) {
+    // written the way a person writes an object literal: `{ roles: ["admin"], confirm: true }`
+    const fields = Object.entries(node.gate).map(([k, v]) => `${k}: ${JSON.stringify(v)}`);
+    lines.push(`  gate: { ${fields.join(", ")} },`);
+  }
   if (node.effect) lines.push(`  effect: "${node.effect}",`);
   lines.push("  run: async (args) => …,", "}");
   return lines.join("\n");

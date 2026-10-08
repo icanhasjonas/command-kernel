@@ -141,7 +141,19 @@ export function CommandPalette({
     commitArg();
   }, [p.argOptionsFresh]);
 
+  const pendingActivate = useRef<{ asPage: boolean } | null>(null);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: fires when the rows catch up
+  useEffect(() => {
+    const pending = pendingActivate.current;
+    if (!p.rankedFresh || !pending) return;
+    pendingActivate.current = null;
+    const sel = p.ranked[p.selected];
+    if (sel && p.mode === "browse") p.activate(sel.node, pending.asPage);
+  }, [p.rankedFresh]);
+
   function onKeyDown(e: KeyboardEvent) {
+    // typing again cancels an Enter that was waiting for the old query's rows
+    if (e.key.length === 1 || e.key === "Backspace") pendingActivate.current = null;
     if (p.mode === "args" && (e.key === "ArrowDown" || e.key === "ArrowUp")) {
       setPicked(true);
       // nothing was highlighted: the first arrow lands on the first row
@@ -204,6 +216,12 @@ export function CommandPalette({
     const sel = p.ranked[p.selected];
     if (e.key === "Enter" && sel) {
       e.preventDefault();
+      // people found for this query are still on their way: act once they are ranked in,
+      // not on the commands that happened to match first ("ada" is Ada, not "Load as")
+      if (!p.rankedFresh) {
+        pendingActivate.current = { asPage: e.metaKey || e.ctrlKey };
+        return;
+      }
       return p.activate(sel.node, e.metaKey || e.ctrlKey);
     }
     // Tab pipes a row that stands for a value; on any other row it does nothing,

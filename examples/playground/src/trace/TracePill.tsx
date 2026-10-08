@@ -24,31 +24,30 @@ export function TracePill({ onOpen }: { onOpen: () => void }) {
   }, [latest]);
 
   const live = latest && flash === latest.id ? latest : null;
+  // one size always: a call lands as a flash of its driver and outcome colour, so the
+  // button never grows over the section links beside it
   return (
     <button
       type="button"
       onClick={onOpen}
-      aria-label={`Kernel trace, ${trace.length} calls`}
-      className="flex max-w-[55vw] shrink-0 items-center gap-2 rounded-full border border-white/15 bg-white/[0.04] px-3 py-1 text-[12px] text-white hover:bg-white/[0.08] lg:hidden"
+      aria-label={`Kernel trace, ${trace.length} calls${live ? `, latest ${live.command} ${live.outcome}` : ""}`}
+      className="flex shrink-0 items-center gap-1.5 rounded-full border border-white/15 bg-white/[0.04] px-3 py-1.5 text-[12px] text-white hover:bg-white/[0.08] lg:hidden"
     >
       {live ? (
-        <>
-          <Icon
-            name={DRIVER_META[live.driver].icon}
-            size={13}
-            className={DRIVER_META[live.driver].tone}
-          />
-          <span className="min-w-0 truncate font-mono text-[11px]">{live.command}</span>
-          <span className={`shrink-0 ${OUTCOME_TONE[live.outcome]}`}>{live.outcome}</span>
-        </>
+        <Icon
+          name={DRIVER_META[live.driver].icon}
+          size={13}
+          className={DRIVER_META[live.driver].tone}
+        />
       ) : (
-        <>
-          <Activity size={13} className="text-pink-soft" /> Trace
-          <span className="rounded-full bg-white/10 px-1.5 font-mono text-[11px] tabular-nums">
-            {trace.length}
-          </span>
-        </>
+        <Activity size={13} className="text-pink-soft" />
       )}
+      Trace
+      <span
+        className={`rounded-full bg-white/10 px-1.5 font-mono text-[11px] tabular-nums ${live ? OUTCOME_TONE[live.outcome] : ""}`}
+      >
+        {trace.length}
+      </span>
     </button>
   );
 }
