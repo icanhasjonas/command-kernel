@@ -38,7 +38,12 @@ export function FlagsPanel({
                 </div>
                 <div className="mt-0.5 text-[12px] text-white/45">on: {DOES[f]}</div>
               </div>
-              <button type="button" className={btn} onClick={() => flip(f)}>
+              <button
+                type="button"
+                aria-label={`Flip ${f}`}
+                className={btn}
+                onClick={() => flip(f)}
+              >
                 Flip
               </button>
             </li>

@@ -1,16 +1,9 @@
 import { cn } from "@command-kernel/ui";
 import { ArrowUp } from "lucide-react";
 import { type FormEvent, useEffect, useRef, useState } from "react";
+import { AGENT_EXAMPLES as EXAMPLES } from "../../agent-tools";
 import { CallCard } from "./CallCard";
 import { useAgent } from "./use-agent";
-
-const EXAMPLES = [
-  "reset the password for jon@wall.north",
-  "email jane.doe@gmail.com a welcome note",
-  "resync submission sub_4819 to the crm",
-  "encrypt the launch date for ada@analytical.engine",
-  "go to submissions",
-];
 
 /** The agent as a chat: say a goal, watch it become a tool call, approve what the gate holds. */
 export function AgentConsole() {

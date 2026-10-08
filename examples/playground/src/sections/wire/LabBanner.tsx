@@ -1,33 +1,26 @@
-import { AnimatePresence, motion } from "framer-motion";
+import { cn } from "@command-kernel/ui";
 import { Radio } from "lucide-react";
+import { useLabFlag } from "../../wire/flags";
 
 /**
  * The `beta-banner` flag, made visible: while the lab's server has it on, every
- * connected visitor sees this, and it leaves for all of them the moment anyone turns
- * the flag off. Fixed over the page, so it never shifts what is under it.
+ * connected visitor sees this in the header, and it goes for all of them the moment
+ * anyone turns the flag off. It lives in the chrome, so it never covers the page.
  */
-export function LabBanner({ on }: { on: boolean }) {
+export function LabBanner({ className }: { className?: string }) {
+  const on = useLabFlag("beta-banner");
+  if (!on) return null;
   return (
-    <AnimatePresence>
-      {on && (
-        <motion.div
-          initial={{ opacity: 0, y: -8 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -8 }}
-          className="pointer-events-none fixed inset-x-0 top-[60px] z-20 flex justify-center px-4"
-        >
-          <a
-            href="#wire"
-            className="pointer-events-auto flex items-center gap-2 rounded-full border border-sky-300/30 bg-[#0d1420]/95 px-3.5 py-1.5 text-[12px] text-sky-100 shadow-lg backdrop-blur hover:border-sky-300/60"
-          >
-            <Radio size={13} className="text-sky-300" />
-            <span>
-              <span className="font-mono">beta-banner</span> is on, on the server: everyone sees
-              this. Turn it off in Wire
-            </span>
-          </a>
-        </motion.div>
+    <a
+      href="#wire"
+      title="A flag on the lab's server, shared by every visitor. Turn it off in Wire."
+      className={cn(
+        "flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-sky-300/30 bg-sky-300/[0.06] px-2.5 py-1 text-[12px] text-sky-100 hover:border-sky-300/60",
+        className,
       )}
-    </AnimatePresence>
+    >
+      <Radio size={12} className="text-sky-300" />
+      beta-banner: on for everyone
+    </a>
   );
 }

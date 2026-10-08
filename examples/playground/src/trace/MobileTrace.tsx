@@ -14,6 +14,7 @@ const OUTCOME_TONE: Record<Outcome, string> = {
   blocked: "text-red-300",
   unresolved: "text-red-300",
   unreached: "text-red-300",
+  mistyped: "text-red-300",
 };
 
 /**

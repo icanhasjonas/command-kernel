@@ -31,6 +31,9 @@ export function LiveFeed({ feed }: { feed: FeedItem[] }) {
               </span>
               <span className="text-white/80">
                 {f.mine ? "you" : `${f.by.tag} (${f.by.role})`} {said(f)}
+                {f.viaHttp && (
+                  <span className="text-white/45"> · over HTTP, so this tab heard no push</span>
+                )}
               </span>
             </li>
           ))}

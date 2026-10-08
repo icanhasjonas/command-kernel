@@ -3,7 +3,6 @@ import { Code, Panel, Section } from "./Section";
 import { ConnectionBar } from "./wire/ConnectionBar";
 import { FlagsPanel } from "./wire/FlagsPanel";
 import { FrameLog } from "./wire/FrameLog";
-import { LabBanner } from "./wire/LabBanner";
 import { LiveFeed } from "./wire/LiveFeed";
 import { RotatePanel } from "./wire/RotatePanel";
 import { useLab } from "./wire/use-lab";
@@ -25,7 +24,6 @@ export function WireSection() {
         </>
       }
     >
-      <LabBanner on={lab.server?.flags["beta-banner"] === true} />
       <Panel>
         <ConnectionBar
           status={lab.status}

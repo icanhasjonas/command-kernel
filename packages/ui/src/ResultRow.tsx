@@ -7,6 +7,7 @@ import { Icon } from "./icon.js";
 import { Kbd } from "./Kbd.js";
 
 export function ResultRow({
+  id,
   item,
   active,
   modHeld,
@@ -15,6 +16,8 @@ export function ResultRow({
   onActivate,
   onHover,
 }: {
+  /** set when the row is an option of a listbox the search input controls */
+  id?: string;
   item: Ranked;
   active: boolean;
   modHeld: boolean;
@@ -34,6 +37,13 @@ export function ResultRow({
   return (
     <button
       type="button"
+      {...(id !== undefined && {
+        id,
+        role: "option",
+        "aria-selected": active,
+        // the input keeps focus and points here with aria-activedescendant
+        tabIndex: -1,
+      })}
       onMouseMove={onHover}
       onClick={(e) => onActivate(e.metaKey || e.ctrlKey)}
       className={cn(

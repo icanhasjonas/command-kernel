@@ -15,8 +15,8 @@ export const kernel = createKernel({ roots: ROOTS, entities: [personEntity, ...F
 export const drivers = {
   palette: tap(kernel, "palette"),
   chord: tap(kernel, "chord"),
-  deeplink: tap(kernel, "deeplink"),
-  invoker: tap(kernel, "invoker"),
+  deeplink: tap(kernel, "deeplink", { handsOverGates: true }),
+  invoker: tap(kernel, "invoker", { handsOverGates: true }),
   agent: tap(kernel, "agent"),
   pipe: tap(kernel, "pipe"),
   gateLab: tap(kernel, "gate-lab"),

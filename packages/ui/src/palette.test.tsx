@@ -526,6 +526,19 @@ describe("CommandPalette - labels are the consumer's, not the package's", () => 
     expect(body.querySelector("input")?.getAttribute("aria-label")).toBe("Search Acme");
   });
 
+  it("the input is a combobox whose active descendant is the selected option", () => {
+    const body = mount();
+    const input = body.querySelector("input");
+    expect(input?.getAttribute("role")).toBe("combobox");
+    const list = body.querySelector(`#${CSS.escape(input?.getAttribute("aria-controls") ?? "")}`);
+    expect(list?.getAttribute("role")).toBe("listbox");
+    const active = body.querySelector(
+      `#${CSS.escape(input?.getAttribute("aria-activedescendant") ?? "")}`,
+    );
+    expect(active?.getAttribute("role")).toBe("option");
+    expect(active?.getAttribute("aria-selected")).toBe("true");
+  });
+
   it("the weight diagnostic is off unless asked for", () => {
     const weighted: CommandNode[] = [
       {

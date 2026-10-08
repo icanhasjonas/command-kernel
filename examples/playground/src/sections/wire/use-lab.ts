@@ -3,6 +3,7 @@ import type { ConnectionStatus, WireClient, WireSpec } from "@command-kernel/wir
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useDemo } from "../../demo/demo-context";
 import { createLabClient, visitorId } from "../../wire/client";
+import { labFlags } from "../../wire/flags";
 import {
   type Flag,
   flipFlag,
@@ -21,6 +22,8 @@ import { labCall, refusal, type Via } from "./call";
 export interface FeedItem extends LabChange {
   at: number;
   mine: boolean;
+  /** our own change, made while the socket was down: no push carried it */
+  viaHttp?: boolean;
 }
 
 /**
@@ -42,6 +45,11 @@ export function useLab() {
   const [grant, setGrant] = useState<Grant | null>(null);
   const [used, setUsed] = useState(false);
   const [attempts, setAttempts] = useState<Attempt[]>([]);
+
+  // the flags the server last told us, for chrome outside this section (the header's banner)
+  useEffect(() => {
+    if (server) labFlags.set(server.flags);
+  }, [server]);
 
   // short logs: the newest few say what happened; the frames and the trace keep the rest
   const log = useCallback((a: Attempt) => setAttempts((xs) => [a, ...xs].slice(0, 4)), []);
@@ -96,22 +104,56 @@ export function useLab() {
     label: string,
     done: (out: O) => string,
     evidence?: Grant,
+    grantWhy?: string,
   ) => {
     const c = client.current;
     if (!c) return Promise.resolve(null);
-    return labCall(c, spec, args, { via, label, log, done, ...(evidence && { evidence }) });
+    return labCall(c, spec, args, {
+      via,
+      label,
+      log,
+      done,
+      ...(evidence && { evidence }),
+      ...(grantWhy && { grantWhy }),
+    });
+  };
+
+  /**
+   * A change of ours that went over HTTP: the server pushed it to every OTHER socket,
+   * but this tab has none open to hear it, so the feed records it here.
+   */
+  const heardOwn = (command: string, what: string, next: LabStatus | null) => {
+    if (client.current?.status === "open" || !next) return;
+    const item: FeedItem = {
+      command,
+      what,
+      by: { role, tag: visitorId().slice(0, 6) },
+      flags: next.flags,
+      keys: next.keys,
+      at: Date.now(),
+      mine: true,
+      viaHttp: true,
+    };
+    setFeed((xs) => [item, ...xs].slice(0, 4));
   };
 
   const other: KeyName = key === "signing" ? "public" : "signing";
   const rotated = (o: { key: KeyName; fingerprint: string }) => `${o.key} is now ${o.fingerprint}`;
   /** run the rotation with this evidence; a success means the grant is now spent */
-  const rotate = async (args: { key: KeyName }, label: string, evidence: Grant) => {
-    const r = await call(rotateKey, args, label, rotated, evidence);
+  const rotate = async (
+    args: { key: KeyName },
+    label: string,
+    evidence: Grant,
+    grantWhy?: string,
+  ) => {
+    const r = await call(rotateKey, args, label, rotated, evidence, grantWhy);
     if (!r?.ok) return;
     setUsed(true);
     // the answer itself is the new state: over HTTP no event follows to say so
     const { key: k, fingerprint } = r.data;
-    setServer((s) => s && { ...s, keys: { ...s.keys, [k]: fingerprint } });
+    const next = server && { ...server, keys: { ...server.keys, [k]: fingerprint } };
+    setServer(next);
+    heardOwn(rotateKey.node.id, k, next);
   };
 
   return {
@@ -131,8 +173,11 @@ export function useLab() {
     reconnect: () => client.current?.connect(),
     async flip(flag: Flag) {
       const r = await call(flipFlag, { flag }, `Flip ${flag}`, (o) => (o.on ? "on" : "off"));
+      if (!r?.ok) return;
       // the answer itself is the new state: over HTTP no event follows to say so
-      if (r?.ok) setServer((s) => s && { ...s, flags: { ...s.flags, [r.data.flag]: r.data.on } });
+      const next = server && { ...server, flags: { ...server.flags, [r.data.flag]: r.data.on } };
+      setServer(next);
+      heardOwn(flipFlag.node.id, `${r.data.flag} ${r.data.on ? "on" : "off"}`, next);
     },
     chooseKey(k: KeyName) {
       setKey(k);
@@ -162,9 +207,23 @@ export function useLab() {
       }
     },
     run: () => grant && rotate({ key }, "Run with the grant", grant),
-    replay: () => grant && rotate({ key }, "Use the same grant again", grant),
-    otherKey: () => grant && rotate({ key: other }, `Use it for the ${other} key`, grant),
+    replay: () =>
+      grant && rotate({ key }, "Use the same grant again", grant, "it was already used once"),
+    otherKey: () =>
+      grant &&
+      rotate(
+        { key: other },
+        `Use it for the ${other} key`,
+        grant,
+        `it was signed for the ${key} key, not ${other}`,
+      ),
     forge: () =>
-      grant && rotate({ key }, "One hex digit changed", { ...grant, sig: tamper(grant.sig) }),
+      grant &&
+      rotate(
+        { key },
+        "One hex digit changed",
+        { ...grant, sig: tamper(grant.sig) },
+        "the signature no longer matches",
+      ),
   };
 }

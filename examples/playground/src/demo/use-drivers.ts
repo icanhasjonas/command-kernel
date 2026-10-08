@@ -1,8 +1,7 @@
 import { createKeyboard, parseDeeplink } from "@command-kernel/core";
 import { useEffect } from "react";
-import { recordCall } from "../trace/tap";
 import { useDemo } from "./demo-context";
-import { kernel } from "./kernel";
+import { drivers, kernel } from "./kernel";
 
 /** The chord leader: press it, then a command's `chord` key. */
 export const CHORD_LEADER = "mod+j";
@@ -35,14 +34,8 @@ export function usePageDrivers() {
       const h = window.location.hash.replace(/^#\/?/, "");
       if (!h.startsWith("cmd/")) return;
       const path = parseDeeplink(h);
-      const req = { path, execute: true };
-      // asked directly: if the palette takes over, ITS call is the one the rail shows
-      const res = await kernel.command(req, getCtx());
-      const handOver =
-        res.kind === "args" ||
-        res.kind === "disambiguate" ||
-        (res.kind === "gate" && res.verdict.allowed);
-      if (!handOver) recordCall("deeplink", req, res);
+      // an approval the link hands to the palette is logged once, by the palette's call
+      const res = await drivers.deeplink.command({ path, execute: true }, getCtx());
       if (res.kind === "result") {
         ran(res.node.id);
         showResult(res.result);

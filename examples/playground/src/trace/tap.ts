@@ -26,14 +26,20 @@ const spend = (g: Grant) => {
  * the kernel answered. `pipe` is rebuilt on the tapped `command`, so each step of a
  * pipe lands in the rail as its own call.
  */
-export function tap(kernel: Kernel, driver: Driver): Kernel {
+export function tap(
+  kernel: Kernel,
+  driver: Driver,
+  /** this driver hands an approval it cannot give to the palette, whose call is then the entry */
+  opts: { handsOverGates?: boolean } = {},
+): Kernel {
   const command: Kernel["command"] = async (req, ctx, roots) => {
     const res = await kernel.command(
       req.execute ? { ...req, spend: req.spend ?? spend } : req,
       ctx,
       roots,
     );
-    if (req.execute) traceStore.record(fromResponse(driver, req, res));
+    const handedOver = opts.handsOverGates && res.kind === "gate" && res.verdict.allowed;
+    if (req.execute && !handedOver) traceStore.record(fromResponse(driver, req, res));
     return res;
   };
   return {
@@ -64,16 +70,6 @@ function grantState(presented: Grant | undefined, ran: boolean, auto = false): G
   if (auto) return "policy";
   if (!presented) return "none";
   return ran ? "verified" : "refused";
-}
-
-/**
- * Write one call to the rail by hand, for a driver that asked the kernel directly and
- * decides afterwards whether this call is the one to show (a deeplink that hands over
- * to the palette lets the palette's call stand for it, instead of logging the same ask
- * twice).
- */
-export function recordCall(driver: Driver, req: CommandRequest, res: CommandResponse) {
-  traceStore.record(fromResponse(driver, req, res));
 }
 
 function fromResponse(driver: Driver, req: CommandRequest, res: CommandResponse) {

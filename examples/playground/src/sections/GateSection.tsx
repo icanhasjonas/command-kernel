@@ -75,8 +75,9 @@ export function GateSection() {
               </button>
             </div>
             <p className="mt-3 text-[12px] leading-relaxed text-white/45">
-              Or switch your role to viewer up top and send it again: the gate refuses before any
-              evidence is even looked at.
+              {ctx.user.role === "admin"
+                ? "Or switch your role to viewer up top and send it again: the gate refuses before any evidence is even looked at."
+                : "You are not admin now, so the gate refuses before any evidence is looked at. Switch back to admin up top to approve."}
             </p>
           </div>
         </div>

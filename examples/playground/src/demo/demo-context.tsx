@@ -17,7 +17,7 @@ export interface Place {
   recordId?: string;
 }
 
-export type PaletteVia = "palette" | "chord" | "deeplink";
+export type PaletteVia = "palette" | "chord" | "deeplink" | "invoker";
 
 export interface Toast {
   id: number;

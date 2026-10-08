@@ -47,7 +47,7 @@ export function PipeRun({ preset }: { preset: PipePreset }) {
         title: step?.label ?? "",
         args: {},
         input: preset.from,
-        outcome: "args",
+        outcome: "mistyped",
         checks: [],
         problems: [res.reason],
         grant: "none",

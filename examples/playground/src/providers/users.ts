@@ -1,5 +1,5 @@
 import { argText, type CommandNode, type CommandResult } from "@command-kernel/core";
-import { searchUsers, type User } from "./data";
+import { searchUsers, USERS, type User } from "./data";
 import { personSubject } from "./entities";
 
 const toast = (message: string): Promise<CommandResult> =>
@@ -45,7 +45,7 @@ function userActions(u: User): CommandNode[] {
       gate: {
         roles: ["admin"],
         confirm: true,
-        reason: "irreversible -emails the user a reset link",
+        reason: "emails the user a reset link",
       },
       run: async () => toast(`Password reset sent to ${u.email}`),
     },
@@ -54,7 +54,7 @@ function userActions(u: User): CommandNode[] {
       title: "Impersonate session",
       category: u.name,
       icon: "VenetianMask",
-      gate: { roles: ["admin"], confirm: true, reason: "security-sensitive -full account access" },
+      gate: { roles: ["admin"], confirm: true, reason: "gives full access to their account" },
       run: async () => toast(`Now impersonating ${u.name}`),
     },
     {
@@ -83,7 +83,7 @@ const usersSearch: CommandNode = {
   id: "users.search",
   title: "Search users",
   summary:
-    "Find users by name or email. Enumerating runs a backend search, so pass the positional `q` first -don't list it blank.",
+    "Find users by name or email. Enumerating runs a backend search, so pass the positional `q` first; don't list it blank.",
   category: "Users",
   icon: "Search",
   weight: 62,
@@ -112,8 +112,37 @@ export const usersCategory: CommandNode = {
   title: "Users",
   subtitle: "search · reset · email · impersonate",
   summary:
-    "People with portal accounts. Drill in to search users by name or email, then act on a match: view profile, send email, send a password reset (admin), impersonate (admin), or copy id.",
+    "People with portal accounts. Drill in to see them all (type to filter), then act on one: view profile, send email, send a password reset (admin), impersonate (admin), or copy id.",
   icon: "Users",
   weight: 70,
-  resolve: async () => [usersSearch],
+  // the people themselves, one level down; typing filters them like any list
+  resolve: async () => [...USERS.map(userEntity), usersSearch],
+};
+
+/**
+ * Impersonation as one flat, searchable command: "imper" finds it from the root, the
+ * agent can name it, and the confirm shows exactly who (the `user` arg).
+ */
+export const impersonateUser: CommandNode = {
+  id: "users.impersonate",
+  title: "Impersonate a user",
+  subtitle: "act as them · admin · confirm",
+  summary:
+    "Start a session as another user. Admin only, approved every time: it gives full access to their account.",
+  category: "Users",
+  icon: "VenetianMask",
+  weight: 30,
+  keywords: ["impersonate", "act as", "sudo"],
+  gate: { roles: ["admin"], confirm: true, reason: "gives full access to their account" },
+  args: [
+    {
+      id: "user",
+      label: "user",
+      kind: "entity",
+      entity: { type: "person" },
+      required: true,
+      placeholder: "who…",
+    },
+  ],
+  run: async (a) => toast(`Now impersonating ${argText(a.user)}`),
 };

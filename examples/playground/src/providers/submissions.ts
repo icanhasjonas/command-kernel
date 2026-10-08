@@ -51,7 +51,7 @@ const submissionsSearch: CommandNode = {
   id: "subs.search",
   title: "Search submissions",
   summary:
-    "Find submissions by id, email, or status. Enumerating runs a backend search, so pass the positional `q` first -don't list it blank.",
+    "Find submissions by id, email, or status. Enumerating runs a backend search, so pass the positional `q` first; don't list it blank.",
   category: "Submissions",
   icon: "Search",
   weight: 60,

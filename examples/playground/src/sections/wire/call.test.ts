@@ -42,17 +42,18 @@ describe("labCall: every wire call is accounted for", () => {
     });
   });
 
-  it("a refused grant reads as still owed, and the trace says the grant was refused", async () => {
+  it("a refused grant reads as owed again, for the reason the attempt gave it", async () => {
     const owed = new WireCallError({ code: "confirmRequired", message: "owed", status: 409 });
     await labCall(client(owed), rotateKey, signing, {
       via: "auto",
       evidence: grant,
       label: "Forge",
       log,
+      grantWhy: "the signature no longer matches",
     });
     expect(logged[0]).toMatchObject({
       answer: "owed",
-      detail: "the server did not accept that grant",
+      detail: "the signature no longer matches, so the server owes the approval again",
     });
     expect(traceStore.snapshot()[0]).toMatchObject({ outcome: "owed", grant: "refused" });
   });

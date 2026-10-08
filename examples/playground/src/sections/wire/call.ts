@@ -29,10 +29,10 @@ const asError = (e: unknown) =>
 
 /**
  * A failed call as a log line: the gate's refusal reads as blocked or owed, the network
- * or a rate limit as unreached. `withGrant`: a grant was presented, so "owed" means the
- * server would not take it.
+ * or a rate limit as unreached. `grantWhy`: a grant was presented and this is what was
+ * done to it, which is why the server owes the approval again (it only says "owed").
  */
-export function refusal(e: unknown, withGrant = false): Omit<Attempt, "label"> {
+export function refusal(e: unknown, grantWhy?: string): Omit<Attempt, "label"> {
   const error = asError(e);
   const outcome = REACHED[error.code] ?? "unreached";
   // the gate's own reason beats a status code
@@ -40,8 +40,8 @@ export function refusal(e: unknown, withGrant = false): Omit<Attempt, "label"> {
   return {
     answer: asAttempt[outcome] ?? "unreached",
     detail:
-      outcome === "owed" && withGrant
-        ? "the server did not accept that grant"
+      outcome === "owed" && grantWhy
+        ? `${grantWhy}, so the server owes the approval again`
         : failed
           ? `${error.status} ${failed.label}`
           : `${error.status || "no answer"} ${error.code}`,
@@ -66,6 +66,8 @@ export async function labCall<A extends object, O>(
     done?: (out: O) => string;
     /** a read the page made on its own (on connect): shown on the wire, never in the logs */
     quiet?: boolean;
+    /** what this attempt did to the grant it presents ("it was already used") */
+    grantWhy?: string;
   },
 ): Promise<Answer<O>> {
   const { evidence } = opts;
@@ -97,7 +99,10 @@ export async function labCall<A extends object, O>(
   opts.log(
     answer.ok
       ? { label: opts.label, answer: "ran", detail: opts.done?.(answer.data) ?? "done" }
-      : { label: opts.label, ...refusal(answer.error, evidence !== undefined) },
+      : {
+          label: opts.label,
+          ...refusal(answer.error, evidence && (opts.grantWhy ?? "it did not verify")),
+        },
   );
   return answer;
 }

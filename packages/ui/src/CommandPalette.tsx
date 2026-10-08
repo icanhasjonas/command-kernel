@@ -10,7 +10,7 @@ import {
 import * as Dialog from "@radix-ui/react-dialog";
 import { AnimatePresence, motion } from "framer-motion";
 import { Loader2, Search, SearchX, Workflow } from "lucide-react";
-import { type KeyboardEvent, useEffect, useRef, useState } from "react";
+import { type KeyboardEvent, useEffect, useId, useRef, useState } from "react";
 import { ArgOptions } from "./ArgOptions.js";
 import { ConfirmPanel } from "./ConfirmPanel.js";
 import { cn } from "./cn.js";
@@ -70,6 +70,9 @@ export function CommandPalette({
     onClose,
   });
   const browseRef = useRef<HTMLInputElement>(null);
+  // the input is a combobox over the result list while it shows one
+  const listId = useId();
+  const listed = p.mode === "browse" && p.ranked.length > 0;
   const argRef = useRef<HTMLInputElement>(null);
   const [modHeld, setModHeld] = useState(false);
 
@@ -305,6 +308,13 @@ export function CommandPalette({
                           p.setSelected(0);
                         }}
                         aria-label={inHand ? text.pipeInto(inHand) : text.searchLabel}
+                        {...(listed && {
+                          role: "combobox",
+                          "aria-expanded": true,
+                          "aria-controls": listId,
+                          "aria-autocomplete": "list" as const,
+                          "aria-activedescendant": `${listId}-${p.selected}`,
+                        })}
                         placeholder={inHand ? text.pipePlaceholder : text.placeholder}
                         className="min-w-0 flex-1 bg-transparent text-[15px] text-white/90 outline-none placeholder:text-white/30"
                       />
@@ -359,10 +369,16 @@ export function CommandPalette({
                       <span className="text-[13px]">{text.noMatch(p.query)}</span>
                     </div>
                   ) : (
-                    <div className="max-h-[44vh] overflow-y-auto px-2 py-2">
+                    <div
+                      id={listId}
+                      role="listbox"
+                      aria-label={text.searchLabel}
+                      className="max-h-[44vh] overflow-y-auto px-2 py-2"
+                    >
                       {p.ranked.map((item, i) => (
                         <ResultRow
                           key={item.node.id}
+                          id={`${listId}-${i}`}
                           item={item}
                           active={i === p.selected}
                           modHeld={modHeld}
@@ -376,7 +392,7 @@ export function CommandPalette({
                 </div>
 
                 {/* footer: key hints, so none on a touch screen */}
-                <div className="flex items-center gap-3 border-white/5 border-t px-4 py-2 text-[11px] text-white/35 pointer-coarse:hidden">
+                <div className="flex items-center gap-3 border-white/5 border-t px-4 py-2 text-[11px] text-white/35 max-sm:hidden pointer-coarse:hidden">
                   <Hint
                     k="↵"
                     label={
@@ -389,7 +405,7 @@ export function CommandPalette({
                     <Hint k="tab" label={text.hintPipe} />
                   )}
                   {p.mode === "browse" && <Hint k="⌘↵" label={text.hintRunAsPage} keyboardOnly />}
-                  <Hint k="esc" label={text.hintBack} />
+                  <Hint k="esc" label={p.mode === "confirm" ? text.hintCancel : text.hintBack} />
                   <span
                     className={cn(
                       "ml-auto hidden items-center gap-1.5 whitespace-nowrap transition-opacity sm:flex",

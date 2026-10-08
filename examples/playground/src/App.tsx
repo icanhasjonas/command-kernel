@@ -46,7 +46,8 @@ function Page() {
           <Packages />
         </main>
         <aside className="hidden lg:block">
-          <div className="sticky top-[76px] flex h-[calc(100vh-100px)] pt-16">
+          {/* below xl the header has a second row (sections), so the rail starts lower */}
+          <div className="sticky top-[112px] flex h-[calc(100vh-136px)] pt-16 xl:top-[76px] xl:h-[calc(100vh-100px)]">
             <Inspector className="min-h-0 flex-1" />
           </div>
         </aside>

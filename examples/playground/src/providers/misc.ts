@@ -13,7 +13,7 @@ const nav = (module: string, label: string): CommandResult => ({
 
 /** Zero-arg navigation commands -change where you are (and re-rank the menu). */
 const navSummary =
-  "Move the view to this area. Pure navigation -changes context only, no data is written.";
+  "Move the view to this area. Pure navigation: it changes context only, no data is written.";
 export const navCommands: CommandNode[] = [
   {
     id: "go.home",

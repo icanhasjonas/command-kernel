@@ -23,7 +23,7 @@ const GATED: PathSegment[] = [{ id: resendHere.id, args: { submissionId: "sub_48
  */
 export function InvokerDriver() {
   const host = useRef<HTMLDivElement>(null);
-  const { getCtx, showResult, say, ran } = useDemo();
+  const { getCtx, showResult, say, ran, openPalette } = useDemo();
 
   useEffect(() => {
     const el = host.current;
@@ -33,13 +33,17 @@ export function InvokerDriver() {
         ran(res.node.id);
         showResult(res.result);
       },
-      onGate: (res) => say(`"${res.node.title}" is gated: approve it from the palette`, "warn"),
+      // markup cannot approve anything: the palette asks you, on that command, with its args
+      onGate: (res) =>
+        res.verdict.allowed
+          ? openPalette(res.node.id, "invoker", res.args)
+          : say(`"${res.node.title}" is not allowed for your role`, "warn"),
       onArgs: (res) => say(`Needs ${res.missing.join(", ")}`, "warn"),
       onDisambiguate: (res) => say(`Which one? ${res.candidates.map((c) => c.label).join(", ")}`),
       onUnresolved: () => say("Stale markup: that command id no longer exists", "warn"),
       onError: (error) => say(`Command failed: ${String(error)}`, "warn"),
     });
-  }, [getCtx, showResult, say, ran]);
+  }, [getCtx, showResult, say, ran, openPalette]);
 
   return (
     <div className="p-5">

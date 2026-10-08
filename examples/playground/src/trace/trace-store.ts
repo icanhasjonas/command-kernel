@@ -19,9 +19,17 @@ export type Driver =
  * How far a call got through the kernel:
  * unresolved (no such command) · args (missing or invalid) · blocked (the gate said no) ·
  * owed (the gate wants an approval) · ran · unreached (the network or a rate limit stopped
- * it before any kernel saw it).
+ * it before any kernel saw it) · mistyped (a piped value of a shape the command does not take).
  */
-export type Outcome = "unresolved" | "args" | "pick" | "blocked" | "owed" | "ran" | "unreached";
+export type Outcome =
+  | "unresolved"
+  | "args"
+  | "pick"
+  | "blocked"
+  | "owed"
+  | "ran"
+  | "unreached"
+  | "mistyped";
 
 /** What the evidence did: none presented, verified, refused, or a standing always-allow rule. */
 export type GrantState = "none" | "verified" | "refused" | "policy";

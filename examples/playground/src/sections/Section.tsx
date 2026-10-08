@@ -13,7 +13,7 @@ export function Section({
   children: ReactNode;
 }) {
   return (
-    <section id={id} aria-labelledby={`${id}-title`} className="scroll-mt-24 pt-24">
+    <section id={id} aria-labelledby={`${id}-title`} className="scroll-mt-28 pt-24 xl:scroll-mt-20">
       <h2 id={`${id}-title`} className="font-semibold text-[28px] text-white tracking-tight">
         {title}
       </h2>

@@ -1,3 +1,4 @@
+import { ADOPT_SNIPPET } from "./adopt/snippet";
 import { Section } from "./Section";
 
 /** [name, what it does, used on this page] */
@@ -48,6 +49,16 @@ export function Packages() {
           </div>
         ))}
       </dl>
+      <div className="mt-10">
+        <h3 className="font-semibold text-[16px] text-white">What adopting it looks like</h3>
+        <p className="mt-2 max-w-[60ch] text-[14px] leading-relaxed text-white/60">
+          One command, then two drivers on it. That is the whole integration: the palette and the
+          agent both call this one kernel and meet its gate. Pre-release: not on npm yet.
+        </p>
+        <pre className="mt-4 overflow-x-auto rounded-xl border border-white/10 bg-black/30 p-4 font-mono text-[12px] leading-relaxed text-white/75">
+          {ADOPT_SNIPPET}
+        </pre>
+      </div>
       <p className="mt-10 pb-24 text-[13px] text-white/40">
         Demo data is synthetic: people, files and submissions are made up, and nothing here sends an
         email.

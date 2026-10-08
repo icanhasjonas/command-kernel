@@ -6,7 +6,7 @@ import { formsCategory } from "./forms";
 import { makeThumbnail } from "./media";
 import { broadcastEmail, clearTrace, connectionsCategory, navCommands, sendEmail } from "./misc";
 import { resendHere, submissionsCategory } from "./submissions";
-import { usersCategory } from "./users";
+import { impersonateUser, usersCategory } from "./users";
 
 /**
  * The root registry: the only assembly point. Each module contributes its own
@@ -26,6 +26,7 @@ export const ROOTS: CommandNode[] = [
   makeThumbnail,
   broadcastEmail,
   sendReset,
+  impersonateUser,
   resyncSubmission,
   resendHere,
   ...navCommands,

@@ -3,6 +3,7 @@ import { cn } from "@command-kernel/ui";
 import { RotateCcw } from "lucide-react";
 import { useDemo } from "../demo/demo-context";
 import { kernel } from "../demo/kernel";
+import { LabBanner } from "./wire/LabBanner";
 
 const ROLES: Role[] = ["admin", "advisor", "viewer"];
 
@@ -30,17 +31,8 @@ export function Header() {
             command-kernel
           </span>
         </a>
-        <nav aria-label="Sections" className="hidden items-center gap-1 md:flex">
-          {NAV.map((n) => (
-            <a
-              key={n.href}
-              href={n.href}
-              className="rounded-md px-2.5 py-1 text-[13px] text-white/55 hover:bg-white/5 hover:text-white/90"
-            >
-              {n.label}
-            </a>
-          ))}
-        </nav>
+        <SectionNav className="hidden xl:flex" />
+        <LabBanner className="hidden xl:flex" />
         <div className="ml-auto flex items-center gap-2">
           <fieldset className="flex items-center rounded-lg border border-white/10 bg-white/[0.03] p-0.5">
             <legend className="sr-only">Your role</legend>
@@ -73,6 +65,27 @@ export function Header() {
           </button>
         </div>
       </div>
+      {/* narrower screens: the sections and the banner get a row of their own, always there */}
+      <div className="mx-auto flex max-w-[1320px] items-center gap-3 overflow-x-auto px-6 pb-2.5 xl:hidden">
+        <SectionNav className="flex" />
+        <LabBanner className="ml-auto" />
+      </div>
     </header>
+  );
+}
+
+function SectionNav({ className }: { className?: string }) {
+  return (
+    <nav aria-label="Sections" className={cn("items-center gap-1", className)}>
+      {NAV.map((n) => (
+        <a
+          key={n.href}
+          href={n.href}
+          className="whitespace-nowrap rounded-md px-2.5 py-1 text-[13px] text-white/55 hover:bg-white/5 hover:text-white/90"
+        >
+          {n.label}
+        </a>
+      ))}
+    </nav>
   );
 }

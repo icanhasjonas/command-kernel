@@ -16,43 +16,85 @@ import type { ArgValues, CommandNode } from "@command-kernel/core";
 
 const EMAIL = /[\w.+-]+@[\w-]+\.[\w.-]+/;
 const SUB = /sub_\d+/i;
+/** words that say nothing about which tool is meant */
+const FILLER = new Set([
+  "the",
+  "and",
+  "for",
+  "with",
+  "from",
+  "into",
+  "this",
+  "that",
+  "all",
+  "some",
+]);
 
 export interface ToolPick {
   node: CommandNode;
   values: ArgValues;
 }
 
+const wordsOf = (s: string) =>
+  s
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter((w) => w.length > 2 && !FILLER.has(w));
+
+/**
+ * How well a tool fits: whole words only ("submission" does not match "submissions"),
+ * a title word counts twice a keyword, and a tie goes to the tool more of whose title
+ * the goal names ("go to submissions" is Go to Submissions, not Re-sync submission).
+ */
+function fit(goal: Set<string>, t: CommandNode): { points: number; share: number } {
+  const title = wordsOf(t.title);
+  const keys = (t.keywords ?? []).flatMap(wordsOf);
+  const inTitle = title.filter((w) => goal.has(w)).length;
+  const inKeys = keys.filter((w) => goal.has(w)).length;
+  return { points: inTitle * 2 + inKeys, share: title.length > 0 ? inTitle / title.length : 0 };
+}
+
 /**
  * Pick the best-matching tool for a natural-language goal and pre-fill its args
- * from entities found in the goal text. Returns null when nothing matches.
+ * from what the goal says. Returns null when nothing matches.
  *
  * This is a deliberately dumb keyword+regex stand-in for an LLM tool-call. Swap
  * it for a real model call that returns `{ node, values }`; everything
  * downstream (the `command()` walk, the gate, the grant) is unchanged.
  */
 export function pickTool(goal: string, tools: CommandNode[]): ToolPick | null {
-  const g = goal.toLowerCase();
+  const words = new Set(wordsOf(goal));
   let best: CommandNode | null = null;
-  let bestScore = 0;
+  let top = { points: 0, share: 0 };
   for (const t of tools) {
-    const words = [...t.title.toLowerCase().split(/\s+/), ...(t.keywords ?? [])];
-    const score = words.reduce((n, w) => (w.length > 2 && g.includes(w) ? n + 1 : n), 0);
-    if (score > bestScore) {
-      bestScore = score;
+    const f = fit(words, t);
+    if (f.points > top.points || (f.points === top.points && f.share > top.share)) {
+      top = f;
       best = t;
     }
   }
-  if (!best || bestScore === 0) return null;
+  if (!best || top.points === 0) return null;
+  return { node: best, values: fill(goal, best) };
+}
 
+/**
+ * The args a goal states outright. An address fills ONE arg, the first that takes a
+ * single person-like value (an email, or one entity), never a list such as attachments.
+ */
+function fill(goal: string, node: CommandNode): ArgValues {
   const email = goal.match(EMAIL)?.[0];
   const sub = goal.match(SUB)?.[0];
   const values: ArgValues = {};
-  for (const a of best.args ?? []) {
-    if ((a.kind === "email" || a.kind === "entity") && email) values[a.id] = email;
-    if (a.id === "user" && email) values[a.id] = email;
+  let addressed = false;
+  for (const a of node.args ?? []) {
+    const takesOne = a.kind === "email" || (a.kind === "entity" && !a.multiple);
+    if (email && takesOne && !addressed) {
+      values[a.id] = email;
+      addressed = true;
+    }
     if (a.id === "submissionId" && sub) values[a.id] = sub;
     if (a.id === "subject" && a.enumValues?.[0]) values[a.id] = a.enumValues[0].value;
     if (a.kind === "text") values[a.id] = goal;
   }
-  return { node: best, values };
+  return values;
 }
