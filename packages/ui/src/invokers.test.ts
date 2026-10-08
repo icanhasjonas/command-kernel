@@ -131,7 +131,7 @@ test("a throwing run() lands in onError with the decoded path", async () => {
   });
   await fired(host, commandAttr([{ id: "boom" }]));
   expect(errors).toHaveLength(1);
-  expect((errors[0]?.error as Error).message).toBe("kaboom");
+  expect((errors[0]?.error as Error | undefined)?.message).toBe("kaboom");
   expect(errors[0]?.path).toEqual([{ id: "boom" }]);
 });
 

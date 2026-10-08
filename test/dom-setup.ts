@@ -43,6 +43,7 @@ let saved: Saved | null = null;
 export function registerDom(): void {
   if (saved !== null) return; // idempotent - one DOM per process is plenty
   const win = new Window({ url: "https://localhost/" });
+  markCancelledFinishedHandled(win);
   saved = {};
 
   const winDescriptors = Object.getOwnPropertyDescriptors(win);
@@ -81,6 +82,22 @@ export function registerDom(): void {
       delete saved[key];
     }
   }
+}
+
+/**
+ * Web Animations `cancel()` rejects `finished` with an AbortError AND sets its
+ * [[PromiseIsHandled]] slot, so a browser never reports it as unhandled. happy-dom
+ * (20.14) does the reject but skips the handled flag, so every framer-motion exit
+ * animation cancelled on unmount surfaces as an "Unhandled error between tests".
+ * Attaching a no-op catch before cancelling is the userland equivalent of that slot.
+ */
+function markCancelledFinishedHandled(win: Window): void {
+  const proto = win.Animation.prototype;
+  const cancel = proto.cancel;
+  proto.cancel = function (this: Animation) {
+    this.finished.catch(() => {});
+    cancel.call(this);
+  };
 }
 
 export function unregisterDom(): void {

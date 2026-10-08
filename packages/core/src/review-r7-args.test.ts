@@ -82,7 +82,7 @@ describe("C2: -0 is 0 before anything signs or runs", () => {
     expect(Object.is(coerceArgs(typed, { n: "-0" }).n, 0)).toBe(true);
     await exec(typed, { n: -0, ids: [-0, 2] });
     expect(Object.is(seen?.n, 0)).toBe(true);
-    expect(Object.is((seen?.ids as number[])[0], 0)).toBe(true);
+    expect(Object.is((seen?.ids as number[] | undefined)?.[0], 0)).toBe(true);
   });
 
   it("inside a json value, at any depth", async () => {
@@ -90,7 +90,7 @@ describe("C2: -0 is 0 before anything signs or runs", () => {
     const doc = seen?.doc as { a: number; b: Array<{ c: number }> };
     expect(Object.is(doc.a, 0)).toBe(true);
     expect(Object.is(doc.b[0]?.c, 0)).toBe(true);
-    expect(Object.is((seen?.list as number[])[0], 0)).toBe(true);
+    expect(Object.is((seen?.list as number[] | undefined)?.[0], 0)).toBe(true);
   });
 });
 
