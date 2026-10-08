@@ -130,14 +130,14 @@ const read = {
   run: async (a) => ({ kind: "data", message: "loaded", value: await load(a.file) }),
 };
 
-// [file] -> Load as text -> Encrypt for... -> Send email (to: j@duplo.org)
+// [file] -> Load as text -> Encrypt for... -> Send email (to: jo@example.com)
 await kernel.pipe(
   {
     input: { type: { kind: "entity", entity: { type: "file" } }, value: "notes.md" },
     steps: [
       { path: [{ id: "files.read" }] },
-      { path: [{ id: "crypto.encrypt", args: { to: "j@duplo.org" } }] },
-      { path: [{ id: "email.send", args: { to: "j@duplo.org", subject: "Next steps" } }] },
+      { path: [{ id: "crypto.encrypt", args: { to: "jo@example.com" } }] },
+      { path: [{ id: "email.send", args: { to: "jo@example.com", subject: "Next steps" } }] },
     ],
   },
   ctx,

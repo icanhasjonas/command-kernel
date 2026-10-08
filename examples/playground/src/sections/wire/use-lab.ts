@@ -106,7 +106,11 @@ export function useLab() {
   /** run the rotation with this evidence; a success means the grant is now spent */
   const rotate = async (args: { key: KeyName }, label: string, evidence: Grant) => {
     const r = await call(rotateKey, args, label, rotated, evidence);
-    if (r?.ok) setUsed(true);
+    if (!r?.ok) return;
+    setUsed(true);
+    // the answer itself is the new state: over HTTP no event follows to say so
+    const { key: k, fingerprint } = r.data;
+    setServer((s) => s && { ...s, keys: { ...s.keys, [k]: fingerprint } });
   };
 
   return {
@@ -124,7 +128,11 @@ export function useLab() {
     attempts,
     cut: () => client.current?.close(),
     reconnect: () => client.current?.connect(),
-    flip: (flag: Flag) => call(flipFlag, { flag }, `Flip ${flag}`, (o) => (o.on ? "on" : "off")),
+    async flip(flag: Flag) {
+      const r = await call(flipFlag, { flag }, `Flip ${flag}`, (o) => (o.on ? "on" : "off"));
+      // the answer itself is the new state: over HTTP no event follows to say so
+      if (r?.ok) setServer((s) => s && { ...s, flags: { ...s.flags, [r.data.flag]: r.data.on } });
+    },
     chooseKey(k: KeyName) {
       setKey(k);
       setOwed(false);

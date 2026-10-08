@@ -82,9 +82,9 @@ describe("command() with a piped input", () => {
     if (res.kind === "args") expect(res.missing).toEqual(["subject"]);
   });
 
-  it("[file] => Send email > to: j@duplo.org - the file is attached and the grant covers it", async () => {
+  it("[file] => Send email > to: jo@example.com - the file is attached and the grant covers it", async () => {
     const k = kernel();
-    const path = [{ id: "email.send", args: { to: "j@duplo.org", subject: "hi" } }];
+    const path = [{ id: "email.send", args: { to: "jo@example.com", subject: "hi" } }];
     const gate = await k.command({ path, input: aFile("notes.md"), execute: true }, ctx);
     expect(gate.kind).toBe("gate");
     if (gate.kind !== "gate") return;
@@ -94,7 +94,7 @@ describe("command() with a piped input", () => {
     const tip = { ...path[0], evidence: grant } as (typeof path)[number];
     const ran = await k.command({ path: [tip], input: aFile("notes.md"), execute: true }, ctx);
     expect(ran.kind).toBe("result");
-    expect(seen["email.send"]).toMatchObject({ to: "j@duplo.org", attachments: ["notes.md"] });
+    expect(seen["email.send"]).toMatchObject({ to: "jo@example.com", attachments: ["notes.md"] });
 
     // the same grant does not cover a different file
     const other = await k.command({ path: [tip], input: aFile("plan.txt"), execute: true }, ctx);
@@ -140,8 +140,10 @@ describe("command() with a piped input", () => {
 
 describe("kernel.pipe", () => {
   const read = { path: [{ id: "tools" }, { id: "files.read" }] };
-  const seal = { path: [{ id: "tools" }, { id: "crypto.encrypt", args: { to: "j@duplo.org" } }] };
-  const mail = { path: [{ id: "email.send", args: { to: "j@duplo.org", subject: "secret" } }] };
+  const seal = {
+    path: [{ id: "tools" }, { id: "crypto.encrypt", args: { to: "jo@example.com" } }],
+  };
+  const mail = { path: [{ id: "email.send", args: { to: "jo@example.com", subject: "secret" } }] };
 
   it("file => load as text => encrypt: each step's output is the next one's input", async () => {
     const res = await kernel().pipe({ input: aFile("notes.md"), steps: [read, seal] }, ctx);
@@ -152,7 +154,7 @@ describe("kernel.pipe", () => {
       value: "enc(hello)",
       label: "ciphertext",
     });
-    expect(seen["crypto.encrypt"]).toEqual({ text: "hello", to: "j@duplo.org" });
+    expect(seen["crypto.encrypt"]).toEqual({ text: "hello", to: "jo@example.com" });
   });
 
   it("pauses at the gate, and resumes from there without re-running what ran", async () => {
@@ -170,7 +172,7 @@ describe("kernel.pipe", () => {
     const done = await k.pipe(resume, ctx);
     expect(done.kind).toBe("done");
     expect(seen["files.read"]).toBeUndefined();
-    expect(seen["email.send"]).toMatchObject({ body: "enc(hello)", to: "j@duplo.org" });
+    expect(seen["email.send"]).toMatchObject({ body: "enc(hello)", to: "jo@example.com" });
   });
 
   it("a pipe that cannot type-check runs nothing", async () => {
@@ -198,7 +200,7 @@ describe("kernel.pipe", () => {
         input: aFile("notes.md"),
         steps: [
           { path: [{ id: "liar" }] },
-          { path: [{ id: "crypto.encrypt", args: { to: "j@duplo.org" } }] },
+          { path: [{ id: "crypto.encrypt", args: { to: "jo@example.com" } }] },
         ],
       },
       ctx,

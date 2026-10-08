@@ -21,14 +21,20 @@ import { PaletteCrumbs } from "./PaletteCrumbs.js";
 import { Pill } from "./Pill.js";
 import { PipeList } from "./PipeList.js";
 import { ResultRow } from "./ResultRow.js";
-import { subjectLabel, usePalette } from "./usePalette.js";
+import { type PaletteTrigger, subjectLabel, usePalette } from "./usePalette.js";
 
 interface Props {
   open: boolean;
   kernel: Kernel;
   ctx: Ctx;
   roots: CommandNode[];
-  trigger?: { id: string; nonce: number } | null;
+  /** jump straight into a command, with any args already known */
+  trigger?: PaletteTrigger | null;
+  /**
+   * Entity types to search at the root alongside commands, e.g. `["person", "file"]`.
+   * A hit is a row for that thing: pick it and the palette lists what can take it.
+   */
+  subjects?: readonly string[];
   /** every word the palette says; unset keys keep the English default */
   labels?: PaletteLabelOverrides;
   /** show each node's authoring `weight` in its row (an authoring diagnostic) */
@@ -44,6 +50,7 @@ export function CommandPalette({
   ctx,
   roots,
   trigger,
+  subjects,
   labels,
   showWeight = false,
   onClose,
@@ -51,7 +58,17 @@ export function CommandPalette({
   onExecuted,
 }: Props) {
   const text = resolveLabels(labels);
-  const p = usePalette({ kernel, ctx, roots, open, trigger, onResult, onExecuted, onClose });
+  const p = usePalette({
+    kernel,
+    ctx,
+    roots,
+    open,
+    trigger,
+    subjects,
+    onResult,
+    onExecuted,
+    onClose,
+  });
   const browseRef = useRef<HTMLInputElement>(null);
   const argRef = useRef<HTMLInputElement>(null);
   const [modHeld, setModHeld] = useState(false);
@@ -264,6 +281,11 @@ export function CommandPalette({
                       <span className="ml-auto font-mono text-[11px] text-white/35">
                         {text.argCounter(filledCount, namedArgs.length)}
                       </span>
+                      {p.arg.error && (
+                        <p role="alert" className="basis-full text-[12px] text-red-300">
+                          {p.arg.error}
+                        </p>
+                      )}
                     </div>
                   ) : (
                     <div className="flex min-h-[26px] items-center gap-2.5">

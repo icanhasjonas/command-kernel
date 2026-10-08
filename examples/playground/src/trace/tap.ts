@@ -9,14 +9,30 @@ import { runPipe } from "@command-kernel/core";
 import { type Driver, type GrantState, traceStore } from "./trace-store";
 
 /**
+ * Grants on this page are single-use, as on the lab's server: one approval runs one
+ * call. Every tap shares this set, because every tap is the same kernel.
+ */
+const spent = new Set<string>();
+const spend = (g: Grant) => {
+  if (spent.has(g.nonce)) return false;
+  spent.add(g.nonce);
+  return true;
+};
+
+/**
  * A driver's tap on the ONE kernel: the same instance, the same gate, evidence and
- * policy, with every executing call written to the trace rail. Nothing here decides
- * anything; it only watches what the kernel answered. `pipe` is rebuilt on the
- * tapped `command`, so each step of a pipe lands in the rail as its own call.
+ * policy, with every executing call written to the trace rail. It decides nothing but
+ * one page-wide rule, that a grant is spent once used; otherwise it only watches what
+ * the kernel answered. `pipe` is rebuilt on the tapped `command`, so each step of a
+ * pipe lands in the rail as its own call.
  */
 export function tap(kernel: Kernel, driver: Driver): Kernel {
   const command: Kernel["command"] = async (req, ctx, roots) => {
-    const res = await kernel.command(req, ctx, roots);
+    const res = await kernel.command(
+      req.execute ? { ...req, spend: req.spend ?? spend } : req,
+      ctx,
+      roots,
+    );
     if (req.execute) traceStore.record(fromResponse(driver, req, res));
     return res;
   };
@@ -25,7 +41,8 @@ export function tap(kernel: Kernel, driver: Driver): Kernel {
     command,
     pipe: (req, ctx) => runPipe((r) => command(r, ctx), req, kernel.isA),
     executeNode: async (node, args, ctx, confirmation) => {
-      const out = await kernel.executeNode(node, args, ctx, confirmation);
+      const once = confirmation && { ...confirmation, spend: confirmation.spend ?? spend };
+      const out = await kernel.executeNode(node, args, ctx, once);
       traceStore.record({
         driver,
         command: node.id,

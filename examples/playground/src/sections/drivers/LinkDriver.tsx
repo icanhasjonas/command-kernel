@@ -12,13 +12,13 @@ const LINKS: { path: PathSegment[]; label: string; expect: string; tone: string 
   {
     path: [{ id: "email.send", args: { to: "ada@analytical.engine" } }],
     label: "Email Ada",
-    expect: "stops at args: subject and body are still missing",
+    expect: "short of args: the palette opens with Ada filled in and asks for the rest",
     tone: "text-amber-soft",
   },
   {
     path: [{ id: "users.send_reset", args: { user: "jon@wall.north" } }],
     label: "Reset Jon's password",
-    expect: "stops at the gate: a URL can carry args, never an approval",
+    expect: "stops at the gate: a URL carries args, never an approval; you give that",
     tone: "text-red-300",
   },
 ];

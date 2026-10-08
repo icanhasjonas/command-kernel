@@ -1,5 +1,6 @@
-import type { CommandResult, Ctx, Role } from "@command-kernel/core";
+import type { ArgValues, CommandResult, Ctx, Role } from "@command-kernel/core";
 import { bumpFrecency } from "@command-kernel/core";
+import type { PaletteTrigger } from "@command-kernel/ui";
 import {
   createContext,
   type ReactNode,
@@ -15,6 +16,8 @@ export interface Place {
   label: string;
   recordId?: string;
 }
+
+export type PaletteVia = "palette" | "chord" | "deeplink";
 
 export interface Toast {
   id: number;
@@ -32,13 +35,14 @@ interface Demo {
   showResult: (r: CommandResult) => void;
   toast: Toast | null;
   say: (msg: string, tone?: Toast["tone"]) => void;
-  /** `via` names the driver the trace credits: a chord, or the palette itself */
+  /** `via` names the driver the trace credits: a chord, a deeplink, or the palette itself */
   palette: {
     open: boolean;
-    trigger: { id: string; nonce: number } | null;
-    via: "palette" | "chord";
+    trigger: PaletteTrigger | null;
+    via: PaletteVia;
   };
-  openPalette: (commandId?: string, via?: "palette" | "chord") => void;
+  /** open on a command, with any args already known (a deeplink's) */
+  openPalette: (commandId?: string, via?: PaletteVia, values?: ArgValues) => void;
   closePalette: () => void;
 }
 
@@ -101,13 +105,18 @@ export function DemoProvider({ children }: { children: ReactNode }) {
     (id: string) => setCtx((c) => ({ ...c, frecency: bumpFrecency(c.frecency, id) })),
     [],
   );
-  const openPalette = useCallback((commandId?: string, via: "palette" | "chord" = "palette") => {
-    setPalette({
-      open: true,
-      trigger: commandId ? { id: commandId, nonce: ++nonce.current } : null,
-      via,
-    });
-  }, []);
+  const openPalette = useCallback(
+    (commandId?: string, via: PaletteVia = "palette", values?: ArgValues) => {
+      setPalette({
+        open: true,
+        trigger: commandId
+          ? { id: commandId, nonce: ++nonce.current, ...(values && { values }) }
+          : null,
+        via,
+      });
+    },
+    [],
+  );
   const closePalette = useCallback(() => setPalette((p) => ({ ...p, open: false })), []);
 
   const value = useMemo<Demo>(

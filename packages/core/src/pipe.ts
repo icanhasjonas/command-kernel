@@ -9,7 +9,7 @@ import { hasValue } from "./values.js";
 /**
  * Pipes - one command's output is the next command's input.
  *
- *   [file] -> Load as text -> Encrypt -> Send email (to: j@duplo.org)
+ *   [file] -> Load as text -> Encrypt -> Send email (to: jo@example.com)
  *
  * A piped value is never a second way in: it lands in ONE arg of the next command
  * and from there it is an ordinary arg - coerced, validated, gated, and signed into

@@ -42,7 +42,8 @@ export function ArgOptions({
             i === selected ? "bg-white/[0.07]" : "hover:bg-white/[0.035]",
           )}
         >
-          <Icon name={o.icon} size={15} className="text-white/50" />
+          {/* an option without an icon gets none, not a placeholder circle */}
+          {o.icon && <Icon name={o.icon} size={15} className="text-white/50" />}
           <span className="flex-1 truncate text-[13px] text-white/85">{o.label}</span>
           {o.hint && <span className="truncate text-[12px] text-white/40">{o.hint}</span>}
         </button>

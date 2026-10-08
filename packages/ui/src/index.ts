@@ -33,5 +33,5 @@ export {
   type PaletteLabels,
   resolveLabels,
 } from "./labels.js";
-export type { Mode } from "./usePalette.js";
+export type { Mode, PaletteTrigger } from "./usePalette.js";
 export { usePalette } from "./usePalette.js";

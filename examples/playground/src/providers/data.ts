@@ -35,7 +35,7 @@ export const USERS: User[] = [
   {
     id: "u_1001",
     name: "Jonas Frost",
-    email: "jonas@duplo.org",
+    email: "jonas@example.com",
     role: "admin",
     brand: "circle",
     status: "active",
@@ -208,7 +208,7 @@ export const SUBMISSIONS: Submission[] = [
   {
     id: "sub_4814",
     form: "demo/kitchen-sink",
-    email: "jonas@duplo.org",
+    email: "jonas@example.com",
     status: "synced",
     when: "1d ago",
   },

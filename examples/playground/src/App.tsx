@@ -25,6 +25,9 @@ const PALETTE_LABELS: PaletteLabelOverrides = {
   searchLabel: "Search the backoffice",
 };
 
+/** What a root search finds besides commands: people and files, each a value to act on. */
+const SUBJECTS = ["person", "file"] as const;
+
 function Page() {
   usePageDrivers();
   const { ctx, palette, closePalette, showResult, ran } = useDemo();
@@ -51,10 +54,11 @@ function Page() {
       <MobileTrace />
       <CommandPalette
         open={palette.open}
-        kernel={palette.via === "chord" ? drivers.chord : drivers.palette}
+        kernel={drivers[palette.via]}
         ctx={ctx}
         roots={ROOTS}
         trigger={palette.trigger}
+        subjects={SUBJECTS}
         labels={PALETTE_LABELS}
         onClose={closePalette}
         onResult={showResult}

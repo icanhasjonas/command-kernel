@@ -17,7 +17,17 @@ export const sendReset: CommandNode = {
   weight: 34,
   keywords: ["reset", "password"],
   gate: { roles: ["admin"], confirm: true, reason: "emails the user a reset link" },
-  args: [{ id: "user", label: "user", kind: "email", required: true, placeholder: "their email…" }],
+  // a person from the directory (the same catalog Send email uses), or any address
+  args: [
+    {
+      id: "user",
+      label: "user",
+      kind: "entity",
+      entity: { type: "person" },
+      required: true,
+      placeholder: "who…",
+    },
+  ],
   run: async (a) => ({ kind: "toast", message: `Password reset sent to ${a.user}` }),
 };
 

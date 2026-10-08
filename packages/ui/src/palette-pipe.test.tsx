@@ -123,9 +123,9 @@ test("text in hand: Encrypt asks only for the rest, a gated Send binds its grant
   await act(async () => view.result.current.pick(rowFor(view, "seal").action));
   expect(view.result.current.mode).toBe("args");
   expect(view.result.current.arg?.activeArg).toBe("to");
-  await act(async () => view.result.current.commitArg("j@duplo.org"));
+  await act(async () => view.result.current.commitArg("jo@example.com"));
   await waitFor(() => expect(view.result.current.pipe?.subject.value).toBe("enc(hi)"));
-  expect(ran.seal).toEqual({ text: "hi", to: "j@duplo.org" });
+  expect(ran.seal).toEqual({ text: "hi", to: "jo@example.com" });
 
   await waitFor(() => expect(view.result.current.pipeRows.length).toBeGreaterThan(0));
   await act(async () => view.result.current.pick(rowFor(view, "send").action));

@@ -1,4 +1,11 @@
-import type { CommandNode, CommandResult, Ctx, Kernel, Piped } from "@command-kernel/core";
+import type {
+  ArgValues,
+  CommandNode,
+  CommandResult,
+  Ctx,
+  Kernel,
+  Piped,
+} from "@command-kernel/core";
 import { allowLabel, describeType, ruleForNode } from "@command-kernel/core";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ArgSession, PipeSession } from "./palette-types.js";
@@ -6,19 +13,34 @@ import { usePaletteArgs } from "./usePaletteArgs.js";
 import { usePaletteFrames } from "./usePaletteFrames.js";
 import { usePaletteGate } from "./usePaletteGate.js";
 import { usePalettePipe } from "./usePalettePipe.js";
+import { usePaletteSubjects } from "./usePaletteSubjects.js";
 
 export type { Mode } from "./palette-types.js";
+
+/**
+ * Jump straight into a command (a chord, a deeplink): its id, a nonce so the same jump
+ * fires twice, and the args already known, which the palette then asks only the rest of.
+ */
+export interface PaletteTrigger {
+  id: string;
+  nonce: number;
+  values?: ArgValues;
+}
 
 interface Hooks {
   kernel: Kernel;
   ctx: Ctx;
   roots: CommandNode[];
   open: boolean;
-  trigger?: { id: string; nonce: number } | null | undefined;
+  trigger?: PaletteTrigger | null | undefined;
+  /** entity types searched at the root alongside commands (see usePaletteSubjects) */
+  subjects?: readonly string[] | undefined;
   onResult: (r: CommandResult) => void;
   onExecuted: (id: string) => void;
   onClose: () => void;
 }
+
+const NONE: readonly string[] = [];
 
 /** What to call a value in hand: its own label, its type's, or the type itself. */
 export const subjectLabel = (p: Piped) => p.label ?? p.type.label ?? describeType(p.type);
@@ -29,6 +51,7 @@ export function usePalette({
   roots,
   open,
   trigger,
+  subjects,
   onResult,
   onExecuted,
   onClose,
@@ -62,6 +85,14 @@ export function usePalette({
     drill,
     ancestorKey,
   } = usePaletteFrames({ kernel, ctx, roots, token });
+
+  const things = usePaletteSubjects({
+    kernel,
+    ctx,
+    query,
+    active: mode === "browse" && frames.length === 1,
+    types: subjects ?? NONE,
+  });
 
   const enterPipe = useCallback(
     (next: PipeSession) => {
@@ -202,13 +233,17 @@ export function usePalette({
   useEffect(() => {
     if (!trigger) return;
     const node = roots.find((n) => n.id === trigger.id);
-    if (node) activate(node, false);
+    if (!node) return;
+    // args the jump already knows (a deeplink's): ask only for the rest
+    if (trigger.values) beginExecute(node, { values: trigger.values });
+    else activate(node, false);
   }, [trigger?.nonce]);
 
   return {
     frames,
     frame,
-    ranked,
+    // commands first, then the things the query found
+    ranked: things.length > 0 ? [...ranked, ...things] : ranked,
     query,
     setQuery,
     selected,

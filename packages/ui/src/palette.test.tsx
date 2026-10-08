@@ -180,6 +180,95 @@ describe("usePalette - the arg collection flow", () => {
     expect(results.map((r) => r.message)).toEqual(["noted Hello/World"]);
     expect(executed).toEqual(["create.note"]);
   });
+
+  it("an INVALID arg goes back to that arg with the reason, never to a permission lock", async () => {
+    const mail: CommandNode = {
+      id: "send.reset",
+      title: "Send reset",
+      args: [{ id: "user", label: "user", kind: "email", required: true }],
+      run: async (a) => ({ kind: "toast", message: `sent ${a.user}` }),
+    };
+    const { view, results } = mountHook("admin", [mail]);
+    act(() => view.result.current.activate(mail, false));
+    await act(async () => {
+      view.result.current.commitArg("not-an-email");
+      await tick();
+    });
+    expect(view.result.current.mode).toBe("args");
+    expect(view.result.current.confirm).toBeNull();
+    expect(view.result.current.arg?.activeArg).toBe("user");
+    expect(view.result.current.arg?.error).toBeTruthy();
+    expect(view.result.current.arg?.values.user).toBeUndefined(); // cleared for re-entry
+
+    await act(async () => {
+      view.result.current.commitArg("jon@wall.north");
+      await tick();
+    });
+    expect(results.map((r) => r.message)).toEqual(["sent jon@wall.north"]);
+  });
+});
+
+describe("usePalette - things at the root, and jumps that bring args", () => {
+  const people = [
+    { id: "jon@wall.north", label: "Jon Snow" },
+    { id: "ada@analytical.engine", label: "Ada Lovelace" },
+  ];
+  const mail: CommandNode = {
+    id: "send.mail",
+    title: "Send email",
+    args: [
+      { id: "to", label: "to", kind: "entity", entity: { type: "person" }, required: true },
+      { id: "body", label: "body", kind: "text", required: true },
+    ],
+    run: async (a) => ({ kind: "toast", message: `mailed ${a.to}: ${a.body}` }),
+  };
+  function mount(trigger?: { id: string; nonce: number; values?: Record<string, string> }) {
+    const results: CommandResult[] = [];
+    const roots = [mail];
+    const kernel = createKernel({
+      roots,
+      entities: [
+        {
+          name: "person",
+          search: async (q) =>
+            people.filter((p) => p.label.toLowerCase().includes(q.toLowerCase())),
+          get: async (id) => people.find((p) => p.id === id) ?? null,
+        },
+      ],
+    });
+    const hooks = {
+      kernel,
+      ctx: ctx(),
+      roots,
+      open: true,
+      subjects: ["person"],
+      trigger,
+      onResult: (r: CommandResult) => results.push(r),
+      onExecuted: () => {},
+      onClose: () => {},
+    };
+    return { view: renderHook(() => usePalette(hooks)), results };
+  }
+
+  it("a query at the root also finds the things it names, as rows that pipe", async () => {
+    const { view } = mount();
+    await act(async () => {
+      view.result.current.setQuery("jon");
+      await tick();
+    });
+    const hit = view.result.current.ranked.find((r) => r.node.subject);
+    expect(hit?.node.title).toBe("Jon Snow");
+    act(() => view.result.current.activate(hit?.node as CommandNode, false));
+    expect(view.result.current.mode).toBe("pipe");
+    expect(view.result.current.pipe?.subject.value).toBe("jon@wall.north");
+  });
+
+  it("a jump that knows some args asks only for the rest", () => {
+    const { view } = mount({ id: "send.mail", nonce: 1, values: { to: "ada@analytical.engine" } });
+    expect(view.result.current.mode).toBe("args");
+    expect(view.result.current.arg?.values.to).toBe("ada@analytical.engine");
+    expect(view.result.current.arg?.activeArg).toBe("body");
+  });
 });
 
 describe("usePalette - the gate + evidence flow", () => {

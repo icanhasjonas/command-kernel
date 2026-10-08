@@ -10,6 +10,8 @@ export interface ArgSession {
   activeArg: string;
   /** the grant's binding context when the node was not reached by browsing (a pipe step) */
   priorKey?: string;
+  /** why the last value given for `activeArg` was refused; cleared by the next one */
+  error?: string;
 }
 
 /** A node waiting on the gate's verdict before it can run. */

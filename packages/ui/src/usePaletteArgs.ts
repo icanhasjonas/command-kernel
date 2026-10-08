@@ -83,7 +83,7 @@ export function usePaletteArgs({
   }, [mode, arg, argQuery, ctx, kernel, token]);
 
   const advanceOrRun = useCallback(
-    (session: ArgSession) => {
+    ({ error: _answered, ...session }: ArgSession) => {
       const remaining = missingArgs(session.node, session.values).filter(
         (id) => id !== session.activeArg,
       );
@@ -111,8 +111,9 @@ export function usePaletteArgs({
       if (!arg) return;
       const spec = arg.node.args?.find((a) => a.id === arg.activeArg);
       if (spec?.multiple) {
+        const { error: _answered, ...rest } = arg;
         const next = [...argList(arg.values[arg.activeArg]), value];
-        setArg({ ...arg, values: { ...arg.values, [arg.activeArg]: next } });
+        setArg({ ...rest, values: { ...arg.values, [arg.activeArg]: next } });
         setArgQuery("");
         setSelected(0);
         return;

@@ -87,6 +87,23 @@ export function usePaletteGate({
         setSelected(0);
         return;
       }
+      // the same for a value the schema refused: back to that arg, saying why, with
+      // the bad value cleared for a new one (the gate never even looked)
+      const bad = outcome.argErrors[0];
+      if (bad) {
+        const { [bad.argId]: _refused, ...kept } = values;
+        setMode("args");
+        setArg({
+          node,
+          values: kept,
+          activeArg: bad.argId,
+          error: bad.message,
+          ...keyed(opts.priorKey),
+        });
+        setArgQuery("");
+        setSelected(0);
+        return;
+      }
       if (!outcome.verdict.allowed || outcome.awaitingConfirm) {
         setMode("confirm");
         setConfirm({

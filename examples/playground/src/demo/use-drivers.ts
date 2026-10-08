@@ -28,24 +28,22 @@ export function usePageDrivers() {
     const run = async () => {
       const h = window.location.hash.replace(/^#\/?/, "");
       if (!h.startsWith("cmd/")) return;
-      const res = await drivers.deeplink.command(
-        { path: parseDeeplink(h), execute: true },
-        getCtx(),
-      );
+      const path = parseDeeplink(h);
+      const res = await drivers.deeplink.command({ path, execute: true }, getCtx());
       if (res.kind === "result") {
         ran(res.node.id);
         showResult(res.result);
-      } else if (res.kind === "gate")
-        say(`"${res.node.title}" is gated: a URL can carry args, never an approval`, "warn");
-      else if (res.kind === "args")
-        say(
-          `The link is missing ${[...res.missing, ...res.errors.map((e) => e.argId)].join(", ")}`,
-          "warn",
-        );
-      else if (res.kind === "completions") say("That link names no command", "warn");
+        return;
+      }
+      if (res.kind === "completions") return say("That link names no command", "warn");
+      // the link got as far as it could: the palette takes over on that command, with
+      // the args the link carried, asking for the rest or for a person's approval
+      if (res.kind === "gate" && !res.verdict.allowed)
+        return say(`"${res.node.title}" is not allowed for your role`, "warn");
+      openPalette(res.node.id, "deeplink", path[path.length - 1]?.args ?? {});
     };
     window.addEventListener("hashchange", run);
     void run();
     return () => window.removeEventListener("hashchange", run);
-  }, [getCtx, showResult, say, ran]);
+  }, [getCtx, showResult, say, ran, openPalette]);
 }
