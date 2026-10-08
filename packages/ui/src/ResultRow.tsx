@@ -11,6 +11,7 @@ export function ResultRow({
   active,
   modHeld,
   showWeight = false,
+  landsIn,
   onActivate,
   onHover,
 }: {
@@ -19,12 +20,16 @@ export function ResultRow({
   modHeld: boolean;
   /** authoring diagnostic - off by default; a consumer's users don't want it */
   showWeight?: boolean;
+  /** in pipe mode: where the value in hand lands ("as attachments") */
+  landsIn?: string;
   onActivate: (exec: boolean) => void;
   onHover: () => void;
 }) {
   const { node, positions } = item;
   const gated = isGated(node);
   const drillable = Boolean(node.resolve);
+  // a row that stands for a value: Tab pipes it into a command
+  const pipeable = Boolean(node.subject);
 
   return (
     <button
@@ -63,6 +68,16 @@ export function ResultRow({
       </span>
 
       <span className="flex shrink-0 items-center gap-2">
+        {landsIn && (
+          <span className="rounded-md border border-white/10 px-1.5 py-0.5 font-mono text-[11px] text-white/45">
+            {landsIn}
+          </span>
+        )}
+        {pipeable && !landsIn && (
+          <Kbd glow={active} className={cn(!active && "opacity-40")}>
+            ⇥
+          </Kbd>
+        )}
         {showWeight && typeof node.weight === "number" && node.weight > 0 && (
           <span className="font-mono text-[11px] tabular-nums text-white/25">{node.weight}</span>
         )}

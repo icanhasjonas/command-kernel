@@ -216,6 +216,22 @@ describe("kernel.actionsFor - incoming routing", () => {
     expect(forPerson.map((a) => a.node.id).sort()).toEqual(["crypto.encrypt", "email.send"]);
   });
 
+  it("with nothing typed, a command made for the value outranks one that can merely hold it", async () => {
+    const lookup: CommandNode = {
+      id: "lookup",
+      title: "Lookup",
+      weight: 99,
+      args: [{ id: "q", label: "q", kind: "string", positional: true }],
+      run: async () => ({ kind: "page", message: "" }),
+    };
+    const k = createKernel({ roots: [lookup, encrypt] });
+    const ids = async (q?: string) =>
+      (await k.actionsFor({ kind: "text" }, ctx, q)).map((a) => a.node.id);
+    expect(await ids()).toEqual(["crypto.encrypt", "lookup"]);
+    // once you type, what you typed decides
+    expect(await ids("look")).toEqual(["lookup"]);
+  });
+
   it("an action's path and priorKey are what command() walks and binds a grant to", async () => {
     const k = kernel();
     const [action] = await k.actionsFor(aFile("x").type, ctx, "load");

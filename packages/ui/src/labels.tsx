@@ -41,6 +41,14 @@ export interface PaletteLabels {
   /** no options yet and nothing typed */
   startTyping: string;
 
+  // ── pipes ─────────────────────────────────────────────────────────────────
+  /** search placeholder while a value is in hand */
+  pipeInto: (value: string) => string;
+  /** nothing in the tree takes the value in hand */
+  pipeNothing: (value: string) => string;
+  /** the arg a routed command will put the value in */
+  pipeLandsIn: (arg: string) => string;
+
   // ── the gate ──────────────────────────────────────────────────────────────
   /** headline when the gate said no */
   gateBlocked: string;
@@ -62,6 +70,7 @@ export interface PaletteLabels {
   hintConfirm: string;
   hintCancel: string;
   hintDrill: string;
+  hintPipe: string;
   hintRunAsPage: string;
   hintBack: string;
   /** receives the rendered mod key, so word order is yours */
@@ -89,6 +98,10 @@ export const defaultLabels: PaletteLabels = {
   ),
   startTyping: "start typing to search…",
 
+  pipeInto: (value) => `Pipe ${value} into…`,
+  pipeNothing: (value) => `no command takes ${value}`,
+  pipeLandsIn: (arg) => `as ${arg}`,
+
   gateBlocked: "You can't run this here",
   gateConfirm: "This command is gated - confirm to continue",
   check: (label) => `requires ${label}`,
@@ -101,6 +114,7 @@ export const defaultLabels: PaletteLabels = {
   hintConfirm: "confirm",
   hintCancel: "cancel",
   hintDrill: "drill in",
+  hintPipe: "pipe into…",
   hintRunAsPage: "run as page",
   hintBack: "back",
   chordHint: (modKey) => <>hold {modKey} for chords</>,

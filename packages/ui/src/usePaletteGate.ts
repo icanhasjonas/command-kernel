@@ -5,10 +5,11 @@ import type {
   Ctx,
   Grant,
   Kernel,
+  Piped,
 } from "@command-kernel/core";
-import { missingArgs, ruleForNode } from "@command-kernel/core";
+import { missingArgs, outputOf, ruleForNode } from "@command-kernel/core";
 import { useCallback, useState } from "react";
-import type { ArgSession, ConfirmSession, Mode } from "./palette-types.js";
+import type { ArgSession, ConfirmSession, Mode, RunStart } from "./palette-types.js";
 
 interface GateHookArgs {
   ctx: Ctx;
@@ -22,7 +23,18 @@ interface GateHookArgs {
   onResult: (r: CommandResult) => void;
   onExecuted: (id: string) => void;
   onClose: () => void;
+  /** a run produced a value the next command can take: carry on with it instead of closing */
+  onOutput: (value: Piped, from: CommandNode) => void;
 }
+
+/** What `proceedGate` needs besides the node and its args. */
+export interface Proceed {
+  grant?: Grant;
+  /** the grant's binding context; absent = the browse frames */
+  priorKey?: string;
+}
+
+const keyed = (priorKey?: string) => (priorKey !== undefined ? { priorKey } : {});
 
 /**
  * The gate + confirm flow: running a node through `kernel.executeNode`,
@@ -41,6 +53,7 @@ export function usePaletteGate({
   onResult,
   onExecuted,
   onClose,
+  onOutput,
 }: GateHookArgs) {
   const [confirm, setConfirm] = useState<ConfirmSession | null>(null);
 
@@ -48,34 +61,41 @@ export function usePaletteGate({
     (node: CommandNode, result: CommandResult | null) => {
       onExecuted(node.id);
       if (result) onResult(result);
+      // a command that hands something on keeps the palette open on what it made
+      const out = result && node.output ? outputOf(node, result) : null;
+      if (out && typeof out !== "string") {
+        setConfirm(null);
+        return onOutput(out, node);
+      }
       onClose();
     },
-    [onExecuted, onResult, onClose],
+    [onExecuted, onResult, onClose, onOutput],
   );
 
   const proceedGate = useCallback(
-    async (node: CommandNode, values: ArgValues, grant?: Grant) => {
+    async (node: CommandNode, values: ArgValues, opts: Proceed = {}) => {
       const outcome = await kernel.executeNode(node, values, ctx, {
-        ...(grant !== undefined && { grant }),
-        priorKey: ancestorKey(),
+        ...(opts.grant !== undefined && { grant: opts.grant }),
+        priorKey: opts.priorKey ?? ancestorKey(),
       });
       // the kernel refused on completeness, not permission - collect the args
       // instead of showing the human a lock they can do nothing about
       if (outcome.missing.length > 0) {
         setMode("args");
-        setArg({ node, values, activeArg: outcome.missing[0] as string });
+        setArg({ node, values, activeArg: outcome.missing[0] as string, ...keyed(opts.priorKey) });
         setArgQuery("");
         setSelected(0);
         return;
       }
-      if (!outcome.verdict.allowed) {
+      if (!outcome.verdict.allowed || outcome.awaitingConfirm) {
         setMode("confirm");
-        setConfirm({ node, values, verdict: outcome.verdict, blocked: true });
-        return;
-      }
-      if (outcome.awaitingConfirm) {
-        setMode("confirm");
-        setConfirm({ node, values, verdict: outcome.verdict, blocked: false });
+        setConfirm({
+          node,
+          values,
+          verdict: outcome.verdict,
+          blocked: !outcome.verdict.allowed,
+          ...keyed(opts.priorKey),
+        });
         return;
       }
       finish(node, outcome.result);
@@ -91,10 +111,10 @@ export function usePaletteGate({
     const grant = kernel.grantFor({
       node: confirm.node,
       args: confirm.values,
-      priorKey: ancestorKey(),
+      priorKey: confirm.priorKey ?? ancestorKey(),
       ...(principal !== undefined && { principal }),
     });
-    void proceedGate(confirm.node, confirm.values, grant);
+    void proceedGate(confirm.node, confirm.values, { grant, ...keyed(confirm.priorKey) });
   }, [confirm, ancestorKey, proceedGate, kernel, ctx]);
 
   // human clicked Always allow - record the standing rule, then run (no grant;
@@ -102,23 +122,23 @@ export function usePaletteGate({
   const confirmAlways = useCallback(() => {
     if (!confirm) return;
     kernel.policy.allow(ruleForNode(confirm.node, confirm.values));
-    void proceedGate(confirm.node, confirm.values);
+    void proceedGate(confirm.node, confirm.values, keyed(confirm.priorKey));
   }, [confirm, proceedGate, kernel]);
 
   const beginExecute = useCallback(
-    (node: CommandNode) => {
-      const values = node.prefill ? node.prefill(ctx) : {};
+    (node: CommandNode, start: RunStart = {}) => {
+      const values = { ...(node.prefill ? node.prefill(ctx) : {}), ...start.values };
       // ANY missing required arg is collected, positional included - the kernel
       // refuses to run without them, so skipping the prompt just dead-ends.
       const missing = missingArgs(node, values);
       if (missing.length > 0) {
         setMode("args");
-        setArg({ node, values, activeArg: missing[0] as string });
+        setArg({ node, values, activeArg: missing[0] as string, ...keyed(start.priorKey) });
         setArgQuery("");
         setSelected(0);
         return;
       }
-      void proceedGate(node, values);
+      void proceedGate(node, values, keyed(start.priorKey));
     },
     [ctx, proceedGate, setMode, setArg, setArgQuery, setSelected],
   );

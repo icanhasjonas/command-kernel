@@ -1,5 +1,6 @@
 import { argText, type CommandNode, type CommandResult } from "@command-kernel/core";
 import { searchUsers, type User } from "./data";
+import { personSubject } from "./entities";
 
 const toast = (message: string): Promise<CommandResult> =>
   Promise.resolve({ kind: "toast", message });
@@ -73,6 +74,7 @@ function userEntity(u: User): CommandNode {
     subtitle: `${u.email} · ${u.role} · ${u.status}`,
     icon: "User",
     keywords: [u.email, u.role, u.brand, u.status],
+    subject: personSubject(u),
     resolve: async () => userActions(u),
   };
 }

@@ -1,4 +1,6 @@
 import type { CommandNode } from "@command-kernel/core";
+import { encryptText } from "./crypto";
+import { filesCategory } from "./files";
 import { formsCategory } from "./forms";
 import { broadcastEmail, connectionsCategory, navCommands, sendEmail, toggleTheme } from "./misc";
 import { resendHere, submissionsCategory } from "./submissions";
@@ -15,7 +17,9 @@ export const ROOTS: CommandNode[] = [
   formsCategory,
   submissionsCategory,
   connectionsCategory,
+  filesCategory,
   sendEmail,
+  encryptText,
   broadcastEmail,
   resendHere,
   ...navCommands,

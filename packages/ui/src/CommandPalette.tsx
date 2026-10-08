@@ -9,7 +9,7 @@ import {
 } from "@command-kernel/core";
 import * as Dialog from "@radix-ui/react-dialog";
 import { AnimatePresence, motion } from "framer-motion";
-import { Loader2, Search, SearchX } from "lucide-react";
+import { Loader2, Search, SearchX, Workflow } from "lucide-react";
 import { type KeyboardEvent, useEffect, useRef, useState } from "react";
 import { ArgOptions } from "./ArgOptions.js";
 import { ConfirmPanel } from "./ConfirmPanel.js";
@@ -17,9 +17,11 @@ import { cn } from "./cn.js";
 import { Icon } from "./icon.js";
 import { Kbd } from "./Kbd.js";
 import { type PaletteLabelOverrides, resolveLabels } from "./labels.js";
+import { PaletteCrumbs } from "./PaletteCrumbs.js";
 import { Pill } from "./Pill.js";
+import { PipeList } from "./PipeList.js";
 import { ResultRow } from "./ResultRow.js";
-import { usePalette } from "./usePalette.js";
+import { subjectLabel, usePalette } from "./usePalette.js";
 
 interface Props {
   open: boolean;
@@ -82,15 +84,23 @@ export function CommandPalette({
   );
   const filledCount = namedArgs.filter((a) => isFilled(p.arg?.values[a.id])).length;
   const activeChips = activeSpec?.multiple ? argList(p.arg?.values[activeSpec.id]) : [];
+  // the value being piped, named, while the list shows what can take it
+  const inHand = p.mode === "pipe" && p.pipe ? subjectLabel(p.pipe.subject) : "";
 
   function onKeyDown(e: KeyboardEvent) {
+    const listLength =
+      p.mode === "args"
+        ? p.argOptions.length
+        : p.mode === "pipe"
+          ? p.pipeRows.length
+          : p.ranked.length;
     if (e.key === "ArrowDown") {
       e.preventDefault();
-      return p.move(1, p.mode === "args" ? p.argOptions.length : p.ranked.length);
+      return p.move(1, listLength);
     }
     if (e.key === "ArrowUp") {
       e.preventDefault();
-      return p.move(-1, p.mode === "args" ? p.argOptions.length : p.ranked.length);
+      return p.move(-1, listLength);
     }
     if (e.key === "Escape") {
       e.preventDefault();
@@ -114,11 +124,30 @@ export function CommandPalette({
       return;
     }
 
+    if (p.mode === "pipe") {
+      const row = p.pipeRows[p.selected];
+      if ((e.key === "Enter" || e.key === "Tab") && row) {
+        e.preventDefault();
+        p.pick(row.action);
+      }
+      if (e.key === "Backspace" && p.query === "") {
+        e.preventDefault();
+        p.back();
+      }
+      return;
+    }
+
     // browse
     const sel = p.ranked[p.selected];
     if (e.key === "Enter" && sel) {
       e.preventDefault();
       return p.activate(sel.node, e.metaKey || e.ctrlKey);
+    }
+    // Tab pipes a row that stands for a value; on any other row it does nothing,
+    // rather than walk focus out of the search box
+    if (e.key === "Tab") {
+      e.preventDefault();
+      if (sel?.node.subject) return p.startPipe(sel.node.subject);
     }
     if (e.key === "ArrowRight" && sel?.node.resolve) {
       e.preventDefault();
@@ -160,17 +189,13 @@ export function CommandPalette({
 
                 {/* breadcrumb + context */}
                 <div className="flex items-center justify-between border-white/5 border-b px-4 py-2 text-[12px]">
-                  <div className="flex items-center gap-1.5 text-white/45">
-                    {p.frames.map((f, i) => (
-                      <span key={f.node?.id ?? "root"} className="flex items-center gap-1.5">
-                        {i > 0 && <span className="text-white/20">▸</span>}
-                        <span className={i === p.frames.length - 1 ? "text-white/80" : ""}>
-                          {f.node?.title ?? text.root}
-                        </span>
-                      </span>
-                    ))}
-                  </div>
-                  <span className="flex items-center gap-2 font-mono text-white/40">
+                  <PaletteCrumbs
+                    items={[
+                      ...p.frames.map((f) => f.node?.title ?? text.root),
+                      ...(p.pipe?.trail ?? []),
+                    ]}
+                  />
+                  <span className="flex shrink-0 items-center gap-2 font-mono text-white/40">
                     <span className="text-ck-accent-soft/80">
                       {ctx.location.label ?? ctx.location.module}
                     </span>
@@ -242,7 +267,14 @@ export function CommandPalette({
                     </div>
                   ) : (
                     <div className="flex items-center gap-2.5">
-                      <Search size={17} className="shrink-0 text-white/40" />
+                      {inHand ? (
+                        <span className="inline-flex max-w-[14rem] shrink-0 items-center gap-1.5 rounded-pill border border-ck-success/40 bg-ck-success/10 px-2.5 py-1 font-mono text-[12px] text-ck-success">
+                          <Workflow size={13} className="shrink-0" />
+                          <span className="truncate">{inHand}</span>
+                        </span>
+                      ) : (
+                        <Search size={17} className="shrink-0 text-white/40" />
+                      )}
                       <input
                         ref={browseRef}
                         value={p.query}
@@ -251,7 +283,7 @@ export function CommandPalette({
                           p.setSelected(0);
                         }}
                         aria-label={text.searchLabel}
-                        placeholder={text.placeholder}
+                        placeholder={inHand ? text.pipeInto(inHand) : text.placeholder}
                         className="flex-1 bg-transparent text-[15px] text-white/90 outline-none placeholder:text-white/30"
                       />
                       {p.resolving && <Loader2 size={15} className="animate-spin text-white/40" />}
@@ -283,6 +315,17 @@ export function CommandPalette({
                       onPick={p.commitArg}
                       onHover={p.setSelected}
                     />
+                  ) : p.mode === "pipe" ? (
+                    <PipeList
+                      rows={p.pipeRows}
+                      loading={p.pipeLoading}
+                      selected={p.selected}
+                      modHeld={modHeld}
+                      emptyText={text.pipeNothing(inHand)}
+                      landsIn={text.pipeLandsIn}
+                      onPick={(row) => p.pick(row.action)}
+                      onHover={p.setSelected}
+                    />
                   ) : p.ranked.length === 0 ? (
                     <div className="flex flex-col items-center gap-2 px-3 py-10 text-white/35">
                       <SearchX size={22} />
@@ -307,8 +350,16 @@ export function CommandPalette({
 
                 {/* footer */}
                 <div className="flex items-center gap-3 border-white/5 border-t px-4 py-2 text-[11px] text-white/35">
-                  <Hint k="↵" label={p.mode === "browse" ? text.hintSelect : text.hintConfirm} />
+                  <Hint
+                    k="↵"
+                    label={
+                      p.mode === "browse" || p.mode === "pipe" ? text.hintSelect : text.hintConfirm
+                    }
+                  />
                   {p.mode === "browse" && <Hint k="→" label={text.hintDrill} />}
+                  {p.mode === "browse" && p.ranked[p.selected]?.node.subject && (
+                    <Hint k="⇥" label={text.hintPipe} />
+                  )}
                   {p.mode === "browse" && <Hint k="⌘↵" label={text.hintRunAsPage} />}
                   <Hint k="esc" label={text.hintBack} />
                   <span

@@ -2,6 +2,7 @@ import type { ArgOption, ArgValues, CommandNode, Ctx, Kernel } from "@command-ke
 import { argList, entityOption, missingArgs } from "@command-kernel/core";
 import { type RefObject, useCallback, useEffect, useState } from "react";
 import type { ArgSession, Mode } from "./palette-types.js";
+import type { Proceed } from "./usePaletteGate.js";
 
 interface ArgsHookArgs {
   ctx: Ctx;
@@ -16,7 +17,7 @@ interface ArgsHookArgs {
   /** shared with `usePaletteFrames`: one "latest request wins" counter across both */
   token: RefObject<number>;
   /** run once every required arg is collected */
-  proceedGate: (node: CommandNode, values: ArgValues) => Promise<void>;
+  proceedGate: (node: CommandNode, values: ArgValues, opts?: Proceed) => Promise<void>;
 }
 
 /**
@@ -94,7 +95,11 @@ export function usePaletteArgs({
       }
       setMode("browse");
       setArg(null);
-      void proceedGate(session.node, session.values);
+      void proceedGate(
+        session.node,
+        session.values,
+        session.priorKey !== undefined ? { priorKey: session.priorKey } : {},
+      );
     },
     [proceedGate, setMode, setSelected, setArg, setArgQuery],
   );

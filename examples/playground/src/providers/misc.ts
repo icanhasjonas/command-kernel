@@ -78,13 +78,14 @@ export const navCommands: CommandNode[] = [
 export const sendEmail: CommandNode = {
   id: "email.send",
   title: "Send email",
-  subtitle: "compose to anyone · 3 named args",
+  subtitle: "compose to anyone · pipe in a person, a file, or text",
   summary:
-    "Compose and send an email to anyone. Three named args: `to` (recipient, async lookup), `subject` (closed enum), `body` (free text). Sends a real email when run.",
+    "Compose an email. `to` (a person, or any address), `subject` (closed enum), `body` (free text), `attachments` (files). Pipe a person in as `to`, a file in as an attachment, or text in as the `body`. Queues the email (demo: nothing leaves the browser).",
   category: "Actions",
   icon: "Mail",
   weight: 48,
   chord: "e",
+  input: "body",
   args: [
     {
       id: "to",
@@ -109,8 +110,20 @@ export const sendEmail: CommandNode = {
       ],
     },
     { id: "body", label: "body", kind: "text", required: true, placeholder: "Write a message…" },
+    {
+      id: "attachments",
+      label: "attachments",
+      kind: "entity",
+      multiple: true,
+      placeholder: "attach a file…",
+      entity: { type: "file" },
+    },
   ],
-  run: async (a) => toast(`Email “${a.subject}” queued to ${a.to}`),
+  run: async (a) => {
+    const files = argList(a.attachments);
+    const attached = files.length > 0 ? ` with ${files.join(", ")}` : "";
+    return toast(`Email “${a.subject}” queued to ${a.to}${attached}`);
+  },
 };
 
 /** listOf<person> showcase — multi-select recipients (Quicksilver comma-select). */

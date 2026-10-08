@@ -2,8 +2,9 @@ import type { ArgSpec, ValueType } from "./args.js";
 import { enumerateMode } from "./describe.js";
 import { type Hop, hopArgs, hopsKey } from "./hops-key.js";
 import { resolveChildren } from "./kernel.js";
-import { acceptingArg } from "./pipe.js";
-import type { CommandNode, Ctx, PathSegment } from "./types.js";
+import { acceptingArg, fitsExactly } from "./pipe.js";
+import type { Ranker } from "./rank.js";
+import type { CommandNode, Ctx, PathSegment, Ranked } from "./types.js";
 
 /**
  * Incoming routing: given a value, which commands could take it? "I have a person -
@@ -19,6 +20,8 @@ export interface PipeAction {
   priorKey: string;
   /** the arg the value lands in */
   arg: ArgSpec;
+  /** the arg was made for this value (see `fitsExactly`), not just able to hold it */
+  exact: boolean;
 }
 
 export interface ActionsForOptions {
@@ -51,7 +54,8 @@ export async function actionsFor(
       const arg = node.run ? acceptingArg(node, type) : null;
       if (arg) {
         const path = [...hops.map((h) => ({ id: h.node.id })), { id: node.id }];
-        out.push({ node, path, priorKey: hopsKey(hops), arg });
+        const exact = fitsExactly(node, arg, type);
+        out.push({ node, path, priorKey: hopsKey(hops), arg, exact });
       }
       if (hops.length >= maxDepth || enumerateMode(node) !== "free") continue;
       const args = hopArgs(node, undefined, ctx);
@@ -62,4 +66,28 @@ export async function actionsFor(
 
   await visit(roots, []);
   return out;
+}
+
+/** A routed action as a ranked row (score + highlight offsets), for any list UI. */
+export type RankedAction = Ranked & { action: PipeAction };
+
+/**
+ * Rank routed actions by what was typed. With nothing typed, the actions made for
+ * this value (`exact`) come first: text you just loaded is more likely headed for
+ * an "Encrypt" than for a search box that can technically hold it.
+ */
+export function rankActions(
+  actions: PipeAction[],
+  query: string,
+  ctx: Ctx,
+  ranker: Ranker,
+): RankedAction[] {
+  const byNode = new Map<CommandNode, PipeAction>();
+  for (const a of actions) if (!byNode.has(a.node)) byNode.set(a.node, a);
+  const ranked = ranker([...byNode.keys()], query, ctx).flatMap((r) => {
+    const action = byNode.get(r.node);
+    return action ? [{ ...r, action }] : [];
+  });
+  if (query.trim()) return ranked;
+  return [...ranked.filter((r) => r.action.exact), ...ranked.filter((r) => !r.action.exact)];
 }

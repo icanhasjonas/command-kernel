@@ -48,6 +48,15 @@ export function acceptingArg(node: CommandNode, type: ValueType): ArgSpec | null
   return fits.find((a) => a.positional) ?? null;
 }
 
+/**
+ * A fit that is no stretch: the node named this arg as its input, or the arg is of
+ * the value's own kind (text into `text`, not text into a `string` search query).
+ * Routing lists these first.
+ */
+export function fitsExactly(node: CommandNode, arg: ArgSpec, type: ValueType): boolean {
+  return node.input === arg.id || arg.kind === type.kind;
+}
+
 /** "a person", "text", "a list of file" - for messages. */
 export function describeType(type: ValueType): string {
   const name = type.entity ? `a ${type.entity.type}` : type.kind === "json" ? "JSON" : type.kind;

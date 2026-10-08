@@ -14,7 +14,7 @@ import {
 import { type ShortcutConflict, validateShortcuts } from "./keyboard.js";
 import { collectChords, collectShortcuts, shortcutNodes } from "./node-lookups.js";
 import { observe } from "./observe.js";
-import { actionsFor, type PipeAction } from "./pipe-routes.js";
+import { actionsFor, type PipeAction, rankActions } from "./pipe-routes.js";
 import { type PipeRequest, type PipeResponse, runPipe } from "./pipe-run.js";
 import { createMemoryPolicyStore, type PolicyStore } from "./policy.js";
 import { type Ranker, rank } from "./rank.js";
@@ -187,12 +187,8 @@ export function createKernel(config: KernelConfig = {}): Kernel {
 
   return {
     command: run,
-    actionsFor: async (type, ctx, query = "") => {
-      const actions = await actionsFor(roots(ctx), type, ctx);
-      const byNode = new Map<CommandNode, PipeAction>();
-      for (const a of actions) if (!byNode.has(a.node)) byNode.set(a.node, a);
-      return ranker([...byNode.keys()], query, ctx).flatMap((r) => byNode.get(r.node) ?? []);
-    },
+    actionsFor: async (type, ctx, query = "") =>
+      rankActions(await actionsFor(roots(ctx), type, ctx), query, ctx, ranker).map((r) => r.action),
     pipe: (req, ctx) => runPipe((r) => run(r, ctx), req),
     search: (nodes, query, ctx) => searchNodes(nodes, query, ctx, ranker),
     resolveChildren,

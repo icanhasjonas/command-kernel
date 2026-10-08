@@ -131,8 +131,21 @@ export {
 // chord / shortcut / frecency lookups a driver builds over a node list
 export { bumpFrecency, collectChords, collectShortcuts, shortcutNodes } from "./node-lookups.js";
 // pipes - one command's output is the next one's input (routing + a type check)
-export { acceptingArg, accepts, bindInput, describeType, outputOf } from "./pipe.js";
-export { type ActionsForOptions, actionsFor, type PipeAction } from "./pipe-routes.js";
+export {
+  acceptingArg,
+  accepts,
+  bindInput,
+  describeType,
+  fitsExactly,
+  outputOf,
+} from "./pipe.js";
+export {
+  type ActionsForOptions,
+  actionsFor,
+  type PipeAction,
+  type RankedAction,
+  rankActions,
+} from "./pipe-routes.js";
 export { type PipeRequest, type PipeResponse, type PipeStep, runPipe } from "./pipe-run.js";
 // SEAM 4 - policy (session-scoped always-allow); ruleForNode/allowLabel are pure helpers
 export {

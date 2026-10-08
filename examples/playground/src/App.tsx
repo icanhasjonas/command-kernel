@@ -14,6 +14,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AgentPanel } from "./AgentPanel";
 import { InvokerPanel } from "./InvokerPanel";
 import { personEntity } from "./providers/entities";
+import { fileEntity } from "./providers/files";
 import { ROOTS } from "./providers/registry";
 
 const PLACES = [
@@ -60,6 +61,11 @@ const FEATURES = [
     body: "Switch where you are — the menu re-ranks and pre-binds args to the record you're on.",
   },
   {
+    icon: "Workflow",
+    title: "Pipes",
+    body: "Open Files, pick one, press Tab: Load as text → Encrypt for… → Send email. Typed end to end.",
+  },
+  {
     icon: "Bot",
     title: "Same kernel, agent",
     body: "Open the agent. It picks a command, fills args, hits the identical gate. One core.",
@@ -75,7 +81,10 @@ interface Toast {
 export default function App() {
   // ONE kernel instance shared by every driver — same gate, same evidence, same
   // policy for the human palette and the AI agent. That sharing IS the invariant.
-  const kernel = useMemo(() => createKernel({ roots: ROOTS, entities: [personEntity] }), []);
+  const kernel = useMemo(
+    () => createKernel({ roots: ROOTS, entities: [personEntity, fileEntity] }),
+    [],
+  );
   const [open, setOpen] = useState(false);
   const [agentOpen, setAgentOpen] = useState(false);
   const [trigger, setTrigger] = useState<{ id: string; nonce: number } | null>(null);
