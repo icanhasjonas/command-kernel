@@ -39,6 +39,22 @@ const kernel = createKernel({ roots });
   grant via `kernel.evidence` and re-issues the identical call. Flip the ctx role
   to `viewer` and gated commands lock.
 
+### Icons: register the ones your commands name
+
+Commands carry icons as data (`icon: "Mail"`). The palette draws only icons you
+register, so your bundle holds the icons you use, not all of lucide (that was
+~190 kB gzipped). Register once, at startup:
+
+```ts
+import { registerIcons } from "@command-kernel/ui";
+import { Mail, Users } from "lucide-react";
+
+registerIcons({ Mail, Users });
+```
+
+A name nobody registered draws a plain circle. `iconFor(name)` answers `undefined`
+for it, so a test can check that every name your command tree uses is registered.
+
 ## Copy is yours (`labels`)
 
 The package names no app, no nouns, and no language. Defaults are neutral
@@ -100,7 +116,8 @@ Importing this package also augments React's `ButtonHTMLAttributes` with
 
 `CommandPalette` + `CommandLauncher` (the palette driver), `bindInvokers` /
 `KernelInvoker` / `commandAttr` / `parseInvoker` (the DOM-invoker driver),
-`Kbd` (a keycap), `cn` (clsx + tailwind-merge), and `Icon` (a lucide wrapper).
+`Kbd` (a keycap), `cn` (clsx + tailwind-merge), and `Icon` / `registerIcons` /
+`iconFor` (icons by registered name).
 The palette logic lives in the `usePalette` hook if you want to build a
 differently-styled shell over the same behaviour.
 

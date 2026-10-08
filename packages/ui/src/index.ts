@@ -13,7 +13,7 @@ import "./dom-command.js";
 export { CommandLauncher } from "./CommandLauncher.js";
 export { CommandPalette } from "./CommandPalette.js";
 export { cn } from "./cn.js";
-export { Icon } from "./icon.js";
+export { Icon, iconFor, registerIcons } from "./icon.js";
 // DRIVER #5 - the native DOM invoker (`<button command>` / `commandfor`)
 export {
   type BindInvokersOptions,
