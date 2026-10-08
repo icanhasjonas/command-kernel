@@ -86,7 +86,7 @@ export function ConfirmPanel({
         )}
       </div>
 
-      {/* narrow screens stack the two choices full width; the key hints are keyboard-only */}
+      {/* narrow screens stack the two choices full width */}
       <div className="mt-4 flex flex-wrap items-center gap-2 sm:gap-3">
         {blocked ? (
           <div className="flex items-center gap-2 text-[12px] text-white/40">
@@ -108,9 +108,7 @@ export function ConfirmPanel({
             >
               {alwaysLabel}
             </button>
-            <span className="flex items-center gap-1.5 text-[12px] text-white/40 max-sm:hidden pointer-coarse:hidden">
-              <Kbd glow>↵</Kbd> {labels.hintConfirm} <Kbd>esc</Kbd> {labels.hintCancel}
-            </span>
+            {/* the keys (↵ confirm, esc cancel) are in the footer, said once */}
           </>
         )}
       </div>

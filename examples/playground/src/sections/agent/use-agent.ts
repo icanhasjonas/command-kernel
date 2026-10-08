@@ -5,6 +5,7 @@ import { useRef, useState } from "react";
 import { AGENT_TOOLS } from "../../agent-tools";
 import { useDemo } from "../../demo/demo-context";
 import { drivers } from "../../demo/kernel";
+import { traceStore } from "../../trace/trace-store";
 import type { Call, CallStatus } from "./CallCard";
 import { fillFromNames, verbItCannotDo } from "./understand";
 
@@ -42,12 +43,12 @@ export function useAgent() {
       ctx,
     );
 
-  const settle = (node: CommandNode, res: CommandResponse): boolean => {
-    if (res.kind !== "result") return false;
+  /** A run's answer, or null: it is shown on the call's own card, never as a loose line. */
+  const settle = (node: CommandNode, res: CommandResponse): string | null => {
+    if (res.kind !== "result") return null;
     ran(node.id);
     showResult(res.result);
-    say("agent", res.result.message);
-    return true;
+    return res.result.message;
   };
 
   async function ask(goal: string) {
@@ -78,8 +79,13 @@ export function useAgent() {
       const need = [...res.missing, ...res.errors.map((e) => e.message)].join(", ");
       return say("agent", `I still need: ${need}`);
     }
-    addCall({ node: pick.node, values: pick.values, status: "done" });
-    settle(pick.node, res);
+    const result = settle(pick.node, res);
+    addCall({
+      node: pick.node,
+      values: pick.values,
+      status: "done",
+      ...(result !== null && { result }),
+    });
   }
 
   async function resolve(c: Call, how: "once" | "always" | "forge") {
@@ -92,7 +98,8 @@ export function useAgent() {
           ? { nonce: "made-up", sig: "deadbeefdeadbeef" }
           : undefined;
     const res = await call(c.node, c.values, evidence);
-    if (settle(c.node, res)) return mark(c.id, "done");
+    const result = settle(c.node, res);
+    if (result !== null) return mark(c.id, "done", { result });
     if (how === "forge") mark(c.id, "owed", { forged: true });
     say(
       "agent",
@@ -108,6 +115,19 @@ export function useAgent() {
     allow: (c: Call) => resolve(c, "once"),
     always: (c: Call) => resolve(c, "always"),
     forge: (c: Call) => resolve(c, "forge"),
-    deny: (c: Call) => mark(c.id, "denied"),
+    deny: (c: Call) => {
+      mark(c.id, "denied");
+      // the trace still shows this call owed: say how it ended, so it does not hang there
+      traceStore.record({
+        driver: "agent",
+        command: c.node.id,
+        title: c.node.title,
+        args: c.values,
+        outcome: "denied",
+        checks: [],
+        problems: [],
+        grant: "none",
+      });
+    },
   };
 }

@@ -53,7 +53,8 @@ describe("labCall: every wire call is accounted for", () => {
     });
     expect(logged[0]).toMatchObject({
       answer: "owed",
-      detail: "the signature no longer matches, so the server owes the approval again",
+      detail:
+        "the server still owes the approval (409). This attempt: the signature no longer matches",
     });
     expect(traceStore.snapshot()[0]).toMatchObject({ outcome: "owed", grant: "refused" });
   });

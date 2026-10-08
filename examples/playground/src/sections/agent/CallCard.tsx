@@ -15,6 +15,8 @@ export interface Call {
   gate?: Extract<CommandResponse, { kind: "gate" }>;
   /** the agent tried a made-up grant, and the kernel refused it */
   forged?: boolean;
+  /** what the run said, kept on the call that made it */
+  result?: string;
 }
 
 /** One tool call the agent made, and, when the gate wants a human, the operator's choices. */
@@ -96,11 +98,14 @@ export function CallCard({
           </div>
         )}
         {status === "done" && (
-          <div className="flex items-center gap-1.5 text-[12px] text-teal-soft">
-            <Check size={13} /> Ran
+          <div className="flex items-start gap-1.5 text-[12px] text-teal-soft">
+            <Check size={13} className="mt-0.5 shrink-0" /> Ran
+            {call.result && <span className="text-white/70">· {call.result}</span>}
           </div>
         )}
-        {status === "denied" && <div className="text-[12px] text-white/45">Denied by you</div>}
+        {status === "denied" && (
+          <div className="text-[12px] text-white/45">Denied by you: nothing ran</div>
+        )}
       </div>
     </div>
   );

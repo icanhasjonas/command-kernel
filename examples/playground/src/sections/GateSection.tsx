@@ -59,10 +59,11 @@ export function GateSection() {
           <div className="mt-6 border-white/8 border-t pt-4">
             <div className="text-[13px] text-white/70">Try to break it</div>
             <div className="mt-3 flex flex-wrap gap-2">
+              {/* these try a LIVE grant: a spent or void one would fail for that reason instead */}
               <button
                 type="button"
                 className={btn}
-                disabled={!lab.grant}
+                disabled={!lab.grant || lab.life !== "live"}
                 onClick={() => void lab.otherArgs()}
               >
                 Reuse it for another user
@@ -70,7 +71,7 @@ export function GateSection() {
               <button
                 type="button"
                 className={btn}
-                disabled={!lab.grant}
+                disabled={!lab.grant || lab.life !== "live"}
                 onClick={() => void lab.forged()}
               >
                 Change one hex digit

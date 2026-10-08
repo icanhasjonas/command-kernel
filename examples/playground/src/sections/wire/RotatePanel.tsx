@@ -73,10 +73,11 @@ export function RotatePanel({ lab, server }: { lab: Lab; server: LabStatus | nul
         >
           Use it twice
         </button>
+        {/* these two try a LIVE grant: once it is spent, "already used" would hide their reason */}
         <button
           type="button"
           className={btn}
-          disabled={!lab.grant}
+          disabled={!lab.grant || lab.used}
           onClick={() => void lab.otherKey()}
         >
           Use it for the other key
@@ -84,7 +85,7 @@ export function RotatePanel({ lab, server }: { lab: Lab; server: LabStatus | nul
         <button
           type="button"
           className={btn}
-          disabled={!lab.grant}
+          disabled={!lab.grant || lab.used}
           onClick={() => void lab.forge()}
         >
           Tamper with the signature
@@ -93,7 +94,8 @@ export function RotatePanel({ lab, server }: { lab: Lab; server: LabStatus | nul
       {lab.grant && (
         <div
           className={cn(
-            "mt-3 break-all font-mono text-[11px]",
+            // the hex may break anywhere; the words after it break between words
+            "mt-3 font-mono text-[11px] [overflow-wrap:anywhere]",
             lab.used ? "text-white/40" : "text-amber-soft/80",
           )}
         >

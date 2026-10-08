@@ -74,6 +74,13 @@ export function ResultRow({
             <Highlight text={node.title} positions={positions} />
           </span>
           {gated && <Lock size={12} className="shrink-0 text-ck-danger/90" />}
+          {/* who the gate declares it for, said before any arg is asked: the node's own
+              data, not a verdict (the kernel still decides, after the args) */}
+          {node.gate?.roles && node.gate.roles.length > 0 && (
+            <span className="shrink-0 font-mono text-[11px] text-white/40">
+              {node.gate.roles.join(" / ")}
+            </span>
+          )}
         </span>
         {node.subtitle && (
           <span className="mt-0.5 block truncate text-[12px] text-white/40">{node.subtitle}</span>

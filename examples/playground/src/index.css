@@ -49,10 +49,11 @@
   * {
     box-sizing: border-box;
   }
+  /* a floor, never a ceiling: the sticky header sticks only inside #root (page-shell.test) */
   html,
   body,
   #root {
-    height: 100%;
+    min-height: 100%;
     margin: 0;
   }
   body {

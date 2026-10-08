@@ -66,7 +66,7 @@ export function GrantCard({
         <dt className="text-white/45">sig</dt>
         <dd
           className={cn(
-            "break-all",
+            "[overflow-wrap:anywhere]",
             live ? "text-amber-soft/90" : grant ? "text-white/40 line-through" : "text-white/35",
           )}
         >

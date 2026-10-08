@@ -17,8 +17,12 @@ const SAYS: Record<ConnectionStatus, string> = {
   connecting: "connecting",
   reconnecting: "reconnecting",
   idle: "not connected",
-  closed: "socket closed, calls go over HTTP",
+  closed: "socket closed: no pushes, state re-read over HTTP every 5 s",
 };
+
+/** In HTTP-only mode the socket stays up for what the server pushes; calls skip it. */
+const says = (status: ConnectionStatus, via: Via) =>
+  status === "open" && via === "http" ? "socket open for pushes, calls over HTTP" : SAYS[status];
 
 /**
  * Where the wire stands: the socket's state as the client reports it, what the SERVER
@@ -38,7 +42,7 @@ export function ConnectionBar(p: {
     <div className="flex flex-wrap items-center gap-x-5 gap-y-3 border-white/8 border-b px-5 py-3.5 text-[13px]">
       <span className="flex items-center gap-2" aria-live="polite">
         <span className={cn("size-2 rounded-full", DOT[p.status])} />
-        <span className="text-white/85">{SAYS[p.status]}</span>
+        <span className="text-white/85">{says(p.status, p.via)}</span>
       </span>
       {p.server && (
         <span className="font-mono text-[12px] text-white/55">

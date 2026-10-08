@@ -1,8 +1,9 @@
 import type { PaletteLabelOverrides } from "@command-kernel/ui";
 import { CommandPalette } from "@command-kernel/ui";
+import { useMemo } from "react";
 import { ChordHint } from "./ChordHint";
 import { DemoProvider, useDemo } from "./demo/demo-context";
-import { drivers } from "./demo/kernel";
+import { drivers, viaLink } from "./demo/kernel";
 import { usePageDrivers } from "./demo/use-drivers";
 import { ROOTS } from "./providers/registry";
 import { AgentSection } from "./sections/AgentSection";
@@ -32,11 +33,17 @@ const SUBJECTS = ["person", "file"] as const;
 function Page() {
   const { chordArmed } = usePageDrivers();
   const { ctx, palette, closePalette, showResult, ran } = useDemo();
+  // a link the palette took over is still a link: the gate asks before it writes
+  const paletteCtx = useMemo(
+    () => (palette.via === "deeplink" ? viaLink(ctx) : ctx),
+    [palette.via, ctx],
+  );
   return (
     <>
       <Header />
       <div className="mx-auto grid max-w-[1320px] gap-10 px-6 lg:grid-cols-[minmax(0,1fr)_360px]">
-        <main className="min-w-0">
+        {/* below lg the trace pill floats bottom-right: the page ends above it */}
+        <main className="min-w-0 pb-24 lg:pb-0">
           <Hero />
           <DriversSection />
           <AgentSection />
@@ -57,7 +64,7 @@ function Page() {
       <CommandPalette
         open={palette.open}
         kernel={drivers[palette.via]}
-        ctx={ctx}
+        ctx={paletteCtx}
         roots={ROOTS}
         trigger={palette.trigger}
         subjects={SUBJECTS}

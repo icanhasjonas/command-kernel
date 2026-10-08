@@ -18,6 +18,7 @@ function stages(o: Outcome): [string, Mark][] {
     ran: ["ok", "ok", "ok", "ok"],
     unreached: ["off", "off", "off", "off"],
     mistyped: ["ok", "fail", "off", "off"],
+    denied: ["ok", "ok", "fail", "off"],
   };
   const names = ["resolve", "args", "gate", "run"];
   return names.map((n, i) => [n, reached[o][i] ?? "off"]);
@@ -39,6 +40,7 @@ const VERDICT: Record<Outcome, string> = {
   ran: "ran",
   unreached: "never reached a kernel",
   mistyped: "wrong type of input",
+  denied: "denied by you, nothing ran",
 };
 
 /** A failed role check names what the command REQUIRES, never what the caller is. */

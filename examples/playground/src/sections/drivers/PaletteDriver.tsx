@@ -24,7 +24,7 @@ export function PaletteDriver() {
       <DriverHead
         driver="palette"
         title="Palette and chords"
-        how="Search commands or people, drill into a category, fill named args as pills. A chord, ⌘J then a key, opens the palette straight on its command."
+        how="Search commands or people, drill into a category, fill named args as pills. A chord, ⌘J then a key, runs its command at once, or opens the palette on it when it still needs args or your approval."
       />
       <div className="mt-4 flex flex-wrap gap-2">
         <button

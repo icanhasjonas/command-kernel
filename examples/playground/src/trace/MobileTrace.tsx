@@ -15,6 +15,7 @@ const OUTCOME_TONE: Record<Outcome, string> = {
   unresolved: "text-red-300",
   unreached: "text-red-300",
   mistyped: "text-red-300",
+  denied: "text-white/55",
 };
 
 /**
@@ -49,7 +50,8 @@ export function MobileTrace() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="fixed right-4 bottom-4 left-4 z-40 flex items-center gap-2 rounded-full border border-white/15 bg-[#12141c] px-4 py-2.5 text-[13px] text-white shadow-float sm:left-auto"
+        // a corner pill, not a bar: it must not sit on the inputs it scrolls past
+        className="fixed right-4 bottom-4 z-40 flex max-w-[min(320px,calc(100vw-2rem))] items-center gap-2 rounded-full border border-white/15 bg-[#12141c] px-4 py-2.5 text-[13px] text-white shadow-float"
       >
         {live ? (
           <>
@@ -94,13 +96,15 @@ export function MobileTrace() {
               transition={{ type: "spring", stiffness: 380, damping: 38 }}
               className="fixed inset-x-0 bottom-0 z-50 flex h-[70vh] flex-col rounded-t-2xl border-white/10 border-t bg-[#0a0b10] px-3 pt-2 pb-3"
             >
-              <div className="flex items-center justify-between px-1 pb-2">
+              {/* handle centred, close at the end, both inside the sheet's own top edge */}
+              <div className="grid grid-cols-[32px_1fr_32px] items-center px-1 pb-1">
+                <span />
                 <span className="mx-auto h-1 w-10 rounded-full bg-white/20" />
                 <button
                   type="button"
                   aria-label="Close the trace"
                   onClick={() => setOpen(false)}
-                  className="absolute top-2 right-3 rounded-full p-2 text-white/60 hover:text-white"
+                  className="flex size-8 items-center justify-center rounded-full text-white/60 hover:bg-white/5 hover:text-white"
                 >
                   <X size={16} />
                 </button>

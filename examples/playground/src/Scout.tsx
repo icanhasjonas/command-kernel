@@ -141,7 +141,8 @@ function ScoutRow({
           <div className="mt-1.5 flex flex-wrap gap-1.5">
             {d.navigable && (
               <Badge tone={d.enumerate === "free" ? "ok" : "warn"}>
-                {d.enumerate === "free" ? "scout-free" : "needs query"}
+                {/* can an agent list what is inside without searching first? */}
+                {d.enumerate === "free" ? "lists its children free" : "list needs a query"}
               </Badge>
             )}
             {d.executable && (

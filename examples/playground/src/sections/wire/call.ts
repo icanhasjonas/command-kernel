@@ -49,8 +49,9 @@ export function refusal(e: unknown, grantWhy?: string): Omit<Attempt, "label"> {
   return {
     answer: asAttempt[outcome] ?? "unreached",
     detail:
+      // the server says only "owed"; what this attempt changed is the lab's to say
       outcome === "owed" && grantWhy
-        ? `${grantWhy}, so the server owes the approval again`
+        ? `the server still owes the approval (${error.status}). This attempt: ${grantWhy}`
         : failed
           ? `the server's gate refused: ${needs(failed.label)} (${error.status})`
           : error.status

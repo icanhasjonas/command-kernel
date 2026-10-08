@@ -71,6 +71,20 @@ export function useLab() {
     },
     [via, log],
   );
+  // off the socket nothing is pushed: re-read the shared state over HTTP so the flags
+  // another visitor flips still show up here, a few seconds late instead of never
+  useEffect(() => {
+    const c = client.current;
+    if (status !== "closed" || !c) return;
+    const read = async () => {
+      const r = await labCall(c, labStatus, {}, { via: "http", label: "status", log, quiet: true });
+      if (r.ok) setServer(r.data);
+    };
+    const t = setInterval(read, 5000);
+    void read();
+    return () => clearInterval(t);
+  }, [status, log]);
+
   // the connection outlives a change of transport: it reads the latest refresh, not its own
   const refreshNow = useRef(refresh);
   refreshNow.current = refresh;

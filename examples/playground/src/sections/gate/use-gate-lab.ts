@@ -59,7 +59,10 @@ export function useGateLab() {
         log({
           label,
           answer: "owed",
-          detail: evidence ? `${why}, so the approval is owed again` : "approval owed",
+          // the kernel says only "owed"; what this attempt changed is the lab's to say
+          detail: evidence
+            ? `the kernel still owes the approval. This attempt: ${why}`
+            : "approval owed",
         });
       return res;
     } else log({ label, answer: "args", detail: res.kind });

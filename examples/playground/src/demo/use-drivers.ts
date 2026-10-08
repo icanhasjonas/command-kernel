@@ -1,7 +1,7 @@
 import { createKeyboard, parseDeeplink } from "@command-kernel/core";
 import { useEffect, useState } from "react";
 import { useDemo } from "./demo-context";
-import { drivers, kernel } from "./kernel";
+import { drivers, kernel, viaLink } from "./kernel";
 
 /** The chord leader: press it, then a command's `chord` key. */
 export const CHORD_LEADER = "mod+j";
@@ -43,7 +43,7 @@ export function usePageDrivers(): { chordArmed: boolean } {
       // a link is a one-shot call: drop it from the URL so the same link fires again
       window.history.replaceState(null, "", window.location.pathname + window.location.search);
       // an approval the link hands to the palette is logged once, by the palette's call
-      const res = await drivers.deeplink.command({ path, execute: true }, getCtx());
+      const res = await drivers.deeplink.command({ path, execute: true }, viaLink(getCtx()));
       if (res.kind === "result") {
         ran(res.node.id);
         showResult(res.result);

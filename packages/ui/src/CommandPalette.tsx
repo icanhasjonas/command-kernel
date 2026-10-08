@@ -189,7 +189,7 @@ export function CommandPalette({
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm"
+                className="fixed inset-0 z-50 bg-black/60"
               />
             </Dialog.Overlay>
             <Dialog.Content
@@ -203,7 +203,7 @@ export function CommandPalette({
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: -8, scale: 0.98 }}
                 transition={{ type: "spring", stiffness: 420, damping: 32 }}
-                className="-translate-x-1/2 fixed top-[14vh] left-1/2 z-50 w-[min(640px,92vw)] overflow-hidden rounded-2xl border border-white/10 bg-ck-glass shadow-ck-float backdrop-blur-2xl"
+                className="-translate-x-1/2 fixed top-[14vh] left-1/2 z-50 w-[min(640px,92vw)] overflow-hidden rounded-2xl border border-white/10 bg-ck-glass shadow-ck-float backdrop-blur-xl"
               >
                 <Dialog.Title className="sr-only">Command palette</Dialog.Title>
 
@@ -400,14 +400,21 @@ export function CommandPalette({
 
                 {/* footer: key hints, so none on a touch screen */}
                 <div className="flex items-center gap-3 border-white/5 border-t px-4 py-2 text-[11px] text-white/35 max-sm:hidden pointer-coarse:hidden">
-                  <Hint
-                    k="↵"
-                    label={
-                      p.mode === "browse" || p.mode === "pipe" ? text.hintSelect : text.hintConfirm
-                    }
-                  />
+                  {/* a hint names a key that does something here, or it is not shown */}
+                  {!(p.mode === "confirm" && p.confirm?.blocked) && (
+                    <Hint
+                      k="↵"
+                      label={
+                        p.mode === "browse" || p.mode === "pipe"
+                          ? text.hintSelect
+                          : text.hintConfirm
+                      }
+                    />
+                  )}
                   {/* keyboard-only hints wait for a screen wide enough to have a keyboard */}
-                  {p.mode === "browse" && <Hint k="→" label={text.hintDrill} keyboardOnly />}
+                  {p.mode === "browse" && p.ranked[p.selected]?.node.resolve && (
+                    <Hint k="→" label={text.hintDrill} keyboardOnly />
+                  )}
                   {p.mode === "browse" && p.ranked[p.selected]?.node.subject && (
                     <Hint k="tab" label={text.hintPipe} />
                   )}

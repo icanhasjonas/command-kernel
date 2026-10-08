@@ -12,7 +12,8 @@ const LINKS: { path: PathSegment[]; label: string; expect: string; tone: string 
   {
     path: [{ id: "email.send", args: { to: "ada@analytical.engine" } }],
     label: "Email Ada",
-    expect: "short of args: the palette opens with Ada filled in and asks for the rest",
+    expect:
+      "short of args: the palette asks for the rest, then for your OK, since a link never sends on its own",
     tone: "text-amber-soft",
   },
   {
