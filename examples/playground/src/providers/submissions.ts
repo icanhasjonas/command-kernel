@@ -51,7 +51,7 @@ const submissionsSearch: CommandNode = {
   id: "subs.search",
   title: "Search submissions",
   summary:
-    "Find submissions by id, email, or status. Enumerating runs a backend search, so pass the positional `q` first — don't list it blank.",
+    "Find submissions by id, email, or status. Enumerating runs a backend search, so pass the positional `q` first -don't list it blank.",
   category: "Submissions",
   icon: "Search",
   weight: 60,
@@ -85,7 +85,7 @@ export const submissionsCategory: CommandNode = {
 /**
  * Context-sensitive top-level command. Invisible everywhere EXCEPT when you are
  * looking at a submission, where it floats to the top and pre-binds the id from
- * context — the menu reacting to where you are.
+ * context -the menu reacting to where you are.
  */
 export const resendHere: CommandNode = {
   id: "subs.resend.here",

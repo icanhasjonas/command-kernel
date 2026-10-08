@@ -104,6 +104,5 @@ export const filesCategory: CommandNode = {
         subject: fileSubject(f),
       }),
     ),
-    readFile,
   ],
 };

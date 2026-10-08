@@ -3,12 +3,12 @@ import { ChevronRight, CornerDownLeft, Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 
 /**
- * DRIVER #3 — the scout. It renders EXACTLY what an agent sees when it walks the
+ * DRIVER #3 -the scout. It renders EXACTLY what an agent sees when it walks the
  * tree via command(): the self-describing taxonomy. Every row shows the node's
  * summary + machine-readable badges (scout-free vs needs-query, read-only vs
  * writes, gate, args). Free branches drill on click (safe context-building);
  * query branches demand a search term first; writing leaves are shown but run
- * from chat. No guessing — the tree describes itself.
+ * from chat. No guessing -the tree describes itself.
  */
 export function Scout({ kernel, ctx }: { kernel: Kernel; ctx: Ctx }) {
   const [path, setPath] = useState<PathSegment[]>([]);

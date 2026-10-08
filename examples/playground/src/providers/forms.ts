@@ -57,7 +57,7 @@ const formsSearch: CommandNode = {
   id: "forms.search",
   title: "Search forms",
   summary:
-    "Find forms by title or slug. Enumerating runs a backend search, so pass the positional `q` first — don't list it blank.",
+    "Find forms by title or slug. Enumerating runs a backend search, so pass the positional `q` first -don't list it blank.",
   category: "Forms",
   icon: "Search",
   weight: 60,

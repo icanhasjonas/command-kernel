@@ -1,6 +1,7 @@
 import type { CommandNode } from "@command-kernel/core";
+import { resyncSubmission, sendReset } from "./admin";
 import { encryptText } from "./crypto";
-import { filesCategory } from "./files";
+import { filesCategory, readFile } from "./files";
 import { formsCategory } from "./forms";
 import { makeThumbnail } from "./media";
 import { broadcastEmail, connectionsCategory, navCommands, sendEmail, toggleTheme } from "./misc";
@@ -8,10 +9,10 @@ import { resendHere, submissionsCategory } from "./submissions";
 import { usersCategory } from "./users";
 
 /**
- * The root registry — the only assembly point. Each module contributes its own
+ * The root registry: the only assembly point. Each module contributes its own
  * nodes; the kernel never hard-codes a single command. Adding a feature here is
- * the only step needed for it to appear in EVERY renderer (palette, agent,
- * chords) at once.
+ * the only step needed for it to appear in EVERY driver (palette, chords,
+ * deeplinks, invokers, the agent) at once.
  */
 export const ROOTS: CommandNode[] = [
   usersCategory,
@@ -19,10 +20,13 @@ export const ROOTS: CommandNode[] = [
   submissionsCategory,
   connectionsCategory,
   filesCategory,
+  readFile,
   sendEmail,
   encryptText,
   makeThumbnail,
   broadcastEmail,
+  sendReset,
+  resyncSubmission,
   resendHere,
   ...navCommands,
   toggleTheme,

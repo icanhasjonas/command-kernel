@@ -45,7 +45,7 @@ function userActions(u: User): CommandNode[] {
       gate: {
         roles: ["admin"],
         confirm: true,
-        reason: "irreversible — emails the user a reset link",
+        reason: "irreversible -emails the user a reset link",
       },
       run: async () => toast(`Password reset sent to ${u.email}`),
     },
@@ -54,7 +54,7 @@ function userActions(u: User): CommandNode[] {
       title: "Impersonate session",
       category: u.name,
       icon: "VenetianMask",
-      gate: { roles: ["admin"], confirm: true, reason: "security-sensitive — full account access" },
+      gate: { roles: ["admin"], confirm: true, reason: "security-sensitive -full account access" },
       run: async () => toast(`Now impersonating ${u.name}`),
     },
     {
@@ -83,7 +83,7 @@ const usersSearch: CommandNode = {
   id: "users.search",
   title: "Search users",
   summary:
-    "Find users by name or email. Enumerating runs a backend search, so pass the positional `q` first — don't list it blank.",
+    "Find users by name or email. Enumerating runs a backend search, so pass the positional `q` first -don't list it blank.",
   category: "Users",
   icon: "Search",
   weight: 62,

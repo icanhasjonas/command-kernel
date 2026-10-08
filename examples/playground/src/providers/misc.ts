@@ -10,9 +10,9 @@ const nav = (module: string, label: string): CommandResult => ({
   payload: { module, label },
 });
 
-/** Zero-arg navigation commands — change where you are (and re-rank the menu). */
+/** Zero-arg navigation commands -change where you are (and re-rank the menu). */
 const navSummary =
-  "Move the view to this area. Pure navigation — changes context only, no data is written.";
+  "Move the view to this area. Pure navigation -changes context only, no data is written.";
 export const navCommands: CommandNode[] = [
   {
     id: "go.home",
@@ -74,7 +74,7 @@ export const navCommands: CommandNode[] = [
   },
 ];
 
-/** Multi-named-arg command at the top level — the pill / completion showcase. */
+/** Multi-named-arg command at the top level -the pill / completion showcase. */
 export const sendEmail: CommandNode = {
   id: "email.send",
   title: "Send email",
@@ -85,6 +85,8 @@ export const sendEmail: CommandNode = {
   icon: "Mail",
   weight: 48,
   chord: "e",
+  // sending is a write, ungated or not: tell an agent so (describeNode reads it)
+  effect: "writes",
   input: "body",
   args: [
     {
@@ -126,7 +128,7 @@ export const sendEmail: CommandNode = {
   },
 };
 
-/** listOf<person> showcase — multi-select recipients (Quicksilver comma-select). */
+/** listOf<person> showcase -multi-select recipients (Quicksilver comma-select). */
 export const broadcastEmail: CommandNode = {
   id: "email.broadcast",
   title: "Broadcast email",
@@ -136,6 +138,7 @@ export const broadcastEmail: CommandNode = {
   category: "Actions",
   icon: "Send",
   weight: 36,
+  effect: "writes",
   args: [
     {
       id: "to",
@@ -190,7 +193,7 @@ export const connectionsCategory: CommandNode = {
 export const toggleTheme: CommandNode = {
   id: "ui.theme",
   title: "Toggle backdrop density",
-  summary: "Flip the UI backdrop density. A local view preference — no data is written.",
+  summary: "Flip the UI backdrop density. A local view preference -no data is written.",
   category: "Actions",
   icon: "SunMoon",
   weight: 12,

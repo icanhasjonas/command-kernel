@@ -2,7 +2,7 @@ import type { Entity, EntityType, Piped } from "@command-kernel/core";
 import { searchUsers, USERS, type User } from "./data";
 
 /**
- * A `person` entity type — the registered, reusable, agent-queryable catalog that
+ * A `person` entity type -the registered, reusable, agent-queryable catalog that
  * backs any `entity: { type: "person" }` arg. Replaces the per-arg `complete`
  * closure sendEmail used to carry. In this demo a person is identified by email
  * (so the value an arg stores doubles as the address run() sends to), and any
@@ -30,7 +30,7 @@ export const personEntity: EntityType = {
   name: "person",
   async search(query, _ctx, opts) {
     let users = await searchUsers(query);
-    // the constraint is opaque to the kernel — the provider interprets it.
+    // the constraint is opaque to the kernel -the provider interprets it.
     // Person<'with-email-address'> -> only people we can actually email.
     if (opts?.constraint === "with-email-address") users = users.filter((u) => Boolean(u.email));
     const found = users.map(toEntity);

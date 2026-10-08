@@ -1,38 +1,26 @@
 import type { CommandNode } from "@command-kernel/core";
-import { navCommands, sendEmail } from "./providers/misc";
-import { resendHere } from "./providers/submissions";
+import { ROOTS } from "./providers/registry";
 
 /**
- * The DEMO's agent tool set — the specific commands this example exposes to the
- * agent driver. This lives in the example, NOT in @command-kernel/agent: the
- * adapter is generic (it takes a tool list), and which tools an app surfaces is
- * an app decision. A real app would derive this from its provider registry.
+ * The commands this demo hands the agent as tools. They are picked BY ID from the
+ * same root list the palette, chords and deeplinks use, never re-declared: an
+ * agent tool is a kernel node, so it runs through the same gate. Which tools an app
+ * surfaces is an app decision; the adapter in @command-kernel/agent is generic.
  */
-
-const resetTool: CommandNode = {
-  id: "users.send_reset",
-  title: "Send password reset",
-  icon: "KeyRound",
-  keywords: ["reset", "password"],
-  gate: { roles: ["admin"], confirm: true, reason: "irreversible — emails the user a reset link" },
-  args: [{ id: "user", label: "user", kind: "email", required: true }],
-  run: async (a) => ({ kind: "toast", message: `Password reset sent to ${a.user}` }),
-};
-
-const resyncTool: CommandNode = {
-  id: "subs.resync",
-  title: "Re-sync submission to CRM",
-  icon: "RefreshCw",
-  keywords: ["resync", "sync", "crm"],
-  gate: { roles: ["advisor", "admin"], confirm: true, reason: "re-enqueues the CRM push" },
-  args: [{ id: "submissionId", label: "submission", kind: "string", required: true }],
-  run: async (a) => ({ kind: "toast", message: `Re-sync enqueued for ${a.submissionId}` }),
-};
-
-export const AGENT_TOOLS: CommandNode[] = [
-  sendEmail,
-  resetTool,
-  resyncTool,
-  resendHere,
-  ...navCommands,
+const TOOL_IDS = [
+  "email.send",
+  "users.send_reset",
+  "subs.resync",
+  "subs.resend.here",
+  "crypto.encrypt",
+  "go.home",
+  "go.subs",
+  "go.forms",
+  "go.users",
 ];
+
+export const AGENT_TOOLS: CommandNode[] = TOOL_IDS.map((id) => {
+  const node = ROOTS.find((n) => n.id === id);
+  if (!node) throw new Error(`agent tool ${id} is not a root command`);
+  return node;
+});
