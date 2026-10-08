@@ -96,7 +96,20 @@ export function CommandPalette({
   }, [p.mode, p.arg?.activeArg]);
 
   const activeSpec = p.arg?.node.args?.find((a) => a.id === p.arg?.activeArg);
-  const freeText = activeSpec ? activeSpec.kind !== "enum" : false;
+  // a value typed by hand is offered only where the arg takes one: not a closed list, and
+  // not an entity that must exist (the kernel would refuse it anyway)
+  const freeText = activeSpec
+    ? activeSpec.kind !== "enum" && !(activeSpec.entity && !activeSpec.entity.open)
+    : false;
+  // typed something a closed arg has no option for: say so instead of going quiet
+  const typed = p.argQuery.trim().toLowerCase();
+  const unmatched =
+    !freeText &&
+    typed !== "" &&
+    !p.argLoading &&
+    (activeSpec?.enumValues
+      ? !activeSpec.enumValues.some((o) => o.label.toLowerCase().includes(typed))
+      : p.argOptions.length === 0);
   // named args get a pill each; a positional arg only appears when it IS the one
   // being collected (otherwise the query line is its input)
   const namedArgs = (p.arg?.node.args ?? []).filter(
@@ -355,6 +368,10 @@ export function CommandPalette({
                           !!activeSpec.complete)
                       }
                       typed={p.argQuery}
+                      {...(unmatched &&
+                        activeSpec && {
+                          unmatched: text.noOption(activeSpec.label, p.argQuery.trim()),
+                        })}
                       labels={text}
                       onPick={p.commitArg}
                       onHover={p.setSelected}

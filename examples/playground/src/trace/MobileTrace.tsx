@@ -44,9 +44,24 @@ export function MobileTrace() {
     return () => window.removeEventListener("keydown", onKey);
   }, [open]);
 
+  // while the visitor types (the agent's goal, a palette arg) the pill steps aside
+  const [typing, setTyping] = useState(false);
+  useEffect(() => {
+    const isField = (t: EventTarget | null) =>
+      t instanceof HTMLElement && (t.matches("input, textarea") || t.isContentEditable);
+    const onIn = (e: FocusEvent) => setTyping(isField(e.target));
+    const onOut = () => setTyping(false);
+    document.addEventListener("focusin", onIn);
+    document.addEventListener("focusout", onOut);
+    return () => {
+      document.removeEventListener("focusin", onIn);
+      document.removeEventListener("focusout", onOut);
+    };
+  }, []);
+
   const live = latest && flash === latest.id ? latest : null;
   return (
-    <div className="lg:hidden">
+    <div className={typing && !open ? "hidden" : "lg:hidden"}>
       <button
         type="button"
         onClick={() => setOpen(true)}

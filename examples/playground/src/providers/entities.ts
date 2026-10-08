@@ -1,5 +1,6 @@
 import type { Entity, EntityType, Piped } from "@command-kernel/core";
 import {
+  roleName,
   SUBMISSIONS,
   type Submission,
   searchSubmissions,
@@ -19,7 +20,7 @@ import {
 const toEntity = (u: User): Entity => ({
   id: u.email,
   label: u.name,
-  hint: `${u.email} · ${u.role}`,
+  hint: `${u.email} · ${roleName(u)}`,
   icon: "User",
   data: u,
 });

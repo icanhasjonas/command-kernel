@@ -42,6 +42,8 @@ export interface PaletteLabels {
   startTyping: string;
   /** nothing typed yet into an arg that has no options to search: a value you write */
   typeValue: string;
+  /** an arg that takes only its own options, and what was typed matches none of them */
+  noOption: (arg: string, typed: string) => string;
 
   // ── pipes ─────────────────────────────────────────────────────────────────
   /** search placeholder while a value is in hand (the chip beside it names the value) */
@@ -89,7 +91,7 @@ export const defaultLabels: PaletteLabels = {
   root: "Commands",
   placeholder: "Search commands…",
   searchLabel: "Search commands",
-  noMatch: (query) => (query ? `no commands match “${query}”` : "no commands"),
+  noMatch: (query) => (query ? `nothing here matches “${query}”` : "nothing here yet"),
 
   argCounter: (filled, total) => `${filled} of ${total}`,
   addMore: "add… (↵ done)",
@@ -104,6 +106,7 @@ export const defaultLabels: PaletteLabels = {
   ),
   startTyping: "start typing to search…",
   typeValue: "type a value, then ↵",
+  noOption: (arg, typed) => `no ${arg} matches “${typed}”: pick one of the options`,
 
   pipePlaceholder: "Pipe into…",
   pipeInto: (value) => `Pipe ${value} into a command`,
@@ -113,7 +116,8 @@ export const defaultLabels: PaletteLabels = {
   pipeLandsIn: (arg) => `→ ${arg}`,
 
   gateBlocked: "You can't run this here",
-  gateConfirm: "This command is gated - confirm to continue",
+  // the checks below say why (a gate's reason, or the app's own rule, such as a link)
+  gateConfirm: "Needs your OK before it runs",
   check: (label, ok) => (ok ? label : `requires ${label}`),
   yourRole: (role) => `you: ${role}`,
   needsConfirm: "requires explicit confirm",

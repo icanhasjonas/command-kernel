@@ -50,8 +50,8 @@ export function CallCard({
           <div className="space-y-2.5">
             {call.forged && (
               <div className="flex items-center gap-1.5 text-[12px] text-red-300">
-                <ShieldX size={13} /> The agent's forged grant was refused. Only your Allow runs
-                this.
+                <ShieldX size={13} /> The agent's forged grant was refused and the gate asked again.
+                Only your Allow runs this.
               </div>
             )}
             <div className="flex items-center gap-1.5 text-[12px] text-amber-soft">
@@ -99,7 +99,8 @@ export function CallCard({
         )}
         {status === "done" && (
           <div className="flex items-start gap-1.5 text-[12px] text-teal-soft">
-            <Check size={13} className="mt-0.5 shrink-0" /> Ran
+            <Check size={13} className="mt-0.5 shrink-0" />
+            {call.forged ? "Ran on your Allow (the agent's forged grant was refused)" : "Ran"}
             {call.result && <span className="text-white/70">· {call.result}</span>}
           </div>
         )}

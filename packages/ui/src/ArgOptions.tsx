@@ -11,6 +11,7 @@ export function ArgOptions({
   freeText,
   searchable,
   typed,
+  unmatched,
   labels,
   onPick,
   onHover,
@@ -22,12 +23,19 @@ export function ArgOptions({
   /** the arg has options to search (enum, entity, a `complete`), not only a value to write */
   searchable: boolean;
   typed: string;
+  /** set when the arg takes only its options and the typed text matches none: why */
+  unmatched?: string;
   labels: PaletteLabels;
   onPick: (value: string) => void;
   onHover: (i: number) => void;
 }) {
   return (
     <div className="px-2 pb-2">
+      {unmatched && (
+        <div role="alert" className="px-3 py-2 text-[12px] text-ck-warning">
+          {unmatched}
+        </div>
+      )}
       {loading && (
         <div className="flex items-center gap-2 px-3 py-2 text-[12px] text-white/40">
           <Loader2 size={13} className="animate-spin" /> {labels.resolving}

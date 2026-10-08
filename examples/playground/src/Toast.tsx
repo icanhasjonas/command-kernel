@@ -4,8 +4,9 @@ import { useEffect, useState } from "react";
 import { useDemo } from "./demo/demo-context";
 
 /**
- * The last result, said once, then gone. Only below the wide layout: there the
- * trace rail is out of sight, and on a wide screen the rail already says it.
+ * The last thing said, once, then gone, just under the header (clear of the inputs and
+ * the trace pill at the bottom). A command's result shows only below the wide layout,
+ * where the rail is out of sight; anything else ("New session") shows on every screen.
  */
 export function Toast() {
   const { toast } = useDemo();
@@ -22,16 +23,19 @@ export function Toast() {
   return (
     <div
       aria-live="polite"
-      className="pointer-events-none fixed inset-x-0 bottom-20 z-[60] flex justify-center px-4 lg:hidden"
+      className={cn(
+        "pointer-events-none fixed inset-x-0 top-[calc(var(--header-h)+12px)] z-[60] flex justify-center px-4",
+        toast?.inRail && "lg:hidden",
+      )}
     >
       <AnimatePresence>
         {toast && shown === toast.id && (
           <motion.button
             type="button"
             key={toast.id}
-            initial={{ opacity: 0, y: 16 }}
+            initial={{ opacity: 0, y: -12 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 8 }}
+            exit={{ opacity: 0, y: -8 }}
             onClick={() => setShown(null)}
             className={cn(
               "pointer-events-auto max-w-[min(560px,92vw)] rounded-xl border px-4 py-2.5 text-left text-[13px] shadow-float backdrop-blur-xl",

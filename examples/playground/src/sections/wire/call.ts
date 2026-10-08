@@ -106,7 +106,8 @@ export async function labCall<A extends object, O>(
     problems: answer.ok ? [] : answer.error.missing,
     grant: evidence ? (answer.ok ? "verified" : "refused") : "none",
     ...(evidence && { sig: `${evidence.sig.slice(0, 10)}…` }),
-    ...(!answer.ok && { message: answer.error.message }),
+    // what the server answered, as every other driver's entry says what its run did
+    message: answer.ok ? (opts.done?.(answer.data) ?? "done") : answer.error.message,
   });
   opts.log(
     answer.ok

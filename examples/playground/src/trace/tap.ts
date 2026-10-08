@@ -30,7 +30,7 @@ export function tap(
   kernel: Kernel,
   driver: Driver,
   /** this driver hands an approval it cannot give to the palette, whose call is then the entry */
-  opts: { handsOverGates?: boolean } = {},
+  opts: { handsOverGates?: boolean; handsOverArgs?: boolean } = {},
 ): Kernel {
   const command: Kernel["command"] = async (req, ctx, roots) => {
     const res = await kernel.command(
@@ -38,8 +38,21 @@ export function tap(
       ctx,
       roots,
     );
-    const handedOver = opts.handsOverGates && res.kind === "gate" && res.verdict.allowed;
-    if (req.execute && !handedOver) traceStore.record(fromResponse(driver, req, res));
+    // the palette takes over an owed approval (or, for a link, args still to collect or
+    // fix): its own call is the one entry, so the hand-off is not logged twice
+    const handedOver =
+      (opts.handsOverGates && res.kind === "gate" && res.verdict.allowed) ||
+      (opts.handsOverArgs && res.kind === "args");
+    if (req.execute && !handedOver) {
+      const entry = fromResponse(driver, req, res);
+      // a run with no grant that a standing rule covers: say the rule let it through, as
+      // executeNode's own `autoAllowed` does for the palette (command() does not carry it)
+      const ruled =
+        res.kind === "result" &&
+        entry.grant === "none" &&
+        kernel.policy.match(res.node.id, entry.args) !== null;
+      traceStore.record(ruled ? { ...entry, grant: "policy" } : entry);
+    }
     return res;
   };
   return {

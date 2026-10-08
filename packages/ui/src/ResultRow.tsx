@@ -66,7 +66,7 @@ export function ResultRow({
       <span className="min-w-0 flex-1">
         <span className="flex items-center gap-2">
           {node.category && (
-            <span className="shrink-0 text-[12px] font-medium text-white/35">
+            <span className="shrink-0 text-[12px] font-medium text-white/35 max-sm:hidden">
               {node.category} ▸
             </span>
           )}
@@ -77,7 +77,7 @@ export function ResultRow({
           {/* who the gate declares it for, said before any arg is asked: the node's own
               data, not a verdict (the kernel still decides, after the args) */}
           {node.gate?.roles && node.gate.roles.length > 0 && (
-            <span className="shrink-0 font-mono text-[11px] text-white/40">
+            <span className="shrink-0 font-mono text-[11px] text-white/40 max-sm:hidden">
               {node.gate.roles.join(" / ")}
             </span>
           )}
@@ -89,7 +89,7 @@ export function ResultRow({
 
       <span className="flex shrink-0 items-center gap-2">
         {landsIn && (
-          <span className="rounded-md border border-white/10 px-1.5 py-0.5 font-mono text-[11px] text-white/60">
+          <span className="rounded-md border border-white/10 px-1.5 py-0.5 font-mono text-[11px] text-white/60 max-sm:hidden">
             {landsIn}
           </span>
         )}

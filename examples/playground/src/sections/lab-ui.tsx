@@ -14,7 +14,8 @@ export interface Attempt {
 }
 
 /** Flip one hex digit: the smallest possible forgery. */
-export const tamper = (sig: string) => `${sig.slice(0, -1)}${sig.endsWith("0") ? "1" : "0"}`;
+/** One hex digit changed, the FIRST: the shortened sig in the trace shows the change. */
+export const tamper = (sig: string) => `${sig.startsWith("0") ? "1" : "0"}${sig.slice(1)}`;
 
 export const btn =
   "rounded-lg border border-white/12 px-3 py-1.5 text-[13px] text-white/85 hover:bg-white/[0.06] disabled:cursor-not-allowed disabled:opacity-35";

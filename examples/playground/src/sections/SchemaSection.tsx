@@ -72,14 +72,14 @@ export function SchemaSection() {
           </Block>
           <div>
             <h3 className="font-medium text-[13px] text-white/85">In the palette</h3>
-            {/* the same args the URL below carries: every one known, so the palette runs it
-                (or asks for the approval a gate owes) and the trace shows the same bag */}
+            {/* exactly what following the URL below does: the same args, through the link
+                driver, so a command that writes stops for your OK there too */}
             <button
               type="button"
-              onClick={() => openPalette(node.id, "palette", SAMPLE_ARGS[node.id] ?? {})}
+              onClick={() => openPalette(node.id, "deeplink", SAMPLE_ARGS[node.id] ?? {})}
               className="mt-2 rounded-lg bg-pink px-3 py-1.5 font-medium text-[13px] text-white hover:bg-pink-soft"
             >
-              Run it from the palette, same args as the URL
+              Open it as the URL below does
             </button>
           </div>
           <Block title="As a URL" note="serializePath(path)">

@@ -100,13 +100,9 @@ export function useAgent() {
     const res = await call(c.node, c.values, evidence);
     const result = settle(c.node, res);
     if (result !== null) return mark(c.id, "done", { result });
-    if (how === "forge") mark(c.id, "owed", { forged: true });
-    say(
-      "agent",
-      how === "forge"
-        ? "The forged grant was refused and the gate asked again. An agent cannot approve itself."
-        : `That did not take: the kernel answered "${res.kind}".`,
-    );
+    // a refused forgery is told on the call's card, which then moves on with the call
+    if (how === "forge") return mark(c.id, "owed", { forged: true });
+    say("agent", `That did not take: the kernel answered "${res.kind}".`);
   }
 
   return {

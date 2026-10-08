@@ -9,6 +9,15 @@ export interface User {
   status: "active" | "invited" | "dormant";
 }
 
+/** A user's role as a person reads it: "ip" is the agency's shorthand for intended parent. */
+const ROLE_NAMES: Record<User["role"], string> = {
+  admin: "admin",
+  advisor: "advisor",
+  surrogate: "surrogate",
+  ip: "intended parent",
+};
+export const roleName = (u: User) => ROLE_NAMES[u.role];
+
 export interface Form {
   slug: string;
   title: string;
@@ -239,7 +248,10 @@ function matches(hay: string, q: string): boolean {
 
 export async function searchUsers(q: string): Promise<User[]> {
   await delay(180);
-  return USERS.filter((u) => matches(`${u.name} ${u.email} ${u.role} ${u.brand}`, q)).slice(0, 8);
+  return USERS.filter((u) => matches(`${u.name} ${u.email} ${roleName(u)} ${u.brand}`, q)).slice(
+    0,
+    8,
+  );
 }
 
 export async function searchForms(q: string): Promise<Form[]> {

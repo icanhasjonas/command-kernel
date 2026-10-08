@@ -52,7 +52,9 @@ export function usePaletteArgs({
     if (!spec) return setArgOptions([]);
     if (spec.enumValues) {
       const q = argQuery.toLowerCase();
-      return setArgOptions(spec.enumValues.filter((o) => o.label.toLowerCase().includes(q)));
+      const hits = spec.enumValues.filter((o) => o.label.toLowerCase().includes(q));
+      // a closed list that matches nothing still shows every choice (the palette says so)
+      return setArgOptions(hits.length > 0 ? hits : spec.enumValues);
     }
     // entity-typed arg: the registered entity catalog is the completion source
     if (spec.entity && kernel.entities) {

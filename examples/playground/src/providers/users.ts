@@ -1,6 +1,6 @@
 import { argText, type CommandNode, type CommandResult } from "@command-kernel/core";
 import { sendReset } from "./admin";
-import { searchUsers, USERS, type User } from "./data";
+import { roleName, searchUsers, USERS, type User } from "./data";
 import { personSubject } from "./entities";
 import { sendEmail } from "./misc";
 
@@ -74,9 +74,9 @@ function userEntity(u: User): CommandNode {
   return {
     id: `users.entity.${u.id}`,
     title: u.name,
-    subtitle: `${u.email} · ${u.role} · ${u.status}`,
+    subtitle: `${u.email} · ${roleName(u)} · ${u.status}`,
     icon: "User",
-    keywords: [u.email, u.role, u.brand, u.status],
+    keywords: [u.email, u.role, roleName(u), u.brand, u.status],
     subject: personSubject(u),
   };
 }
@@ -100,7 +100,7 @@ const usersSearch: CommandNode = {
         (await searchUsers(q)).map((u) => ({
           value: u.email,
           label: u.name,
-          hint: `${u.email} · ${u.role}`,
+          hint: `${u.email} · ${roleName(u)}`,
           icon: "User",
         })),
     },

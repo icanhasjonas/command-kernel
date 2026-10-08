@@ -101,7 +101,11 @@ export function RotatePanel({ lab, server }: { lab: Lab; server: LabStatus | nul
         >
           grant · sig {lab.grant.sig}
           {lab.used && (
-            <span className="text-white/60"> · spent, the server will not take it again</span>
+            <span className="text-white/60">
+              {" "}
+              · spent, the server will not take it again. The last two break-its need an unused
+              grant: confirm again to try them.
+            </span>
           )}
         </div>
       )}

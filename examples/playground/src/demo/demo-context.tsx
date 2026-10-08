@@ -23,6 +23,8 @@ export interface Toast {
   id: number;
   msg: string;
   tone: "ok" | "nav" | "warn";
+  /** a command's result: the trace rail says it already, wherever the rail is on screen */
+  inRail?: boolean;
 }
 
 interface Demo {
@@ -94,9 +96,14 @@ export function DemoProvider({ children }: { children: ReactNode }) {
         const pl = r.payload as Partial<Place>; // the demo's nav commands write exactly a Place
         if (pl.module) setPlace({ module: pl.module, label: pl.label ?? pl.module });
       }
-      say(r.message, r.kind === "navigate" || r.kind === "page" ? "nav" : "ok");
+      setToast({
+        id: ++toastSeq.current,
+        msg: r.message,
+        tone: r.kind === "navigate" || r.kind === "page" ? "nav" : "ok",
+        inRail: true,
+      });
     },
-    [say, setPlace],
+    [setPlace],
   );
 
   // stable identities: the keyboard and hash drivers subscribe once, not per render

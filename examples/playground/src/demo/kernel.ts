@@ -41,7 +41,7 @@ export const kernel = createKernel({
 export const drivers = {
   palette: tap(kernel, "palette"),
   chord: tap(kernel, "chord"),
-  deeplink: tap(kernel, "deeplink", { handsOverGates: true }),
+  deeplink: tap(kernel, "deeplink", { handsOverGates: true, handsOverArgs: true }),
   invoker: tap(kernel, "invoker", { handsOverGates: true }),
   agent: tap(kernel, "agent"),
   pipe: tap(kernel, "pipe"),

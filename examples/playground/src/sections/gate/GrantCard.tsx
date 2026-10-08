@@ -30,7 +30,8 @@ export function GrantCard({
     : null;
   const pending = "not signed yet";
   const rows: [string, string][] = [
-    ["approved by", principal],
+    // before the Allow it is who WILL sign, not who did
+    [grant ? "approved by" : "to be approved by", principal],
     ["command", ASKED.id],
     ["args", `user=${ASKED.args.user}`],
     ["path", "(root)"],

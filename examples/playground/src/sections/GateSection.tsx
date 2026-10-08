@@ -48,7 +48,7 @@ export function GateSection() {
                 onClick={() => void lab.run()}
               >
                 {/* still a live button once spent: trying it again is the lesson */}
-                {lab.life === "live"
+                {!lab.grant || lab.life === "live"
                   ? "Run with the grant"
                   : lab.life === "spent"
                     ? "Run it again, same grant"
@@ -80,6 +80,11 @@ export function GateSection() {
                 Rotate the key
               </button>
             </div>
+            {lab.grant && lab.life !== "live" && (
+              <p className="mt-2 text-[12px] text-white/45">
+                The first two need an unused grant: Allow again to try them.
+              </p>
+            )}
             <p className="mt-3 text-[12px] leading-relaxed text-white/45">
               {ctx.user.role === "admin"
                 ? "Or switch your role to viewer up top and send it again: the gate refuses before any evidence is even looked at."
