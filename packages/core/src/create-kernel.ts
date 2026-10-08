@@ -1,4 +1,4 @@
-import type { ArgValues } from "./args.js";
+import type { ArgValues, ValueType } from "./args.js";
 import { type CommandRecord, toRecord } from "./audit.js";
 import { type CommandDeps, type CommandRequest, type CommandResponse, command } from "./command.js";
 import { createEntityRegistry, type EntityRegistry, type EntityType } from "./entity.js";
@@ -14,6 +14,8 @@ import {
 import { type ShortcutConflict, validateShortcuts } from "./keyboard.js";
 import { collectChords, collectShortcuts, shortcutNodes } from "./node-lookups.js";
 import { observe } from "./observe.js";
+import { actionsFor, type PipeAction } from "./pipe-routes.js";
+import { type PipeRequest, type PipeResponse, runPipe } from "./pipe-run.js";
 import { createMemoryPolicyStore, type PolicyStore } from "./policy.js";
 import { type Ranker, rank } from "./rank.js";
 import type { Registry } from "./registry.js";
@@ -116,6 +118,17 @@ export interface Kernel {
   grantFor(res: GrantRequest): Grant;
   /** who a grant minted under `ctx` belongs to (see `KernelConfig.principalOf`) */
   principalOf(ctx: Ctx): string | undefined;
+  /**
+   * Every command a value of `type` can be piped into, ranked by `query` with the
+   * configured ranker (empty query = by weight, context and frecency).
+   */
+  actionsFor(type: ValueType, ctx: Ctx, query?: string): Promise<PipeAction[]>;
+  /**
+   * Run a pipe: each step's output is the next step's input. Type-checked before
+   * anything runs; each step is a `command()` call, so the gate and the audit hook
+   * see every step. Pauses (resumably) when a step needs args or approval.
+   */
+  pipe(req: PipeRequest, ctx: Ctx): Promise<PipeResponse>;
   /** the assembled root list (from the registry, or the static roots) */
   roots(ctx?: Ctx): CommandNode[];
   /** chord-leader lookup over the roots */
@@ -166,12 +179,21 @@ export function createKernel(config: KernelConfig = {}): Kernel {
   const roots = (ctx?: Ctx): CommandNode[] => (registry ? registry.roots(ctx) : staticRoots);
   const onExecute = config.onExecute;
 
+  const run = async (req: CommandRequest, ctx: Ctx, r?: CommandNode[]) => {
+    const res = await command(r ?? roots(ctx), req, ctx, deps);
+    if (res.kind === "result" && onExecute) observe(() => onExecute(toRecord(req, ctx), res));
+    return res;
+  };
+
   return {
-    command: async (req, ctx, r) => {
-      const res = await command(r ?? roots(ctx), req, ctx, deps);
-      if (res.kind === "result" && onExecute) observe(() => onExecute(toRecord(req, ctx), res));
-      return res;
+    command: run,
+    actionsFor: async (type, ctx, query = "") => {
+      const actions = await actionsFor(roots(ctx), type, ctx);
+      const byNode = new Map<CommandNode, PipeAction>();
+      for (const a of actions) if (!byNode.has(a.node)) byNode.set(a.node, a);
+      return ranker([...byNode.keys()], query, ctx).flatMap((r) => byNode.get(r.node) ?? []);
     },
+    pipe: (req, ctx) => runPipe((r) => run(r, ctx), req),
     search: (nodes, query, ctx) => searchNodes(nodes, query, ctx, ranker),
     resolveChildren,
     executeNode: (node, args, ctx, confirmation) =>

@@ -1,4 +1,4 @@
-import type { ArgValues } from "./args.js";
+import type { ArgValues, Piped } from "./args.js";
 import type { CommandRequest, CommandResponse } from "./command.js";
 import type { Kernel } from "./create-kernel.js";
 import type { Ctx, PathSegment, Role } from "./types.js";
@@ -20,6 +20,8 @@ import type { Ctx, PathSegment, Role } from "./types.js";
 export interface CommandRecord {
   path: Array<{ id: string; args?: ArgValues }>;
   role?: Role;
+  /** the value piped into the tip, when the command ran as a step of a pipe */
+  input?: Piped;
 }
 
 /** The serializable record of a command request (drops evidence + functions). */
@@ -27,6 +29,7 @@ export function toRecord(req: CommandRequest, ctx: Ctx): CommandRecord {
   return {
     path: (req.path ?? []).map((s) => (s.args ? { id: s.id, args: s.args } : { id: s.id })),
     ...(req.role != null ? { role: req.role } : { role: ctx.user.role }),
+    ...(req.input !== undefined && { input: req.input }),
   };
 }
 
@@ -36,7 +39,12 @@ export function replay(kernel: Kernel, record: CommandRecord, ctx: Ctx): Promise
     s.args ? { id: s.id, args: s.args } : { id: s.id },
   );
   return kernel.command(
-    { path, ...(record.role !== undefined && { role: record.role }), execute: true },
+    {
+      path,
+      ...(record.role !== undefined && { role: record.role }),
+      ...(record.input !== undefined && { input: record.input }),
+      execute: true,
+    },
     ctx,
   );
 }

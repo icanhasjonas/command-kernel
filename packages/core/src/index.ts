@@ -25,6 +25,8 @@ export type {
   ArgValues,
   EntityRef,
   JsonValue,
+  Piped,
+  ValueType,
 } from "./args.js";
 // audit + replay - a serializable command record and a replay verb
 export { type CommandRecord, replay, toRecord } from "./audit.js";
@@ -128,6 +130,10 @@ export {
 } from "./keyboard.js";
 // chord / shortcut / frecency lookups a driver builds over a node list
 export { bumpFrecency, collectChords, collectShortcuts, shortcutNodes } from "./node-lookups.js";
+// pipes - one command's output is the next one's input (routing + a type check)
+export { acceptingArg, accepts, bindInput, describeType, outputOf } from "./pipe.js";
+export { type ActionsForOptions, actionsFor, type PipeAction } from "./pipe-routes.js";
+export { type PipeRequest, type PipeResponse, type PipeStep, runPipe } from "./pipe-run.js";
 // SEAM 4 - policy (session-scoped always-allow); ruleForNode/allowLabel are pure helpers
 export {
   type AllowRule,

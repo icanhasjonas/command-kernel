@@ -1,4 +1,4 @@
-import type { ArgOption, ArgSpec, ArgValues } from "./args.js";
+import type { ArgOption, ArgSpec, ArgValues, Piped } from "./args.js";
 import type { NodeDescriptor } from "./describe.js";
 import type { Entity, EntityRegistry } from "./entity.js";
 import type { Confirmation, ExecuteDeps } from "./kernel.js";
@@ -25,6 +25,12 @@ export interface CommandRequest {
   role?: Role;
   /** with `execute`: make the tip's grant single-use (see `Confirmation.spend`) */
   spend?: Confirmation["spend"];
+  /**
+   * A value piped in from the previous command (or a subject the user picked). It is
+   * bound into the tip's args (see `bindInput`) before anything else looks at them,
+   * so it is validated, gated and signed like a value typed by hand.
+   */
+  input?: Piped;
 }
 
 /** What `command` needs wired in: the ranker, the trust core, and entities. */

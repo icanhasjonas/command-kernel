@@ -94,3 +94,33 @@ export interface ArgSpec {
 export type ArgValue = Exclude<JsonValue, null>;
 
 export type ArgValues = Record<string, ArgValue>;
+
+/**
+ * The type of a value that flows from one command into the next (a pipe): the
+ * same vocabulary an arg is declared in, so "what a command produces" and "what an
+ * arg takes" are compared field by field. A person is `{ kind: "entity", entity:
+ * { type: "person" } }`; a blob of text is `{ kind: "text" }`.
+ */
+export interface ValueType {
+  kind: ArgKind;
+  /** for an entity: which registered type (its value is the entity's id) */
+  entity?: EntityRef;
+  /** the value is a list */
+  multiple?: boolean;
+  /** for `json`: the shape the value satisfies */
+  schema?: JsonSchemaNode;
+  /** what to call it ("ciphertext", "file contents") */
+  label?: string;
+}
+
+/**
+ * A value in flight between two commands: what it is and the value itself. It
+ * lands in ONE arg of the next command (see `acceptingArg`), and from there it is
+ * an ordinary arg: validated, gated and signed into a grant like one typed by hand.
+ */
+export interface Piped {
+  type: ValueType;
+  value: ArgValue;
+  /** how to show it ("notes.md", "Ada Lovelace"); the value is what runs */
+  label?: string;
+}

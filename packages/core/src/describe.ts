@@ -1,4 +1,4 @@
-import type { ArgKind, ArgSpec, EntityRef } from "./args.js";
+import type { ArgKind, ArgSpec, EntityRef, Piped, ValueType } from "./args.js";
 import { isGated } from "./gate.js";
 import type { JsonSchemaNode } from "./schema.js";
 import type { CommandNode, Ctx, EffectMode, EnumerateMode, Gate } from "./types.js";
@@ -54,6 +54,12 @@ export interface NodeDescriptor {
   gate: Pick<Gate, "roles" | "confirm" | "reason"> | null;
   /** safe to eagerly enumerate for context (navigable + free, no backend hit) */
   safeToScout: boolean;
+  /** what a run hands on to the next command of a pipe (its result's `value`) */
+  output?: ValueType;
+  /** the arg a piped value lands in, when the node names one */
+  input?: string;
+  /** the value this node stands for, which can be piped into a command */
+  subject?: Piped;
 }
 
 /** Enumeration cost of resolve(): explicit, else inferred from a positional arg. */
@@ -107,6 +113,9 @@ export function describeNode(node: CommandNode): NodeDescriptor {
     args: (node.args ?? []).map(describeArg),
     gate: node.gate ? { ...node.gate } : null,
     safeToScout: enumerate === "free",
+    ...(node.output !== undefined && { output: node.output }),
+    ...(node.input !== undefined && { input: node.input }),
+    ...(node.subject !== undefined && { subject: node.subject }),
   };
 }
 

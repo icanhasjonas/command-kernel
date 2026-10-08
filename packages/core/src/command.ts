@@ -4,6 +4,7 @@ import type { CommandDeps, CommandRequest, CommandResponse, Completion } from ".
 import { describeNode } from "./describe.js";
 import { type Hop, hopArgs, hopsKey } from "./hops-key.js";
 import { executeNode, missingArgs, resolveChildren } from "./kernel.js";
+import { bindInput } from "./pipe.js";
 import type { CommandNode, Ctx } from "./types.js";
 
 export type {
@@ -59,15 +60,31 @@ export async function command(
   // prefill overlaid by the segment's args, coerced to their declared kinds (resolve()
   // sees 5, not "5"), and is keyed by exactly those args: the children a hop hands out
   // depend on all of them, so a grant must too (hopArgs, shared with the palette).
+  // A piped `input` is bound into the tip's written args, under them prefill.
   let level = roots;
   let tip: CommandNode | null = null;
   let values: ArgValues = {};
   const walked: Hop[] = [];
-  for (const seg of req.path ?? []) {
+  const segs = req.path ?? [];
+  for (const [i, seg] of segs.entries()) {
     const node = level.find((n) => n.id === seg.id);
     if (!node) return { kind: "completions", at: tip, items: [] };
     tip = node;
-    values = hopArgs(node, seg.args, ectx);
+    let written = seg.args;
+    if (req.input && i === segs.length - 1) {
+      const bound = bindInput(node, seg.args ?? {}, req.input);
+      if ("error" in bound) {
+        const items = await argCompletions(
+          node,
+          hopArgs(node, seg.args, ectx),
+          ectx,
+          deps.entities,
+        );
+        return { kind: "args", node, missing: [], errors: [bound.error], items };
+      }
+      written = bound.values;
+    }
+    values = hopArgs(node, written, ectx);
     walked.push({ node, args: values });
     level = node.resolve ? await resolveChildren(node, values, ectx) : [];
   }
@@ -91,8 +108,7 @@ export async function command(
       };
     }
     // the grant on the tip segment is bound to everything before it
-    const segments = req.path ?? [];
-    const tipSeg = segments[segments.length - 1];
+    const tipSeg = segs[segs.length - 1];
     const priorKey = hopsKey(walked.slice(0, -1));
     const outcome = await executeNode(
       tip,

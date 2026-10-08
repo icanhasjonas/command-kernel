@@ -6,7 +6,7 @@
  * (palette, agent, chords, deeplinks, the wire) is just a renderer over this kernel.
  */
 
-import type { ArgSpec, ArgValues } from "./args.js";
+import type { ArgSpec, ArgValue, ArgValues, Piped, ValueType } from "./args.js";
 
 /**
  * A principal's role. Deliberately `string`, not a fixed union - a consumer
@@ -77,6 +77,11 @@ export interface CommandResult {
   kind: ResultKind;
   message: string;
   payload?: unknown;
+  /**
+   * For a node that declares an `output`: the value it hands on to the next command
+   * of a pipe. Checked against `output` before it goes anywhere.
+   */
+  value?: ArgValue;
 }
 
 /**
@@ -139,6 +144,23 @@ export interface CommandNode {
    *  shortcut, agent, deeplink, or programmatic access). */
   hide?: boolean | ((ctx: Ctx) => boolean);
   args?: ArgSpec[];
+  /**
+   * What run() produces for the next command of a pipe (`CommandResult.value`):
+   * "Load as text" outputs `{ kind: "text" }`, so it can feed "Encrypt".
+   */
+  output?: ValueType;
+  /**
+   * The arg a piped value lands in when it accepts the value's type. Otherwise (or
+   * omitted): the one arg that accepts it, or the positional one when several do
+   * (see `acceptingArg`). Name it when two args take the same type, e.g. a `subject`
+   * and a `body` both take text.
+   */
+  input?: string;
+  /**
+   * This node stands for a value (a person, a file): a driver can pipe it into any
+   * command that accepts it (`kernel.actionsFor`), Quicksilver's noun before verb.
+   */
+  subject?: Piped;
   gate?: Gate;
   /** visibility predicate against the current context */
   when?: (ctx: Ctx) => boolean;
