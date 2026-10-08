@@ -39,11 +39,18 @@ const DOM_OVERRIDE = new Set([
 
 type Saved = Record<string, PropertyDescriptor | null>;
 let saved: Saved | null = null;
+// ONE window per process, reinstalled on every register: modules that already ran
+// (React DOM, Radix, framer-motion) keep the document they saw first, so a fresh
+// window after an unregister would leave them rendering into a detached one
+let shared: Window | null = null;
 
 export function registerDom(): void {
   if (saved !== null) return; // idempotent - one DOM per process is plenty
-  const win = new Window({ url: "https://localhost/" });
-  markCancelledFinishedHandled(win);
+  if (!shared) {
+    shared = new Window({ url: "https://localhost/" });
+    markCancelledFinishedHandled(shared);
+  }
+  const win = shared;
   saved = {};
 
   const winDescriptors = Object.getOwnPropertyDescriptors(win);
