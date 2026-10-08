@@ -8,4 +8,6 @@ permission: it runs no evidence, no policy and no `run`, and `executeNode` asks 
 whole gate again with the real args.
 
 `EntityType.acceptsLabel` names what `accepts` takes, for the refusal: `"x" is not a
-person or an address`.
+person or an address`. `freeValueError(ref, value, entities)` is that same rule, exported
+so a driver can ask it while a value is typed. An `open` entity arg's JSON schema says it
+also takes a hand-typed value.

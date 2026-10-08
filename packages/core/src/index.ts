@@ -42,6 +42,8 @@ export {
   type Completion,
   command,
 } from "./command.js";
+// the kernel's rule for a hand-typed value of an entity arg, for a driver to ask early
+export { freeValueError } from "./command-args.js";
 // the kernel factory - where the seams meet
 export {
   createKernel,

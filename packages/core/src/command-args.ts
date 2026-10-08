@@ -35,10 +35,11 @@ async function findEntity(
 }
 
 /**
- * Why a value no entity has is refused, or null when the arg takes it: an `open` arg
+ * Why a value no entity has is refused, or null when the arg takes it. A driver may ask
+ * this as a value is typed (the palette does), so it says no at once, not after every arg: an `open` arg
  * takes it if its type accepts that kind of value (or says nothing about it).
  */
-function refusedFree(ref: EntityRef, v: string, entities: EntityRegistry): string | null {
+export function freeValueError(ref: EntityRef, v: string, entities: EntityRegistry): string | null {
   if (!ref.open) return `no ${ref.type} matches "${v}"`;
   const type = entities.type(ref.type);
   if (!type?.accepts || type.accepts(v)) return null;
@@ -78,7 +79,7 @@ export async function resolveEntities(
       const found = await findEntity(a.entity, v, ctx, entities);
       if ("id" in found) out.push(found.id);
       else if (a.entity.open) {
-        const why = refusedFree(a.entity, v, entities);
+        const why = freeValueError(a.entity, v, entities);
         if (why) return refuse(a.id, why);
         out.push(v);
       } else if ("many" in found) {
@@ -113,7 +114,7 @@ export async function unknownEntities(
     for (const item of list) {
       const v = typeof item === "string" ? item.trim() : "";
       if (!v || (await entities.get(a.entity.type, v, ctx))) continue;
-      const why = refusedFree(a.entity, v, entities);
+      const why = freeValueError(a.entity, v, entities);
       if (!why) continue;
       errors.push({ argId: a.id, message: why });
       break;

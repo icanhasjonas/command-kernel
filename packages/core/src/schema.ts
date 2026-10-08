@@ -92,7 +92,9 @@ function elementProperty(a: ArgSpec): JsonSchemaNode {
   // an entity arg's value is the entity id - tell the model what catalog to resolve against
   if (a.entity) {
     const tag = a.entity.constraint ? `${a.entity.type} (${a.entity.constraint})` : a.entity.type;
-    prop.description = `${a.label && a.label !== a.id ? `${a.label}: ` : ""}id of a ${tag} - resolve via the ${a.entity.type} catalog`;
+    // an open arg also takes a value no entity has: say so, or the model is told a lie
+    const open = a.entity.open ? ", or a value typed by hand that the type accepts" : "";
+    prop.description = `${a.label && a.label !== a.id ? `${a.label}: ` : ""}id of a ${tag} - resolve via the ${a.entity.type} catalog${open}`;
   }
   return prop;
 }
