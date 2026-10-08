@@ -113,8 +113,9 @@ export function createWireServer(opts: WireServerOptions): WireServer {
     // missing or bad args answer exactly as the call itself would (invalidArguments)
     if (res.kind === "result")
       return refusal("conflict", `${name} is not waiting for a confirmation`);
-    if (res.kind !== "gate") return refused(res, name);
-    if (!res.verdict.allowed) return refusal("forbidden", `Not allowed: ${res.node.title}`);
+    // a refusal the gate made answers as the call itself would: forbidden WITH its checks,
+    // so a client can say what is missing (it used to come back with none)
+    if (res.kind !== "gate" || !res.verdict.allowed) return refused(res, name);
     if (!res.verdict.needsConfirm)
       return refusal("conflict", `${name} is not waiting for a confirmation`);
     // the policy decides on exactly what the grant signs: after prefill and coercion
