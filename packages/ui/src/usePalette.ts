@@ -24,6 +24,21 @@ export type { Mode } from "./palette-types.js";
 export type PaletteState = ReturnType<typeof usePalette>;
 
 /**
+ * The root list as the host lays it out: what it gets, from which it returns every row in the
+ * order drawn. Rows under one heading must sit together (a heading is a run of one `category`);
+ * a host may set a row's category to group it ("Recent"), and list a node under two headings.
+ */
+export interface PaletteArrangeInput {
+  /** the kernel's ranking of the commands (and of the `subjects` things) for the query */
+  commands: readonly Ranked[];
+  /** the rows of the host's `sources`, in their order */
+  found: readonly Ranked[];
+  query: string;
+  ctx: Ctx;
+}
+export type PaletteArrange = (input: PaletteArrangeInput) => readonly Ranked[];
+
+/**
  * Jump straight into a command (a chord, a deeplink): its id, a nonce so the same jump
  * fires twice, and the args already known, which the palette then asks only the rest of.
  */
@@ -43,9 +58,17 @@ interface Hooks {
   subjects?: readonly string[] | undefined;
   /** the host's own searches, run at the root after the commands (see usePaletteSources) */
   sources?: readonly PaletteSource[] | undefined;
+  /** the host's own layout of the root list (see PaletteArrange); default: grouped by category */
+  arrange?: PaletteArrange | undefined;
+  /** what the search box holds as the palette opens */
+  initialQuery?: string | undefined;
   onResult: (r: CommandResult) => void;
   onExecuted: (id: string) => void;
   onClose: () => void;
+  /** a command is about to run, and the palette closes for it (see CommandPaletteProps) */
+  onRun?: ((node: CommandNode) => void) | undefined;
+  /** a run (or its gate) threw: the palette has closed */
+  onError?: ((error: unknown, node: CommandNode) => void) | undefined;
 }
 
 const NONE: readonly string[] = [];
@@ -86,9 +109,13 @@ export function usePalette({
   trigger,
   subjects,
   sources,
+  arrange,
+  initialQuery,
   onResult,
   onExecuted,
   onClose,
+  onRun,
+  onError,
 }: Hooks) {
   // shared "latest request wins" cancellation counter - the browse-frame
   // re-resolve and the arg-value completion effect both race against it
@@ -127,23 +154,21 @@ export function usePalette({
     active: mode === "browse" && frames.length === 1,
     types: subjects ?? NONE,
   });
+  const atRoot = mode === "browse" && frames.length === 1;
   const found = usePaletteSources({
     sources: sources ?? NO_SOURCES,
     ctx,
     query,
-    active: mode === "browse" && frames.length === 1,
+    active: atRoot,
   });
-  // grouped by category (Arc's grouped results): the keyboard walks the order drawn
-  const rows = useMemo(
-    () =>
-      groupRanked(
-        withSources(
-          things.length > 0 ? withThings(kernel, frame.items, things, query, ctx) : ranked,
-          found,
-        ),
-      ),
-    [things, ranked, found, kernel, frame.items, query, ctx],
-  );
+  // grouped by category (Arc's grouped results), or as the host lays the root out: the
+  // keyboard walks the order drawn
+  const rows = useMemo(() => {
+    const commands =
+      things.length > 0 ? withThings(kernel, frame.items, things, query, ctx) : ranked;
+    if (arrange && atRoot) return [...arrange({ commands, found: found.rows, query, ctx })];
+    return groupRanked(withSources(commands, found.rows));
+  }, [things, ranked, found, kernel, frame.items, query, ctx, arrange, atRoot]);
 
   const enterPipe = useCallback(
     (next: PipeSession) => {
@@ -194,6 +219,9 @@ export function usePalette({
     onExecuted,
     onClose,
     onOutput,
+    keepsOpen: found.keepsOpen,
+    onRun,
+    onError,
   });
 
   const { argOptions, argLoading, argOptionsFresh, commitArg, finishArg } = usePaletteArgs({
@@ -293,13 +321,14 @@ export function usePalette({
     if (!open) return;
     openedOn.current = false;
     setFrames([{ node: null, items: roots, dynamic: false, args: {} }]);
-    setQuery("");
+    setQuery(initialQuery ?? "");
     setSelected(0);
     setMode("browse");
     setArg(null);
     setConfirm(null);
     setPipe(null);
-  }, [open]);
+    // opened again on other words ("Threads with Dana" while it is open): a fresh palette too
+  }, [open, initialQuery]);
 
   // chord leader: jump straight into a command's execute/drill flow
   // biome-ignore lint/correctness/useExhaustiveDependencies: fire on nonce only
@@ -317,6 +346,8 @@ export function usePalette({
     frames,
     frame,
     ranked: rows,
+    /** the sources' notes for the query on screen, drawn under the list */
+    notes: found.notes,
     /** false while the people/things for the current query are still on their way */
     rankedFresh,
     query,

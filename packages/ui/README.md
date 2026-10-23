@@ -181,6 +181,44 @@ function useFrecency(options?: { storageKey?: string; storage?: FrecencyStorage 
   it opened, and gives focus back to it once it has closed (after its exit). To put focus
   somewhere else, handle `onCloseAutoFocus` and call `event.preventDefault()`.
 
+### For a host with its own layout and its own search
+
+```ts
+interface CommandPaletteProps {
+  // ...
+  arrange?: (input: { commands; found; query; ctx }) => readonly Ranked[];
+  initialQuery?: string;
+  onKeyDown?: (event, state: { query; mode }) => boolean | undefined;
+  footer?: ReactNode;
+  onRun?: (node: CommandNode) => void;
+  onError?: (error: unknown, node: CommandNode) => void;
+}
+```
+
+- **`arrange`: the host lays out the root.** It gets the kernel's ranking of the commands and
+  the sources' rows apart, and returns every row in the order drawn: its screen's group first,
+  a "Recent" group (a row whose `category` it set; one node may sit under two headings), what
+  cannot run last. Rows under one heading sit together. Only at the root, browsing.
+- **A source keeps answering.** `search(query, ctx, signal, update)` may answer with rows or
+  with `{ rows, note, keepOpen }`, and call `update` with a new answer as often as it has
+  news, until `signal` aborts: a "Searching…" note first, the hits once they come, the next
+  page. The note is drawn under the list (with no rows, in place of the empty state). A row
+  whose id is in `keepOpen` ("Search further back", "Try again") runs without closing the
+  palette.
+- **The palette gets out of a command's way.** Once a command's args, gate and confirm have
+  all passed, the palette closes as the run starts (`onRun(node)`, then `onClose()`), never
+  after a slow run has finished. A command that hands a value on keeps it open, as before.
+  (Core: `kernel.executeNode(node, args, ctx, confirmation, { beforeRun })`.) A run that
+  throws closes it and goes to `onError`.
+- **`onKeyDown`** sees every key before the palette does; answer `true` to keep one (a help
+  key, a key the host reserves). **`footer`** puts the host's controls at the footer's end,
+  on touch screens too. **`initialQuery`** opens the palette on words already typed.
+- **Words:** `labels.title` and `labels.description` name the dialog; `labels.resultCount`
+  is said to a screen reader as the rows for a typed query settle. The search box is a
+  combobox whenever it is browsing, expanded while it shows rows.
+- **`useFrecency({ counts })`** counts only the runs `counts(id)` allows (leave out a thread
+  opened from a search: its count would only grow).
+
 ## Exports
 
 `CommandPalette` + `CommandLauncher` (the palette driver), `bindInvokers` /

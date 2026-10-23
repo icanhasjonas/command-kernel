@@ -14,12 +14,17 @@ export function PaletteDialog({
   onClose,
   onKeyDown,
   onCloseAutoFocus,
+  title,
+  description,
   children,
 }: {
   open: boolean;
   onClose: () => void;
   onKeyDown: (e: KeyboardEvent) => void;
   onCloseAutoFocus?: ((event: Event) => void) | undefined;
+  /** the dialog's accessible name, and what it is for ("" for nothing) */
+  title: string;
+  description: string;
   children: ReactNode;
 }) {
   const reduce = useReducedMotion();
@@ -58,7 +63,7 @@ export function PaletteDialog({
                 returnTo.current = null;
                 if (was?.isConnected) was.focus({ preventScroll: true });
               }}
-              aria-describedby={undefined}
+              {...(!description && { "aria-describedby": undefined })}
               asChild
             >
               <motion.div
@@ -80,7 +85,10 @@ export function PaletteDialog({
                 style={{ transformOrigin: "top center" }}
                 className="-translate-x-1/2 fixed top-[14vh] left-1/2 z-50 w-[min(640px,92vw)] overflow-hidden rounded-ck-panel border border-ck-border bg-ck-surface text-ck-fg shadow-ck-float outline-none"
               >
-                <Dialog.Title className="sr-only">Command palette</Dialog.Title>
+                <Dialog.Title className="sr-only">{title}</Dialog.Title>
+                {description && (
+                  <Dialog.Description className="sr-only">{description}</Dialog.Description>
+                )}
                 {children}
               </motion.div>
             </Dialog.Content>

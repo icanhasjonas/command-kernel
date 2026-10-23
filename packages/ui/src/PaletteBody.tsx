@@ -71,24 +71,34 @@ export function PaletteBody({
           onPick={(row) => p.pick(row.action)}
           onHover={p.setSelected}
         />
-      ) : p.ranked.length === 0 ? (
+      ) : p.ranked.length === 0 && p.notes.length === 0 ? (
         <EmptyState
           icon={<SearchX size={20} strokeWidth={1.75} />}
           text={labels.noMatch(p.query)}
         />
       ) : (
-        <ResultList
-          id={keys.listId}
-          listbox
-          label={labels.searchLabel}
-          rows={p.ranked}
-          selected={p.selected}
-          modHeld={modHeld}
-          showWeight={showWeight}
-          extras={extras}
-          onActivate={(row, exec) => p.activate(row.node, exec)}
-          onHover={p.setSelected}
-        />
+        <>
+          {p.ranked.length > 0 && (
+            <ResultList
+              id={keys.listId}
+              listbox
+              label={labels.searchLabel}
+              rows={p.ranked}
+              selected={p.selected}
+              modHeld={modHeld}
+              showWeight={showWeight}
+              extras={extras}
+              onActivate={(row, exec) => p.activate(row.node, exec)}
+              onHover={p.setSelected}
+            />
+          )}
+          {/* where each source's search stands, under the rows (a source with no rows says why) */}
+          {p.notes.map((n) => (
+            <div key={n.id} className="px-4 pb-3 text-[12px] text-ck-fg-muted">
+              {n.note}
+            </div>
+          ))}
+        </>
       )}
     </ResultsFrame>
   );

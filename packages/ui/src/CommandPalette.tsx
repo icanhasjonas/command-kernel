@@ -5,14 +5,14 @@ import {
   disabledReason,
   type Kernel,
 } from "@command-kernel/core";
-import { type ReactNode, useEffect, useState } from "react";
+import { type KeyboardEvent, type ReactNode, useEffect, useState } from "react";
 import { type PaletteLabelOverrides, resolveLabels } from "./labels.js";
 import { PaletteBody } from "./PaletteBody.js";
 import { PaletteDialog } from "./PaletteDialog.js";
 import { PaletteFooter } from "./PaletteFooter.js";
 import { PaletteHeader } from "./PaletteHeader.js";
 import { PaletteQuery } from "./PaletteQuery.js";
-import { type PaletteTrigger, usePalette } from "./usePalette.js";
+import { type Mode, type PaletteArrange, type PaletteTrigger, usePalette } from "./usePalette.js";
 import { usePaletteKeys } from "./usePaletteKeys.js";
 import type { PaletteSource } from "./usePaletteSources.js";
 
@@ -35,6 +35,21 @@ export interface CommandPaletteProps {
   sources?: readonly PaletteSource[];
   /** something of the host's at the end of a row (a count, a state); `active` is the highlighted one */
   rowAdornment?: (node: CommandNode, state: { active: boolean }) => ReactNode;
+  /**
+   * The host lays out the root list itself: its own groups first, a "Recent" group, the
+   * rows it cannot run last. Gets the ranked commands and the sources' rows, returns every row
+   * in the order drawn. Default: the commands, then the sources' rows, grouped by category.
+   */
+  arrange?: PaletteArrange;
+  /** what the search box holds as the palette opens ("Threads with Dana": her address) */
+  initialQuery?: string;
+  /**
+   * A key in the palette, before the palette's own keys: answer `true` and the palette leaves
+   * it alone (a host key that opens its help, a key the host keeps for itself).
+   */
+  onKeyDown?: (event: KeyboardEvent, state: { query: string; mode: Mode }) => boolean | undefined;
+  /** the host's own controls at the end of the footer (Close, Help); shown on touch screens too */
+  footer?: ReactNode;
   /** every word the palette says; unset keys keep the English default */
   labels?: PaletteLabelOverrides;
   /** show each node's authoring `weight` in its row (an authoring diagnostic) */
@@ -42,6 +57,14 @@ export interface CommandPaletteProps {
   onClose: () => void;
   onResult: (r: CommandResult) => void;
   onExecuted: (id: string) => void;
+  /**
+   * A command is about to run (its args, gate and any confirm have passed) and the palette
+   * closes for it now, before the run, unless the command hands a value on. `onClose` follows
+   * at once; this says the close is for `node`, so a host can leave focus to what it opens.
+   */
+  onRun?: (node: CommandNode) => void;
+  /** a run (or its gate) threw; the palette has closed. Default: `console.error` */
+  onError?: (error: unknown, node: CommandNode) => void;
   /**
    * The palette has closed (its exit is done) and is about to put focus back on the element
    * that had it before it opened. Call `event.preventDefault()` to put focus somewhere yourself.
@@ -58,11 +81,17 @@ export function CommandPalette({
   subjects,
   sources,
   rowAdornment,
+  arrange,
+  initialQuery,
+  onKeyDown,
+  footer,
   labels,
   showWeight = false,
   onClose,
   onResult,
   onExecuted,
+  onRun,
+  onError,
   onCloseAutoFocus,
 }: CommandPaletteProps) {
   const text = resolveLabels(labels);
@@ -74,9 +103,13 @@ export function CommandPalette({
     trigger,
     subjects,
     sources,
+    arrange,
+    initialQuery,
     onResult,
     onExecuted,
     onClose,
+    onRun,
+    onError,
   });
   const [modHeld, setModHeld] = useState(false);
   const keys = usePaletteKeys(p);
@@ -113,8 +146,14 @@ export function CommandPalette({
     <PaletteDialog
       open={open}
       onClose={onClose}
-      onKeyDown={keys.onKeyDown}
+      onKeyDown={(e) => {
+        // not defaultPrevented: Radix prevents Esc before any handler of ours sees it
+        if (onKeyDown?.(e, { query: p.query, mode: p.mode }) === true) return;
+        keys.onKeyDown(e);
+      }}
       onCloseAutoFocus={onCloseAutoFocus}
+      title={text.title}
+      description={text.description}
     >
       <PaletteHeader
         crumbs={[...p.frames.map((f) => f.node?.title ?? text.root), ...(p.pipe?.trail ?? [])]}
@@ -142,6 +181,7 @@ export function CommandPalette({
         pipeable={p.mode === "browse" && Boolean(selectedNode?.subject)}
         modHeld={modHeld}
         labels={text}
+        host={footer}
       />
     </PaletteDialog>
   );

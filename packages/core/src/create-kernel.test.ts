@@ -127,3 +127,26 @@ describe("SEAM 5 - Registry", () => {
     } else throw new Error("expected completions");
   });
 });
+
+describe("executeNode - beforeRun", () => {
+  it("is heard just before run fires, and only when it does", async () => {
+    const order: string[] = [];
+    const save: CommandNode = {
+      id: "save",
+      title: "Save",
+      args: [{ id: "name", label: "name", kind: "string", required: true }],
+      run: async () => {
+        order.push("run");
+        return { kind: "toast", message: "saved" };
+      },
+    };
+    const k = createKernel({ roots: [save, reset] });
+    const before = { beforeRun: () => order.push("before") };
+    await k.executeNode(save, {}, ctx(), {}, before); // an arg is missing
+    await k.executeNode(reset, { user: "a@b.co" }, ctx(), {}, before); // a confirm is owed
+    await k.executeNode(reset, { user: "a@b.co" }, ctx("viewer"), {}, before); // the gate says no
+    expect(order).toEqual([]);
+    await k.executeNode(save, { name: "x" }, ctx(), {}, before);
+    expect(order).toEqual(["before", "run"]);
+  });
+});

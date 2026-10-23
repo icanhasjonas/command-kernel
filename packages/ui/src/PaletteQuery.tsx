@@ -19,8 +19,10 @@ export function PaletteQuery({
   keys: PaletteKeys;
   labels: PaletteLabels;
 }) {
-  // the input is a combobox over the result list while it shows one
-  const listed = p.mode === "browse" && p.ranked.length > 0;
+  // the input is a combobox over the result list, expanded while it shows one
+  const browsing = p.mode === "browse";
+  const listed = browsing && p.ranked.length > 0;
+  const typed = browsing && p.query.trim() !== "";
   // the value being piped, named, while the list shows what can take it
   const inHand = p.mode === "pipe" && p.pipe ? subjectLabel(p.pipe.subject) : "";
 
@@ -64,11 +66,13 @@ export function PaletteQuery({
               p.setSelected(0);
             }}
             aria-label={inHand ? labels.pipeInto(inHand) : labels.searchLabel}
-            {...(listed && {
+            {...(browsing && {
               role: "combobox",
-              "aria-expanded": true,
-              "aria-controls": keys.listId,
+              "aria-expanded": listed,
               "aria-autocomplete": "list" as const,
+            })}
+            {...(listed && {
+              "aria-controls": keys.listId,
               "aria-activedescendant": `${keys.listId}-${p.selected}`,
             })}
             autoComplete="off"
@@ -86,7 +90,11 @@ export function PaletteQuery({
           )}
           {/* the chip is visual; this says the same to a screen reader */}
           <span role="status" aria-live="polite" className="sr-only">
-            {inHand && !p.pipeLoading ? labels.pipeCount(inHand, p.pipeRows.length) : ""}
+            {inHand && !p.pipeLoading
+              ? labels.pipeCount(inHand, p.pipeRows.length)
+              : typed
+                ? labels.resultCount(p.ranked.length)
+                : ""}
           </span>
         </div>
       )}

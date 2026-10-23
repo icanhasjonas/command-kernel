@@ -14,6 +14,12 @@ import type { ReactNode } from "react";
  * `ReactNode` - override them and you own the styling too.
  */
 export interface PaletteLabels {
+  // ── the dialog ────────────────────────────────────────────────────────────
+  /** the palette's accessible name */
+  title: string;
+  /** what it is for, said with its name ("" for nothing) */
+  description: string;
+
   // ── the browse frame ──────────────────────────────────────────────────────
   /** breadcrumb for the root frame - the closest thing to an app name */
   root: string;
@@ -23,6 +29,8 @@ export interface PaletteLabels {
   searchLabel: string;
   /** empty state when the query matches nothing */
   noMatch: (query: string) => string;
+  /** said to a screen reader as the rows for a typed query settle */
+  resultCount: (count: number) => string;
 
   // ── arg collection ────────────────────────────────────────────────────────
   /** the "2 of 3" counter above the arg pills */
@@ -90,10 +98,13 @@ export interface PaletteLabels {
 export type PaletteLabelOverrides = Partial<PaletteLabels>;
 
 export const defaultLabels: PaletteLabels = {
+  title: "Command palette",
+  description: "",
   root: "Commands",
   placeholder: "Search commands…",
   searchLabel: "Search commands",
   noMatch: (query) => (query ? `Nothing here matches “${query}”` : "Nothing here yet"),
+  resultCount: (count) => (count === 1 ? "1 result" : `${count} results`),
 
   argCounter: (filled, total) => `${filled} of ${total}`,
   addMore: "Add… (↵ done)",

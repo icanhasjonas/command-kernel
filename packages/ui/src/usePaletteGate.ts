@@ -25,6 +25,12 @@ interface GateHookArgs {
   onClose: () => void;
   /** a run produced a value the next command can take: carry on with it instead of closing */
   onOutput: (value: Piped, from: CommandNode) => void;
+  /** a source's row that runs without closing the palette ("Load more") */
+  keepsOpen?: (node: CommandNode) => boolean;
+  /** the palette closes as a command starts: the host hears which, just before */
+  onRun?: ((node: CommandNode) => void) | undefined;
+  /** a run (or its gate) threw */
+  onError?: ((error: unknown, node: CommandNode) => void) | undefined;
 }
 
 /** What `proceedGate` needs besides the node and its args. */
@@ -54,22 +60,33 @@ export function usePaletteGate({
   onExecuted,
   onClose,
   onOutput,
+  keepsOpen,
+  onRun,
+  onError,
 }: GateHookArgs) {
   const [confirm, setConfirm] = useState<ConfirmSession | null>(null);
 
+  /** the row runs and the palette stays: it changes what its source shows */
+  const stays = useCallback((node: CommandNode) => keepsOpen?.(node) ?? false, [keepsOpen]);
+
   const finish = useCallback(
-    (node: CommandNode, result: CommandResult | null) => {
+    (node: CommandNode, result: CommandResult | null, closed: boolean) => {
       onExecuted(node.id);
       if (result) onResult(result);
+      if (closed) return;
       // a command that hands something on keeps the palette open on what it made
       const out = result && node.output ? outputOf(node, result) : null;
       if (out && typeof out !== "string") {
         setConfirm(null);
         return onOutput(out, node);
       }
+      if (stays(node)) {
+        setConfirm(null);
+        return setMode("browse");
+      }
       onClose();
     },
-    [onExecuted, onResult, onClose, onOutput],
+    [onExecuted, onResult, onClose, onOutput, stays, setMode],
   );
 
   const proceedGate = useCallback(
@@ -79,10 +96,34 @@ export function usePaletteGate({
       const values = Object.fromEntries(
         Object.entries(given).filter(([id]) => node.args?.some((a) => a.id === id)),
       );
-      const outcome = await kernel.executeNode(node, values, ctx, {
-        ...(opts.grant !== undefined && { grant: opts.grant }),
-        priorKey: opts.priorKey ?? ancestorKey(),
-      });
+      // a command that hands nothing on gets the palette out of its way as it starts, not once
+      // it has finished: a slow run never holds the palette on screen
+      let closed = false;
+      const beforeRun = () => {
+        if (node.output || stays(node)) return;
+        closed = true;
+        onRun?.(node);
+        onClose();
+      };
+      let outcome: Awaited<ReturnType<Kernel["executeNode"]>>;
+      try {
+        outcome = await kernel.executeNode(
+          node,
+          values,
+          ctx,
+          {
+            ...(opts.grant !== undefined && { grant: opts.grant }),
+            priorKey: opts.priorKey ?? ancestorKey(),
+          },
+          { beforeRun },
+        );
+      } catch (error) {
+        // a run that throws is the host's to tell; the palette never stays on a broken run
+        if (onError) onError(error, node);
+        else console.error(error);
+        if (!closed) onClose();
+        return;
+      }
       // the kernel refused on completeness, not permission - collect the args
       // instead of showing the human a lock they can do nothing about
       if (outcome.missing.length > 0) {
@@ -120,9 +161,22 @@ export function usePaletteGate({
         });
         return;
       }
-      finish(node, outcome.result);
+      finish(node, outcome.result, closed);
     },
-    [ctx, finish, ancestorKey, kernel, setMode, setArg, setArgQuery, setSelected],
+    [
+      ctx,
+      finish,
+      ancestorKey,
+      kernel,
+      setMode,
+      setArg,
+      setArgQuery,
+      setSelected,
+      stays,
+      onRun,
+      onClose,
+      onError,
+    ],
   );
 
   // human clicked Confirm - mint a grant bound to this exact command+args+path

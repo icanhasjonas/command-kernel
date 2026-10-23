@@ -6,6 +6,7 @@ import { bindingKey, createMemoryEvidenceStore, type EvidenceStore } from "./evi
 import { evaluateGate, type GatePolicy } from "./gate.js";
 import {
   type Confirmation,
+  type ExecuteMode,
   type ExecuteOutcome,
   executeNode,
   resolveChildren,
@@ -107,12 +108,16 @@ export interface Kernel {
    * A gate that decides on args sees only the ones given here.
    */
   preflight(node: CommandNode, ctx: Ctx, args?: ArgValues): Promise<GateVerdict>;
-  /** gate + run a node against the configured trust core */
+  /**
+   * gate + run a node against the configured trust core. `mode.beforeRun` hears the moment
+   * everything has passed and run() is about to fire (a palette closes then).
+   */
   executeNode(
     node: CommandNode,
     args: ArgValues,
     ctx: Ctx,
     confirmation?: Confirmation,
+    mode?: Pick<ExecuteMode, "beforeRun">,
   ): Promise<ExecuteOutcome>;
   /**
    * Mint the grant for a `gate` response - the ONE correct way for a driver to
@@ -210,8 +215,8 @@ export function createKernel(config: KernelConfig = {}): Kernel {
     search: (nodes, query, ctx) => searchNodes(nodes, query, ctx, ranker),
     resolveChildren,
     preflight: async (node, ctx, args = {}) => gate(node, ctx, args),
-    executeNode: (node, args, ctx, confirmation) =>
-      executeNode(node, args, ctx, deps, confirmation),
+    executeNode: (node, args, ctx, confirmation, mode) =>
+      executeNode(node, args, ctx, deps, confirmation, mode),
     grantFor: (res) =>
       evidence.sign(
         res.node.id,

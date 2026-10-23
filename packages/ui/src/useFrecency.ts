@@ -1,5 +1,5 @@
 import { bumpFrecency } from "@command-kernel/core";
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 
 /** Where `useFrecency` keeps its scores between visits: `localStorage`, or your own. */
 export type FrecencyStorage = Pick<Storage, "getItem" | "setItem">;
@@ -9,6 +9,11 @@ export interface FrecencyOptions {
   storageKey?: string;
   /** default `globalThis.localStorage` where there is one */
   storage?: FrecencyStorage;
+  /**
+   * Which runs are counted (default: every one). A host leaves out what comes and goes, such
+   * as a thread opened from a search, whose count would only grow.
+   */
+  counts?: (id: string) => boolean;
 }
 
 function read(storage: FrecencyStorage | undefined, key: string | undefined) {
@@ -36,13 +41,17 @@ function read(storage: FrecencyStorage | undefined, key: string | undefined) {
  */
 export function useFrecency(options: FrecencyOptions = {}) {
   const { storageKey } = options;
+  // the latest rule, without making `bump` new each render
+  const counts = useRef(options.counts);
+  counts.current = options.counts;
   const storage =
     options.storage ??
     (typeof globalThis.localStorage === "undefined" ? undefined : globalThis.localStorage);
   const [frecency, setFrecency] = useState<Record<string, number>>(() => read(storage, storageKey));
 
   const bump = useCallback(
-    (id: string) =>
+    (id: string) => {
+      if (counts.current && !counts.current(id)) return;
       setFrecency((current) => {
         const next = bumpFrecency(current, id);
         if (storage && storageKey) {
@@ -53,7 +62,8 @@ export function useFrecency(options: FrecencyOptions = {}) {
           }
         }
         return next;
-      }),
+      });
+    },
     [storage, storageKey],
   );
 

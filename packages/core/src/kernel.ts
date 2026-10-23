@@ -65,6 +65,12 @@ export interface ExecuteDeps {
 export interface ExecuteMode {
   /** evaluate args and the gate, then stop: run() never fires and no grant is checked */
   dryRun?: boolean;
+  /**
+   * Called once everything has passed (args, gate, any confirm), just before run() fires, and
+   * never when it does not fire. A driver that should get out of the way of a command (a palette
+   * that closes as it starts, not once a slow run has finished) acts here.
+   */
+  beforeRun?: () => void;
 }
 
 export interface ExecuteOutcome {
@@ -196,6 +202,7 @@ export async function executeNode(
   }
   if (!node.run) return stopped(verdict, { autoAllowed });
 
+  mode.beforeRun?.();
   const result = await node.run(args, ctx);
   return { verdict, result, awaitingConfirm: false, autoAllowed, argErrors: [], missing: [] };
 }
