@@ -260,7 +260,9 @@ An app without Arc gets Arc's neutral values as fallbacks, through `light-dark()
 ```
 
 To change one thing, override its `--color-ck-*` (or `--radius-ck-*`, `--shadow-ck-*`)
-in your own `@theme`, e.g. `@theme { --color-ck-accent: #6366f1; }`. The accent is
+in your own `@theme`, e.g. `@theme { --color-ck-accent: #6366f1; }`. The highlight behind
+the active row is `--color-ck-highlight` (Arc's muted surface): an app whose selection has a
+colour of its own sets it there. The accent is
 spent only on what is active: the arg being filled, the value in hand, the primary
 button, a held key. A fuzzy match is underlined; `.match-hl` is the hook to mark it your
 own way. See `examples/playground/src/index.css` for a host without Arc.

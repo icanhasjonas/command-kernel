@@ -32,7 +32,7 @@ export function GlideList({
         aria-hidden="true"
         data-glide=""
         style={{ y, height, opacity }}
-        className="pointer-events-none absolute top-0 right-2 left-2 rounded-lg bg-ck-surface-muted"
+        className="pointer-events-none absolute top-0 right-2 left-2 rounded-lg bg-ck-highlight"
       />
       {children}
     </div>

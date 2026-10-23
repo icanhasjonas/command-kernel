@@ -60,6 +60,10 @@
   /* kept for consumers that set it: the palette's surface used to be glass */
   --color-ck-glass: var(--color-ck-surface);
 
+  /* the one highlight that glides behind the active row: Arc's muted surface. A host whose
+     selection has a colour of its own sets it here (a tint of its accent, say) */
+  --color-ck-highlight: var(--color-ck-surface-muted);
+
   /* the keycap: Arc's flat cap, no bevel */
   --color-ck-kbd-bg: var(--color-ck-surface-muted);
   --color-ck-kbd-fg: var(--color-ck-fg-muted);
