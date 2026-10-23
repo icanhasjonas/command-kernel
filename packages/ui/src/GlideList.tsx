@@ -26,7 +26,12 @@ export function GlideList({
     <div
       ref={ref}
       {...rest}
-      className={cn("relative max-h-[min(44vh,360px)] overflow-y-auto px-2 py-1.5", className)}
+      // a desk shows a short list under the query; a phone gives it the screen, less the
+      // panel's head and footer (PaletteDialog: the panel takes the phone's whole width)
+      className={cn(
+        "relative max-h-[min(44vh,360px)] overflow-y-auto px-2 py-1.5 max-sm:max-h-[calc(100dvh-12rem)]",
+        className,
+      )}
     >
       <motion.span
         aria-hidden="true"

@@ -144,7 +144,9 @@ export function PaletteDialog({
                       }
                 }
                 style={{ transformOrigin: "top center" }}
-                className={`-translate-x-1/2 fixed top-[14vh] left-1/2 z-50 w-[min(640px,92vw)] data-[state=closed]:pointer-events-none! ${PANEL}`}
+                // a phone: the panel takes the width and starts at the top, and its list runs to
+                // the bottom (GlideList), so a thumb sees the commands, not a card of five
+                className={`-translate-x-1/2 fixed top-[14vh] left-1/2 z-50 w-[min(640px,92vw)] max-sm:top-[max(0.5rem,env(safe-area-inset-top))] max-sm:w-[calc(100vw-1rem)] data-[state=closed]:pointer-events-none! ${PANEL}`}
               >
                 <Dialog.Title className="sr-only">{title}</Dialog.Title>
                 {description && (
