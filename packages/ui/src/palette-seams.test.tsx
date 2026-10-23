@@ -343,8 +343,9 @@ describe("the host's keys, footer, words and first query", () => {
     const leaving = [...document.body.querySelectorAll('[data-state="closed"]')];
     // the exit is still playing: both are there, and neither takes a pointer
     expect(leaving.length).toBeGreaterThanOrEqual(2);
+    // important: Radix sets pointer-events: auto on its overlay, inline
     for (const el of leaving)
-      expect(el.getAttribute("class")).toContain("data-[state=closed]:pointer-events-none");
+      expect(el.getAttribute("class")).toContain("data-[state=closed]:pointer-events-none!");
   });
 
   it("the search box is a combobox even when nothing matches", async () => {

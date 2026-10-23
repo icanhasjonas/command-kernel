@@ -72,7 +72,8 @@ export function PaletteDialog({
                 exit={{ opacity: 0, transition: reduce ? instant : leave }}
                 transition={reduce ? instant : enter}
                 // leaving, it takes no click: one meant for the page under it reaches the page
-                className="fixed inset-0 z-50 bg-ck-overlay backdrop-blur-[7px] data-[state=closed]:pointer-events-none"
+                // (important: Radix puts pointer-events: auto on the overlay itself)
+                className="fixed inset-0 z-50 bg-ck-overlay backdrop-blur-[7px] data-[state=closed]:pointer-events-none!"
               />
             </Dialog.Overlay>
             <Dialog.Content
@@ -110,7 +111,7 @@ export function PaletteDialog({
                       }
                 }
                 style={{ transformOrigin: "top center" }}
-                className={`-translate-x-1/2 fixed top-[14vh] left-1/2 z-50 w-[min(640px,92vw)] data-[state=closed]:pointer-events-none ${PANEL}`}
+                className={`-translate-x-1/2 fixed top-[14vh] left-1/2 z-50 w-[min(640px,92vw)] data-[state=closed]:pointer-events-none! ${PANEL}`}
               >
                 <Dialog.Title className="sr-only">{title}</Dialog.Title>
                 {description && (
