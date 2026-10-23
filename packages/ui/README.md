@@ -218,6 +218,8 @@ interface CommandPaletteProps {
   an app with one role); `labels.title` and `labels.description` name the dialog; `labels.resultCount`
   is said to a screen reader as the rows for a typed query settle. The search box is a
   combobox whenever it is browsing, expanded while it shows rows.
+- **`inline`** draws the palette in place, open, as a panel on the page (a showcase, a docs
+  page with several states side by side): no overlay, no focus trap, no focus taken.
 - **`useFrecency({ counts })`** counts only the runs `counts(id)` allows (leave out a thread
   opened from a search: its count would only grow).
 

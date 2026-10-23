@@ -309,6 +309,15 @@ describe("the host's keys, footer, words and first query", () => {
     expect(document.body.textContent).not.toContain("You: admin");
   });
 
+  it("inline: drawn in place, no dialog, and it leaves focus alone", async () => {
+    mount({ inline: true, labels: { title: "Search and commands" } });
+    await tick(40);
+    expect(document.body.querySelector('[role="dialog"]')).toBeNull();
+    expect(document.body.querySelector('section[aria-label="Search and commands"]')).not.toBeNull();
+    expect(options()).toHaveLength(roots.length);
+    expect(document.activeElement).not.toBe(input());
+  });
+
   it("the search box is a combobox even when nothing matches", async () => {
     mount({ initialQuery: "zzzz" });
     await tick();

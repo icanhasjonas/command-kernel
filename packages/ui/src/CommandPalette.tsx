@@ -8,7 +8,7 @@ import {
 import { type KeyboardEvent, type ReactNode, useEffect, useState } from "react";
 import { type PaletteLabelOverrides, resolveLabels } from "./labels.js";
 import { PaletteBody } from "./PaletteBody.js";
-import { PaletteDialog } from "./PaletteDialog.js";
+import { PaletteDialog, PaletteInline } from "./PaletteDialog.js";
 import { PaletteFooter } from "./PaletteFooter.js";
 import { PaletteHeader } from "./PaletteHeader.js";
 import { PaletteQuery } from "./PaletteQuery.js";
@@ -57,6 +57,11 @@ export interface CommandPaletteProps {
   labels?: PaletteLabelOverrides;
   /** show each node's authoring `weight` in its row (an authoring diagnostic) */
   showWeight?: boolean;
+  /**
+   * Draw it in place, open, as a panel on the page instead of a dialog (a showcase, a docs
+   * page): no overlay, no focus trap, and it takes focus only when clicked.
+   */
+  inline?: boolean;
   onClose: () => void;
   onResult: (r: CommandResult) => void;
   onExecuted: (id: string) => void;
@@ -90,6 +95,7 @@ export function CommandPalette({
   footer,
   labels,
   showWeight = false,
+  inline = false,
   onClose,
   onResult,
   onExecuted,
@@ -132,6 +138,8 @@ export function CommandPalette({
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: focus follows mode/arg
   useEffect(() => {
+    // in place on a page, it never takes focus from the page by itself
+    if (inline) return;
     const t = setTimeout(
       () => (p.mode === "args" ? keys.argRef : keys.browseRef).current?.focus(),
       10,
@@ -145,19 +153,13 @@ export function CommandPalette({
     adornment: rowAdornment,
   };
 
-  return (
-    <PaletteDialog
-      open={open}
-      onClose={onClose}
-      onKeyDown={(e) => {
-        // not defaultPrevented: Radix prevents Esc before any handler of ours sees it
-        if (onKeyDown?.(e, { query: p.query, mode: p.mode }) === true) return;
-        keys.onKeyDown(e);
-      }}
-      onCloseAutoFocus={onCloseAutoFocus}
-      title={text.title}
-      description={text.description}
-    >
+  const handleKey = (e: KeyboardEvent) => {
+    // not defaultPrevented: Radix prevents Esc before any handler of ours sees it
+    if (onKeyDown?.(e, { query: p.query, mode: p.mode }) === true) return;
+    keys.onKeyDown(e);
+  };
+  const body = (
+    <>
       <PaletteHeader
         crumbs={[...p.frames.map((f) => f.node?.title ?? text.root), ...(p.pipe?.trail ?? [])]}
         canGoBack={p.mode !== "browse" || p.frames.length > 1}
@@ -185,6 +187,24 @@ export function CommandPalette({
         labels={text}
         host={typeof footer === "function" ? footer({ query: p.query, mode: p.mode }) : footer}
       />
+    </>
+  );
+  if (inline)
+    return (
+      <PaletteInline title={text.title} onKeyDown={handleKey}>
+        {body}
+      </PaletteInline>
+    );
+  return (
+    <PaletteDialog
+      open={open}
+      onClose={onClose}
+      onKeyDown={handleKey}
+      onCloseAutoFocus={onCloseAutoFocus}
+      title={text.title}
+      description={text.description}
+    >
+      {body}
     </PaletteDialog>
   );
 }

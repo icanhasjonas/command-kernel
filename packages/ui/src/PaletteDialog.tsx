@@ -3,6 +3,31 @@ import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { type KeyboardEvent, type ReactNode, useRef } from "react";
 import { enter, instant, leave, motionTokens } from "./motion-tokens.js";
 
+/** Arc's floating panel: a neutral surface, a hairline, one floating shadow. */
+const PANEL =
+  "overflow-hidden rounded-ck-panel border border-ck-border bg-ck-surface text-ck-fg shadow-ck-float outline-none";
+
+/**
+ * The palette drawn in place, not as a dialog: for a showcase or a docs page that shows it
+ * in several states at once. No overlay, no focus trap, nothing moves focus.
+ */
+export function PaletteInline({
+  title,
+  onKeyDown,
+  children,
+}: {
+  title: string;
+  onKeyDown: (e: KeyboardEvent) => void;
+  children: ReactNode;
+}) {
+  return (
+    // biome-ignore lint/a11y/noStaticElementInteractions: the keys of the input inside, bubbling
+    <section aria-label={title} onKeyDown={onKeyDown} className={`relative w-full ${PANEL}`}>
+      {children}
+    </section>
+  );
+}
+
 /**
  * The palette's modal layer, moving as Arc's dialog does: the overlay fades, the panel rises
  * 8px and settles on a damped spring, and leaves shorter and quieter than it came. Reduced
@@ -83,7 +108,7 @@ export function PaletteDialog({
                       }
                 }
                 style={{ transformOrigin: "top center" }}
-                className="-translate-x-1/2 fixed top-[14vh] left-1/2 z-50 w-[min(640px,92vw)] overflow-hidden rounded-ck-panel border border-ck-border bg-ck-surface text-ck-fg shadow-ck-float outline-none"
+                className={`-translate-x-1/2 fixed top-[14vh] left-1/2 z-50 w-[min(640px,92vw)] ${PANEL}`}
               >
                 <Dialog.Title className="sr-only">{title}</Dialog.Title>
                 {description && (
