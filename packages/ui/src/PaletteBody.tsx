@@ -1,4 +1,4 @@
-import type { Ctx } from "@command-kernel/core";
+import { type Ctx, disabledReason } from "@command-kernel/core";
 import { SearchX } from "lucide-react";
 import { ArgOptions } from "./ArgOptions.js";
 import { ConfirmPanel } from "./ConfirmPanel.js";
@@ -37,6 +37,7 @@ export function PaletteBody({
           node={p.confirm.node}
           values={p.confirm.values}
           verdict={p.confirm.verdict}
+          unavailable={p.confirm.blocked && disabledReason(p.confirm.node, ctx) !== null}
           blocked={p.confirm.blocked}
           role={ctx.user.role}
           alwaysLabel={p.confirmAlwaysLabel}

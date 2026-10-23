@@ -48,8 +48,11 @@ export interface CommandPaletteProps {
    * it alone (a host key that opens its help, a key the host keeps for itself).
    */
   onKeyDown?: (event: KeyboardEvent, state: { query: string; mode: Mode }) => boolean | undefined;
-  /** the host's own controls at the end of the footer (Close, Help); shown on touch screens too */
-  footer?: ReactNode;
+  /**
+   * The host's own controls at the end of the footer (Close, Help), on touch screens too; a
+   * function draws them for the query and mode on screen (a key shown only while nothing is typed).
+   */
+  footer?: ReactNode | ((state: { query: string; mode: Mode }) => ReactNode);
   /** every word the palette says; unset keys keep the English default */
   labels?: PaletteLabelOverrides;
   /** show each node's authoring `weight` in its row (an authoring diagnostic) */
@@ -180,7 +183,7 @@ export function CommandPalette({
         pipeable={p.mode === "browse" && Boolean(selectedNode?.subject)}
         modHeld={modHeld}
         labels={text}
-        host={footer}
+        host={typeof footer === "function" ? footer({ query: p.query, mode: p.mode }) : footer}
       />
     </PaletteDialog>
   );

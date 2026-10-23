@@ -291,6 +291,24 @@ describe("the host's keys, footer, words and first query", () => {
     expect(document.body.textContent).not.toContain("inbox");
   });
 
+  it("a footer drawn for the query on screen", async () => {
+    mount({ footer: ({ query }) => <span>{query ? "typed" : "help ?"}</span>, initialQuery: "x" });
+    await tick();
+    expect(document.body.textContent).toContain("typed");
+  });
+
+  it("a command that cannot run says its own reason, with no role against it", async () => {
+    const off: CommandNode = { ...archive, id: "off", disabled: () => "Open a thread first" };
+    mount({ roots: [off], kernel: createKernel({ roots: [off] }) });
+    await tick();
+    fireEvent.click(options()[0] as Element);
+    await tick();
+    const alert = document.body.querySelector('[role="alert"]');
+    expect(alert?.textContent).toBe("Open a thread first");
+    expect(document.body.textContent).not.toContain("Requires");
+    expect(document.body.textContent).not.toContain("You: admin");
+  });
+
   it("the search box is a combobox even when nothing matches", async () => {
     mount({ initialQuery: "zzzz" });
     await tick();

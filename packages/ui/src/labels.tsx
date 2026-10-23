@@ -83,6 +83,8 @@ export interface PaletteLabels {
   needsConfirm: string;
   /** what a blocked human can do about it */
   blockedHint: string;
+  /** what to do about a command that cannot run now (its own reason is said above) */
+  unavailableHint: string;
   /** the primary confirm button */
   confirmRun: string;
 
@@ -141,6 +143,7 @@ export const defaultLabels: PaletteLabels = {
   yourRole: (role) => `You: ${role}`,
   needsConfirm: "Asks for your OK every time",
   blockedHint: "Your role cannot run this; the check above says who can",
+  unavailableHint: "Back to the list",
   confirmRun: "Confirm and run",
 
   hintSelect: "select",

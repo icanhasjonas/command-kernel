@@ -162,7 +162,8 @@ function useFrecency(options?: { storageKey?: string; storage?: FrecencyStorage 
 
 - **Disabled rows say why.** A node's own `disabled(ctx)` (core) is read on every row: the
   row stays listed, greyed, with the reason at its end (`aria-disabled`), and picking it
-  shows the reason at once, before any arg is asked for. Nothing to pass: put the reason
+  shows the reason at once (said too, `role="alert"`), as it is, with no role against it,
+  before any arg is asked for. Nothing to pass: put the reason
   on the node, and the app's state in `ctx.facts`.
 - **`rowAdornment`: anything of yours at a row's end** (an unread count, a state), drawn
   before the keycaps. `active` is true for the highlighted row.
@@ -212,7 +213,7 @@ interface CommandPaletteProps {
   throws closes it and goes to `onError`.
 - **`onKeyDown`** sees every key before the palette does; answer `true` to keep one (a help
   key, a key the host reserves). **`footer`** puts the host's controls at the footer's end,
-  on touch screens too. **`initialQuery`** opens the palette on words already typed.
+  on touch screens too (a function of `{ query, mode }` draws them for what is on screen). **`initialQuery`** opens the palette on words already typed.
 - **Words:** `labels.context(where, role)` is the header's right end ("" leaves it out, for
   an app with one role); `labels.title` and `labels.description` name the dialog; `labels.resultCount`
   is said to a screen reader as the rows for a typed query settle. The search box is a

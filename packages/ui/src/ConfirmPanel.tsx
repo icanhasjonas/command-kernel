@@ -18,6 +18,7 @@ export function ConfirmPanel({
   role,
   alwaysLabel,
   labels,
+  unavailable = false,
   onProceed,
   onAlways,
 }: {
@@ -28,6 +29,11 @@ export function ConfirmPanel({
   role: string;
   alwaysLabel: string;
   labels: PaletteLabels;
+  /**
+   * The command says it cannot run now (core `disabled`): the reason is the app's, not a
+   * role's, so it is said as it is, with no role against it.
+   */
+  unavailable?: boolean;
   onProceed: () => void;
   onAlways: () => void;
 }) {
@@ -71,7 +77,8 @@ export function ConfirmPanel({
         </div>
       )}
 
-      <ul className="flex flex-col gap-1.5">
+      {/* a refusal is said at once, not only seen */}
+      <ul className="flex flex-col gap-1.5" {...(blocked && { role: "alert" })}>
         {verdict.checks.map((c, i) => (
           <li
             // a verdict can legitimately carry two checks with the same label
@@ -85,9 +92,9 @@ export function ConfirmPanel({
               <X size={16} strokeWidth={1.75} aria-hidden="true" className="text-ck-danger" />
             )}
             <span className={c.ok ? "text-ck-fg-secondary" : "text-ck-danger"}>
-              {labels.check(c.label, c.ok)}
+              {unavailable ? c.label : labels.check(c.label, c.ok)}
             </span>
-            {!c.ok && (
+            {!c.ok && !unavailable && (
               <span className="ml-auto text-[12px] text-ck-fg-muted">{labels.yourRole(role)}</span>
             )}
           </li>
@@ -109,7 +116,8 @@ export function ConfirmPanel({
       <div className="flex flex-wrap items-center gap-2">
         {blocked ? (
           <div className="flex items-center gap-2 text-[12px] text-ck-fg-muted">
-            <Kbd className="pointer-coarse:hidden">esc</Kbd> {labels.blockedHint}
+            <Kbd className="pointer-coarse:hidden">esc</Kbd>{" "}
+            {unavailable ? labels.unavailableHint : labels.blockedHint}
           </div>
         ) : (
           <>
