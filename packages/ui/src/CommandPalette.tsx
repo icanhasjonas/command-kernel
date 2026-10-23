@@ -182,6 +182,9 @@ export function CommandPalette({
         blocked={Boolean(p.confirm?.blocked)}
         empty={p.mode === "browse" && p.ranked.length === 0}
         drillable={p.mode === "browse" && Boolean(selectedNode?.resolve)}
+        runnable={Boolean(selectedNode?.run)}
+        chords={roots.some((n) => n.chord)}
+        atRoot={p.mode === "browse" && p.frames.length === 1}
         pipeable={p.mode === "browse" && Boolean(selectedNode?.subject)}
         modHeld={modHeld}
         labels={text}

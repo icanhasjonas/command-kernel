@@ -13,7 +13,10 @@ export function PaletteFooter({
   blocked,
   empty,
   drillable,
+  runnable,
   pipeable,
+  chords,
+  atRoot,
   modHeld,
   labels,
   host,
@@ -25,6 +28,12 @@ export function PaletteFooter({
   empty: boolean;
   /** the selected row has children (→ drills) */
   drillable: boolean;
+  /** the selected row also runs: ⌘↵ runs it where ↵ drills (else ⌘↵ is just ↵, not shown) */
+  runnable: boolean;
+  /** some command here has a chord: holding ⌘ shows them (else nothing to hold for) */
+  chords: boolean;
+  /** browsing the root: Esc closes the palette rather than going back */
+  atRoot: boolean;
   /** the selected row stands for a value (tab pipes it) */
   pipeable: boolean;
   modHeld: boolean;
@@ -51,16 +60,25 @@ export function PaletteFooter({
         {/* keyboard-only hints wait for a screen wide enough to have a keyboard */}
         {mode === "browse" && drillable && <Hint k="→" label={labels.hintDrill} keyboardOnly />}
         {mode === "browse" && pipeable && <Hint k="tab" label={labels.hintPipe} />}
-        {mode === "browse" && <Hint k="⌘↵" label={labels.hintRunAsPage} keyboardOnly />}
-        <Hint k="esc" label={mode === "confirm" ? labels.hintCancel : labels.hintBack} />
-        <span
-          className={cn(
-            "ml-auto hidden items-center gap-1.5 whitespace-nowrap transition-opacity duration-150 motion-reduce:transition-none sm:flex",
-            modHeld ? "opacity-100" : "opacity-70",
-          )}
-        >
-          {labels.chordHint(<Kbd glow={modHeld}>⌘</Kbd>)}
-        </span>
+        {mode === "browse" && drillable && runnable && (
+          <Hint k="⌘↵" label={labels.hintRunAsPage} keyboardOnly />
+        )}
+        <Hint
+          k="esc"
+          label={
+            mode === "confirm" ? labels.hintCancel : atRoot ? labels.hintClose : labels.hintBack
+          }
+        />
+        {chords && (
+          <span
+            className={cn(
+              "ml-auto hidden items-center gap-1.5 whitespace-nowrap transition-opacity duration-150 motion-reduce:transition-none sm:flex",
+              modHeld ? "opacity-100" : "opacity-70",
+            )}
+          >
+            {labels.chordHint(<Kbd glow={modHeld}>⌘</Kbd>)}
+          </span>
+        )}
       </span>
       {host && <span className="ml-auto flex shrink-0 items-center gap-1">{host}</span>}
     </div>

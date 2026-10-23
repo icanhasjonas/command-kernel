@@ -318,6 +318,16 @@ describe("the host's keys, footer, words and first query", () => {
     expect(document.activeElement).not.toBe(input());
   });
 
+  it("the footer names only keys that do something here", async () => {
+    mount();
+    await tick();
+    const foot = document.body.textContent ?? "";
+    // no row here drills and runs, nothing has a chord, and Esc at the root closes
+    expect(foot).not.toContain("run as page");
+    expect(foot).not.toContain("for chords");
+    expect(foot).toContain("close");
+  });
+
   it("the search box is a combobox even when nothing matches", async () => {
     mount({ initialQuery: "zzzz" });
     await tick();
