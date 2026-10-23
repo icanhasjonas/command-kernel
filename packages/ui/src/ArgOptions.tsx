@@ -56,6 +56,8 @@ export function ArgOptions({
           key={o.value}
           id={`${id}-${i}`}
           onMouseMove={() => onHover(i)}
+          // the arg's input keeps focus (ResultRow)
+          onMouseDown={(e) => e.preventDefault()}
           onClick={() => onPick(o.value)}
           className={cn(ROW, "cursor-pointer")}
         >
@@ -78,6 +80,7 @@ export function ArgOptions({
         <button
           type="button"
           id={`${id}-free`}
+          onMouseDown={(e) => e.preventDefault()}
           onClick={() => onPick(typed)}
           className={cn(
             ROW,

@@ -64,6 +64,9 @@ export function ResultRow({
       })}
       {...(off && { "aria-disabled": true })}
       onMouseMove={onHover}
+      // a press never takes focus from the search box: it stays where the keys go, and a row
+      // that goes away after it ran ("Load more") cannot drop focus on the page
+      onMouseDown={(e) => e.preventDefault()}
       onClick={(e) => onActivate(e.metaKey || e.ctrlKey)}
       className={cn(ROW, "cursor-pointer")}
     >

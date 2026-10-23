@@ -370,6 +370,16 @@ describe("the host's keys, footer, words and first query", () => {
     page.remove();
   });
 
+  it("a press on a row leaves focus in the search box", async () => {
+    mount();
+    await tick(40);
+    input().focus();
+    const row = options()[0] as HTMLElement;
+    const pressed = fireEvent.mouseDown(row);
+    // the default (moving focus to the button) is prevented
+    expect(pressed).toBe(false);
+  });
+
   it("the search box is a combobox even when nothing matches", async () => {
     mount({ initialQuery: "zzzz" });
     await tick();
