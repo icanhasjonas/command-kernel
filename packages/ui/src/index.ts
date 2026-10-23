@@ -40,7 +40,13 @@ export {
   type FrecencyStorage,
   useFrecency,
 } from "./useFrecency.js";
-export type { Mode, PaletteState, PaletteTrigger } from "./usePalette.js";
+export type {
+  Mode,
+  PaletteArrange,
+  PaletteArrangeInput,
+  PaletteState,
+  PaletteTrigger,
+} from "./usePalette.js";
 export { usePalette } from "./usePalette.js";
 // a host's own search at the root (threads by text): <CommandPalette sources>
-export type { PaletteSource } from "./usePaletteSources.js";
+export type { PaletteAnswer, PaletteFound, PaletteSource } from "./usePaletteSources.js";
