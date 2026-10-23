@@ -1,14 +1,21 @@
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "motion/react";
 import { cn } from "./cn.js";
+import { enter, instant, motionTokens } from "./motion-tokens.js";
 
 export type PillState = "active" | "filled" | "empty";
 
-const VARIANT: Record<PillState, string> = {
-  active:
-    "border-ck-accent/60 bg-pink/15 text-ck-accent-soft shadow-[0_0_0_1px_rgba(228,19,98,0.35)]",
-  filled: "border-ck-success/40 bg-ck-success/10 text-ck-success",
-  empty: "border-dashed border-ck-warning/50 bg-ck-warning/[0.06] text-ck-warning/90",
+/**
+ * Arc's badge shape. The accent marks only the arg being filled; a filled arg is neutral (a
+ * value is not a success), an empty one is a dashed outline (nothing is wrong with it yet).
+ */
+export const PILL_LOOK: Record<PillState, string> = {
+  active: "border-ck-accent/30 bg-ck-accent-subtle text-ck-accent-strong",
+  filled: "border-ck-border bg-ck-surface-muted text-ck-fg",
+  empty: "border-dashed border-ck-border-strong text-ck-fg-muted",
 };
+
+export const PILL_SHAPE =
+  "inline-flex min-h-[26px] max-w-[16rem] items-center gap-1.5 rounded-pill border px-2.5 text-[12px] leading-none font-medium";
 
 export function Pill({
   label,
@@ -25,23 +32,21 @@ export function Pill({
   requiredLabel?: string;
   optionalLabel?: string;
 }) {
+  const reduce = useReducedMotion();
   return (
     <motion.span
-      layout
-      initial={{ opacity: 0, scale: 0.8, y: 2 }}
-      animate={{ opacity: 1, scale: 1, y: 0 }}
-      transition={{ type: "spring", stiffness: 500, damping: 30 }}
-      className={cn(
-        "inline-flex max-w-[16rem] items-center gap-1.5 rounded-pill border px-2.5 py-1",
-        "font-mono text-[12px] leading-none",
-        VARIANT[state],
-      )}
+      // a pill that gains a value widens to it on a spring instead of jumping
+      layout={reduce ? false : "size"}
+      initial={reduce ? false : { opacity: 0, scale: 0.96 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={reduce ? instant : { default: enter, layout: motionTokens.spring.morph }}
+      className={cn(PILL_SHAPE, PILL_LOOK[state])}
     >
-      <span className="opacity-60">{label}</span>
+      <span className={state === "filled" ? "text-ck-fg-muted" : undefined}>{label}</span>
       {value ? (
-        <span className="truncate font-medium">{value}</span>
+        <span className="truncate">{value}</span>
       ) : (
-        <span className="opacity-50">{required ? requiredLabel : optionalLabel}</span>
+        <span className="font-normal">{required ? requiredLabel : optionalLabel}</span>
       )}
     </motion.span>
   );

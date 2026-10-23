@@ -11,7 +11,7 @@
 import "./dom-command.js";
 
 export { CommandLauncher } from "./CommandLauncher.js";
-export { CommandPalette } from "./CommandPalette.js";
+export { CommandPalette, type CommandPaletteProps } from "./CommandPalette.js";
 export { cn } from "./cn.js";
 export { Icon, iconFor, registerIcons } from "./icon.js";
 // DRIVER #5 - the native DOM invoker (`<button command>` / `commandfor`)
@@ -33,5 +33,14 @@ export {
   type PaletteLabels,
   resolveLabels,
 } from "./labels.js";
-export type { Mode, PaletteTrigger } from "./usePalette.js";
+// Arc's motion presets, for a host drawing its own palette over usePalette
+export { motionTokens } from "./motion-tokens.js";
+export {
+  type FrecencyOptions,
+  type FrecencyStorage,
+  useFrecency,
+} from "./useFrecency.js";
+export type { Mode, PaletteState, PaletteTrigger } from "./usePalette.js";
 export { usePalette } from "./usePalette.js";
+// a host's own search at the root (threads by text): <CommandPalette sources>
+export type { PaletteSource } from "./usePaletteSources.js";

@@ -1,16 +1,22 @@
 /*
   @command-kernel/ui -- theme contract.
 
-  Import this file alongside Tailwind to define the palette's semantic color
-  tokens. Override any `--color-ck-*` property in your own `@theme` block to
-  rebrand; the fallback chain picks up matching portal2-style names automatically.
+  The palette is drawn in Arc's design language (uiarc.dev) and reads Arc's own
+  CSS variable names: an app that loads Arc's foundation.css (--surface,
+  --foreground, --accent, --radius-panel, --shadow-floating, ...) gets a palette
+  in its exact theme and accent, light or dark, with nothing to configure.
+
+  An app without Arc gets Arc's neutral values as fallbacks. They follow the
+  page's `color-scheme` (light-dark()), so a dark app sets `color-scheme: dark`
+  on its root and the palette is dark too.
 
   Usage:
-    @import "@command-kernel/ui/theme.css";   // before your own @theme
     @import "tailwindcss";
+    @import "@command-kernel/ui/theme.css";
 
-  Then override:
-    @theme { --color-ck-accent: #6366f1; }    // indigo accent instead of pink
+  Override any `--color-ck-*` (or `--radius-ck-*`, `--shadow-ck-*`) in your own
+  `@theme` block to change one thing without forking a component:
+    @theme { --color-ck-accent: #6366f1; }
 */
 
 /* Tailwind generates only the classes it scans, and it never scans a dependency on
@@ -19,36 +25,62 @@
 @source "./";
 
 @theme {
-  --color-ck-accent: var(--color-pink, #e41362);
-  --color-ck-accent-soft: var(--color-pink-soft, #ff4d8d);
-  --color-ck-success: var(--color-teal-soft, #2dd4bf);
-  --color-ck-warning: var(--color-amber-soft, #f59e0b);
-  --color-ck-danger: var(--color-danger, #b55b5b);
-  --color-ck-glass: var(--color-glass, rgba(18, 20, 28, 0.72));
+  /* surfaces */
+  --color-ck-surface: var(--surface, light-dark(oklch(100% 0 0), oklch(21.5% 0 0)));
+  --color-ck-surface-muted: var(--surface-muted, light-dark(oklch(97.8% 0 0), oklch(26% 0 0)));
+  --color-ck-overlay: oklch(10% 0 0 / 0.46);
 
-  --shadow-ck-float: var(
-    --shadow-float,
-    0 24px 80px -12px rgba(0, 0, 0, 0.55),
-    0 8px 24px -8px rgba(0, 0, 0, 0.4)
+  /* text */
+  --color-ck-fg: var(--foreground, light-dark(oklch(15% 0 0), oklch(96% 0 0)));
+  --color-ck-fg-secondary: var(--text-secondary, light-dark(oklch(46% 0 0), oklch(77% 0 0)));
+  --color-ck-fg-muted: var(--text-muted, light-dark(oklch(59% 0 0), oklch(64% 0 0)));
+
+  /* lines */
+  --color-ck-border: var(--border, light-dark(oklch(93.5% 0 0), oklch(29% 0 0)));
+  --color-ck-border-subtle: var(--border-subtle, light-dark(oklch(96.5% 0 0), oklch(25% 0 0)));
+  --color-ck-border-strong: var(--border-strong, light-dark(oklch(82% 0 0), oklch(40% 0 0)));
+
+  /* the accent: spent only on what is active (the arg being filled, the value in
+     hand, the primary button, a held key), never on surfaces or every icon */
+  --color-ck-accent: var(--accent, light-dark(oklch(33% 0 0), oklch(80% 0 0)));
+  --color-ck-accent-strong: var(--accent-strong, light-dark(oklch(24% 0 0), oklch(91% 0 0)));
+  --color-ck-accent-subtle: var(
+    --accent-subtle,
+    light-dark(oklch(33% 0 0 / 0.1), oklch(80% 0 0 / 0.13))
   );
-  --shadow-ck-glow: var(
-    --shadow-glow,
-    0 0 0 1px rgba(228, 19, 98, 0.35),
-    0 8px 32px -8px rgba(228, 19, 98, 0.45)
-  );
+  --color-ck-accent-fg: var(--accent-foreground, light-dark(oklch(100% 0 0), oklch(19% 0 0)));
+  /* kept for consumers that set it; the palette itself reads accent-strong */
+  --color-ck-accent-soft: var(--color-ck-accent-strong);
 
-  /*
-    The keycap. Broken out because `Kbd` used to hardcode `border-white/10
-    bg-white/5 text-white/70` plus an inset shadow, which made the one component
-    whose entire job is to ADVERTISE a shortcut invisible on any light theme --
-    and unusable in a design system that separates surfaces by border alone.
-    A consumer sets these three and the keycap is theirs; setting
-    `--shadow-ck-kbd: none` drops the bevel without forking the component.
-  */
-  --color-ck-kbd-bg: var(--color-ck-surface-raised, rgba(255, 255, 255, 0.05));
-  --color-ck-kbd-fg: var(--color-ck-fg-muted, rgba(255, 255, 255, 0.7));
-  --color-ck-kbd-border: var(--color-ck-border, rgba(255, 255, 255, 0.1));
-  --shadow-ck-kbd: var(--shadow-kbd, inset 0 -1px 0 rgba(0, 0, 0, 0.4));
+  /* status: only where something passed, needs attention, or failed */
+  --color-ck-success: var(--success, light-dark(oklch(49% 0.19 150), oklch(78% 0.18 150)));
+  --color-ck-warning: var(--warning, light-dark(oklch(58% 0.18 75), oklch(83% 0.17 80)));
+  --color-ck-danger: var(--danger, light-dark(oklch(54% 0.21 25), oklch(76% 0.2 25)));
 
+  /* kept for consumers that set it: the palette's surface used to be glass */
+  --color-ck-glass: var(--color-ck-surface);
+
+  /* the keycap: Arc's flat cap, no bevel */
+  --color-ck-kbd-bg: var(--color-ck-surface-muted);
+  --color-ck-kbd-fg: var(--color-ck-fg-muted);
+  --color-ck-kbd-border: var(--color-ck-border);
+  --shadow-ck-kbd: none;
+
+  /* shape */
+  --radius-ck-panel: var(--radius-panel, 1.625rem);
+  --radius-ck-control: var(--radius-control, 1.125rem);
+  /* the same value as Arc's own --radius-pill (a var() of itself would be a cycle) */
   --radius-pill: 9999px;
+
+  /* depth: only the floating layer casts a shadow */
+  --shadow-ck-float: var(
+    --shadow-floating,
+    0 20px 48px oklch(0% 0 0 / 0.105),
+    0 3px 10px oklch(0% 0 0 / 0.045)
+  );
+  /* kept for consumers that set it; nothing in the palette glows any more */
+  --shadow-ck-glow: none;
+
+  /* motion, for the few CSS transitions (the rest is motion/react, see motion-tokens.ts) */
+  --ease-ck-standard: var(--ease-standard, cubic-bezier(0.22, 1, 0.36, 1));
 }

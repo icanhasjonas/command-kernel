@@ -1,5 +1,5 @@
 import { Kbd } from "@command-kernel/ui";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion } from "motion/react";
 import { useDemo } from "./demo/demo-context";
 import { kernel } from "./demo/kernel";
 

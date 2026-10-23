@@ -4,8 +4,9 @@
 /*
   Token layers, lab edition. Mirrors the portal2 brand vocabulary (pink CTA,
   deep ink, cream, teal) but self-contained so this app touches nothing.
-  The ck-* tokens are inherited from @command-kernel/ui/theme.css via the
-  --color-pink/teal/amber/danger fallback chain.
+  The palette (@command-kernel/ui) is drawn in Arc's look and reads Arc's
+  variables; this app loads no Arc, so it gets Arc's neutral fallbacks, dark
+  because the page says `color-scheme: dark` below.
 */
 @theme {
   --color-ink: #0a1a19;
@@ -38,6 +39,8 @@
 /* the sticky header's height, measured live by <Header>; these are the first-paint guesses */
 :root {
   --header-h: 96px;
+  /* a dark page: native controls and the palette's light-dark() fallbacks follow it */
+  color-scheme: dark;
 }
 @media (width >= 80rem) {
   :root {
@@ -71,10 +74,10 @@
   }
 }
 
-/* fuzzy-match highlight */
+/* fuzzy-match highlight: the palette underlines a match; the lab tints it in its brand pink,
+   at the palette's own weight (Arc draws in 400 and 500 only) */
 .match-hl {
   color: var(--color-pink-soft);
-  font-weight: 650;
 }
 
 ::-webkit-scrollbar {

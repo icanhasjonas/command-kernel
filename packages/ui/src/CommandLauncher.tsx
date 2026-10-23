@@ -25,7 +25,8 @@ export function CommandLauncher({
       onClick={onClick}
       aria-label={label}
       className={cn(
-        "group inline-flex min-h-[36px] items-center gap-2 rounded-lg border border-white/15 bg-white/5 px-2.5 py-1.5 text-xs font-semibold text-white/50 shadow-sm transition-all hover:border-ck-accent-soft/50 hover:text-white/80 hover:shadow-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ck-accent",
+        // Arc's quiet control: a hairline on the surface, colour on hover, a scale on press
+        "group inline-flex min-h-9 items-center gap-2 rounded-ck-control border border-ck-border bg-ck-surface px-3 text-[12px] font-medium text-ck-fg-secondary transition-[background-color,color,transform] duration-150 hover:bg-ck-surface-muted hover:text-ck-fg active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ck-accent motion-reduce:transition-none motion-reduce:active:scale-100",
         className,
       )}
     >

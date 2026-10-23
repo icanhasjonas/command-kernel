@@ -1,8 +1,11 @@
 import type { ArgOption } from "@command-kernel/core";
 import { CornerDownLeft, Loader2 } from "lucide-react";
+import { useId } from "react";
 import { cn } from "./cn.js";
+import { GlideList } from "./GlideList.js";
 import { Icon } from "./icon.js";
 import type { PaletteLabels } from "./labels.js";
+import { ROW } from "./ResultRow.js";
 
 export function ArgOptions({
   options,
@@ -29,16 +32,21 @@ export function ArgOptions({
   onPick: (value: string) => void;
   onHover: (i: number) => void;
 }) {
+  const id = useId();
+  const free = freeText && typed.trim() !== "";
+  // the typed value is the choice when no option is highlighted, or there are none
+  const freeActive = free && (selected < 0 || options.length === 0);
+  const activeId = freeActive ? `${id}-free` : options[selected] ? `${id}-${selected}` : null;
   return (
-    <div className="px-2 pb-2">
+    <GlideList activeId={activeId} layoutKey={`${options.map((o) => o.value).join("\n")}|${free}`}>
       {unmatched && (
-        <div role="alert" className="px-3 py-2 text-[12px] text-ck-warning">
+        <div role="alert" className="px-2 py-2 text-[12px] text-ck-warning">
           {unmatched}
         </div>
       )}
       {loading && (
-        <div className="flex items-center gap-2 px-3 py-2 text-[12px] text-white/40">
-          <Loader2 size={13} className="animate-spin" /> {labels.resolving}
+        <div className="flex items-center gap-2 px-2 py-2 text-[12px] text-ck-fg-muted">
+          <Loader2 size={14} strokeWidth={1.75} className="animate-spin" /> {labels.resolving}
         </div>
       )}
 
@@ -46,40 +54,52 @@ export function ArgOptions({
         <button
           type="button"
           key={o.value}
+          id={`${id}-${i}`}
           onMouseMove={() => onHover(i)}
           onClick={() => onPick(o.value)}
-          className={cn(
-            "flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left",
-            // one highlight only: the pointer moves the selection, so hover paints nothing
-            i === selected && "bg-white/[0.07]",
-          )}
+          className={cn(ROW, "cursor-pointer")}
         >
           {/* an option without an icon gets none, not a placeholder circle */}
-          {o.icon && <Icon name={o.icon} size={15} className="text-white/50" />}
-          <span className="flex-1 truncate text-[13px] text-white/85">{o.label}</span>
-          {o.hint && <span className="truncate text-[12px] text-white/40">{o.hint}</span>}
+          {o.icon && (
+            <Icon
+              name={o.icon}
+              size={16}
+              strokeWidth={1.75}
+              aria-hidden="true"
+              className={i === selected ? "text-ck-fg" : "text-ck-fg-muted"}
+            />
+          )}
+          <span className="flex-1 truncate text-[14px] font-medium text-ck-fg">{o.label}</span>
+          {o.hint && <span className="truncate text-[12px] text-ck-fg-muted">{o.hint}</span>}
         </button>
       ))}
 
-      {freeText && typed.trim() && (
+      {free && (
         <button
           type="button"
+          id={`${id}-free`}
           onClick={() => onPick(typed)}
           className={cn(
-            "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-[13px]",
-            selected < 0 || options.length === 0 ? "bg-white/[0.07]" : "hover:bg-white/[0.035]",
+            ROW,
+            "cursor-pointer text-[14px]",
+            !freeActive && "transition-colors hover:bg-ck-surface-muted/60",
           )}
         >
-          <CornerDownLeft size={14} className="text-ck-accent-soft" />
-          <span className="text-white/70">{labels.freeTextOption(typed)}</span>
+          <CornerDownLeft
+            size={16}
+            strokeWidth={1.75}
+            aria-hidden="true"
+            className={freeActive ? "text-ck-fg" : "text-ck-fg-muted"}
+          />
+          <span className="text-ck-fg-secondary">{labels.freeTextOption(typed)}</span>
         </button>
       )}
 
       {!loading && options.length === 0 && !typed.trim() && (
-        <div className="px-3 py-2 text-[12px] text-white/35">
+        <div className="px-2 py-2 text-[12px] text-ck-fg-muted">
           {searchable ? labels.startTyping : labels.typeValue}
         </div>
       )}
-    </div>
+    </GlideList>
   );
 }

@@ -1,5 +1,5 @@
-import { AnimatePresence, motion } from "framer-motion";
 import { X } from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
 import { useEffect } from "react";
 import { Inspector } from "./Inspector";
 

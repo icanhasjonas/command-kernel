@@ -1,5 +1,5 @@
 import { cn } from "@command-kernel/ui";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useState } from "react";
 import { useDemo } from "./demo/demo-context";
 

@@ -1,6 +1,7 @@
 import type { Ranked } from "@command-kernel/core";
 import { isGated } from "@command-kernel/core";
 import { ChevronRight, Lock } from "lucide-react";
+import type { ReactNode } from "react";
 import { cn } from "./cn.js";
 import { Highlight } from "./Highlight.js";
 import { Icon } from "./icon.js";
@@ -9,18 +10,27 @@ import { Kbd } from "./Kbd.js";
 /** a key a touch screen has no use for: hidden without a fine pointer or a wide screen */
 const KEYS_ONLY = "max-sm:hidden pointer-coarse:hidden";
 
+/** Arc's result row: one line, the shared highlight behind it (GlideList), no fill of its own. */
+export const ROW =
+  "group relative flex min-h-[34px] w-full items-center gap-2.5 rounded-lg px-2 text-left outline-none pointer-coarse:min-h-11";
+
 export function ResultRow({
   id,
+  option = false,
   item,
   active,
   modHeld,
   showWeight = false,
   landsIn,
+  disabledReason,
+  adornment,
   onActivate,
   onHover,
 }: {
-  /** set when the row is an option of a listbox the search input controls */
+  /** the row's DOM id: the highlight finds it by this */
   id?: string;
+  /** the row is an option of a listbox the search input controls */
+  option?: boolean;
   item: Ranked;
   active: boolean;
   modHeld: boolean;
@@ -28,6 +38,10 @@ export function ResultRow({
   showWeight?: boolean;
   /** in pipe mode: where the value in hand lands ("as attachments") */
   landsIn?: string;
+  /** why the node cannot run right now (core `disabledReason`): the row says it, greyed */
+  disabledReason?: string | null;
+  /** whatever the host draws at the row's end (`rowAdornment`) */
+  adornment?: ReactNode;
   onActivate: (exec: boolean) => void;
   onHover: () => void;
 }) {
@@ -36,74 +50,76 @@ export function ResultRow({
   const drillable = Boolean(node.resolve);
   // a row that stands for a value: Tab pipes it into a command
   const pipeable = Boolean(node.subject);
+  const off = disabledReason !== undefined && disabledReason !== null;
 
   return (
     <button
       type="button"
-      {...(id !== undefined && {
-        id,
+      id={id}
+      {...(option && {
         role: "option",
         "aria-selected": active,
         // the input keeps focus and points here with aria-activedescendant
         tabIndex: -1,
       })}
+      {...(off && { "aria-disabled": true })}
       onMouseMove={onHover}
       onClick={(e) => onActivate(e.metaKey || e.ctrlKey)}
-      className={cn(
-        "group flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors",
-        // one highlight only: the pointer moves the selection, so hover paints nothing
-        active && "bg-white/[0.07]",
-      )}
+      className={cn(ROW, "cursor-pointer")}
     >
-      <span
+      <Icon
+        name={node.icon}
+        size={16}
+        strokeWidth={1.75}
+        aria-hidden="true"
         className={cn(
-          "flex size-9 shrink-0 items-center justify-center rounded-lg border border-white/10",
-          active ? "bg-pink/15 text-ck-accent-soft" : "bg-white/[0.04] text-white/60",
+          "shrink-0 transition-colors duration-150 motion-reduce:transition-none",
+          active && !off ? "text-ck-fg" : "text-ck-fg-muted",
         )}
-      >
-        <Icon name={node.icon} size={17} strokeWidth={2} />
-      </span>
+      />
 
-      <span className="min-w-0 flex-1">
-        <span className="flex items-center gap-2">
-          {node.category && (
-            <span className="shrink-0 text-[12px] font-medium text-white/35 max-sm:hidden">
-              {node.category} ▸
-            </span>
+      <span className="flex min-w-0 flex-1 items-baseline gap-2">
+        <span
+          className={cn(
+            "max-w-full shrink-0 truncate text-[14px] font-medium",
+            off ? "text-ck-fg-muted" : "text-ck-fg",
           )}
-          <span className="truncate text-[14px] font-medium text-white/90">
-            <Highlight text={node.title} positions={positions} />
-          </span>
-          {gated && <Lock size={12} className="shrink-0 text-ck-danger/90" />}
-          {/* who the gate declares it for, said before any arg is asked: the node's own
-              data, not a verdict (the kernel still decides, after the args) */}
-          {node.gate?.roles && node.gate.roles.length > 0 && (
-            <span className="shrink-0 font-mono text-[11px] text-white/40 max-sm:hidden">
-              {node.gate.roles.join(" / ")}
-            </span>
-          )}
+        >
+          <Highlight text={node.title} positions={positions} />
         </span>
         {node.subtitle && (
-          <span className="mt-0.5 block truncate text-[12px] text-white/40">{node.subtitle}</span>
+          <span className="min-w-0 truncate text-[12px] text-ck-fg-muted max-sm:hidden">
+            {node.subtitle}
+          </span>
         )}
       </span>
 
-      <span className="flex shrink-0 items-center gap-2">
+      <span className="flex shrink-0 items-center gap-2 text-[12px] text-ck-fg-muted">
+        {off && disabledReason && <span className="max-w-[14rem] truncate">{disabledReason}</span>}
+        {adornment}
+        {gated && (
+          // who the gate declares it for, said before any arg is asked: the node's own data,
+          // not a verdict (the kernel still decides, after the args)
+          <span className="flex items-center gap-1 max-sm:hidden">
+            <Lock size={12} strokeWidth={1.75} aria-hidden="true" />
+            {node.gate?.roles && node.gate.roles.length > 0 && node.gate.roles.join(" / ")}
+          </span>
+        )}
         {landsIn && (
-          <span className="rounded-md border border-white/10 px-1.5 py-0.5 font-mono text-[11px] text-white/60 max-sm:hidden">
+          <span className="rounded-pill border border-ck-border px-2 py-0.5 text-[11px] font-medium text-ck-fg-secondary max-sm:hidden">
             {landsIn}
           </span>
         )}
         {pipeable && !landsIn && (
-          <Kbd glow={active} className={cn(KEYS_ONLY, !active && "opacity-40")}>
+          <Kbd glow={active} className={cn(KEYS_ONLY, !active && "opacity-50")}>
             tab
           </Kbd>
         )}
         {showWeight && typeof node.weight === "number" && node.weight > 0 && (
-          <span className="font-mono text-[11px] tabular-nums text-white/25">{node.weight}</span>
+          <span className="tabular-nums">{node.weight}</span>
         )}
         {node.chord && (
-          <Kbd glow={modHeld} className={cn(KEYS_ONLY, !modHeld && "opacity-40")}>
+          <Kbd glow={modHeld} className={cn(KEYS_ONLY, !modHeld && "opacity-60")}>
             {node.chord.toUpperCase()}
           </Kbd>
         )}
@@ -111,9 +127,11 @@ export function ResultRow({
         {drillable && !landsIn && (
           <ChevronRight
             size={16}
+            strokeWidth={1.75}
+            aria-hidden="true"
             className={cn(
-              "text-white/25 transition-transform",
-              active && "translate-x-0.5 text-white/50",
+              "transition-[transform,color] duration-150 motion-reduce:transition-none",
+              active ? "translate-x-0.5 text-ck-fg" : "text-ck-fg-muted",
             )}
           />
         )}

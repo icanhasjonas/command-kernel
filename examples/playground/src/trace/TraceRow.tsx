@@ -1,6 +1,6 @@
 import { argText } from "@command-kernel/core";
 import { cn, Icon } from "@command-kernel/ui";
-import { motion } from "framer-motion";
+import { motion } from "motion/react";
 import { DRIVER_META } from "./drivers";
 import { needs } from "./needs";
 import type { Outcome, TraceEntry } from "./trace-store";

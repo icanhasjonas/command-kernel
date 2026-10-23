@@ -14,11 +14,11 @@
     "@command-kernel/agent": "workspace:*",
     "@command-kernel/core": "workspace:*",
     "@command-kernel/ui": "workspace:*",
-    "framer-motion": "^14.0.0",
+    "@command-kernel/wire": "workspace:*",
     "lucide-react": "^1.52.0",
+    "motion": "^14.3.0",
     "react": "^19.3.0",
-    "react-dom": "^19.3.0",
-    "@command-kernel/wire": "workspace:*"
+    "react-dom": "^19.3.0"
   },
   "devDependencies": {
     "@cloudflare/vite-plugin": "^1.62.5",

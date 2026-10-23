@@ -112,25 +112,116 @@ const off = bindInvokers(host, kernel, () => ctx, {
 Importing this package also augments React's `ButtonHTMLAttributes` with
 `command` / `commandfor`, so the markup typechecks without casts.
 
+## What a host plugs in
+
+Four props and a hook for an app that brings more than commands. None is required.
+
+```ts
+interface CommandPaletteProps {
+  // ...open, kernel, ctx, roots, trigger, subjects, labels, showWeight, onClose, onResult, onExecuted
+  sources?: readonly PaletteSource[];
+  rowAdornment?: (node: CommandNode, state: { active: boolean }) => ReactNode;
+  onCloseAutoFocus?: (event: Event) => void;
+}
+
+interface PaletteSource {
+  id: string;                 // stable: searches are keyed by it
+  group?: string;             // the heading its rows sit under (a row's own category wins)
+  minQuery?: number;          // the shortest query that runs it, default 2
+  search(query: string, ctx: Ctx, signal: AbortSignal):
+    readonly CommandNode[] | Promise<readonly CommandNode[]>;
+}
+
+function useFrecency(options?: { storageKey?: string; storage?: FrecencyStorage }):
+  { frecency: Record<string, number>; bump: (id: string) => void };
+```
+
+- **`sources`: your own search at the root.** Threads by their text, orders by number.
+  Each hit is a `CommandNode`, so it behaves like any row: `run` runs it (through the
+  kernel's gate, like everything), `resolve` drills into it, `subject` puts it in hand
+  for a pipe. The rows land after the commands, in your order, and never move a row
+  already on screen, so Enter never waits for them. `signal` aborts when the query moves
+  on; a slow answer for an old query is dropped either way; a throw is no rows. Sources
+  run only at the root while browsing, never inside a drill or an arg.
+
+  ```tsx
+  const threads: PaletteSource = {
+    id: "threads",
+    group: "Threads",
+    search: async (q, _ctx, signal) =>
+      (await api.searchThreads(q, { signal })).map((t) => ({
+        id: `thread:${t.id}`,
+        title: t.subject,
+        subtitle: t.from,
+        icon: "Mail",
+        run: async () => (openThread(t.id), { kind: "navigate", message: t.subject }),
+      })),
+  };
+  <CommandPalette sources={[threads]} ... />
+  ```
+
+- **Disabled rows say why.** A node's own `disabled(ctx)` (core) is read on every row: the
+  row stays listed, greyed, with the reason at its end (`aria-disabled`), and picking it
+  shows the reason at once, before any arg is asked for. Nothing to pass: put the reason
+  on the node, and the app's state in `ctx.facts`.
+- **`rowAdornment`: anything of yours at a row's end** (an unread count, a state), drawn
+  before the keycaps. `active` is true for the highlighted row.
+- **`useFrecency`: what you run rises.** `frecency` goes into `ctx.frecency` (the kernel's
+  ranker reads it), `bump` into `onExecuted`. With a `storageKey` it is kept in
+  `localStorage` (or your own `storage`) across reloads; anything in it that is not a
+  number is ignored.
+
+  ```tsx
+  const { frecency, bump } = useFrecency({ storageKey: "acme.palette" });
+  const ctx = useMemo(() => ({ ...base, frecency }), [base, frecency]);
+  <CommandPalette ctx={ctx} onExecuted={bump} ... />
+  ```
+
+- **Focus goes back where it was.** The palette remembers the element that had focus when
+  it opened, and gives focus back to it once it has closed (after its exit). To put focus
+  somewhere else, handle `onCloseAutoFocus` and call `event.preventDefault()`.
+
 ## Exports
 
 `CommandPalette` + `CommandLauncher` (the palette driver), `bindInvokers` /
 `KernelInvoker` / `commandAttr` / `parseInvoker` (the DOM-invoker driver),
-`Kbd` (a keycap), `cn` (clsx + tailwind-merge), and `Icon` / `registerIcons` /
-`iconFor` (icons by registered name).
+`Kbd` (a keycap), `cn` (clsx + tailwind-merge), `Icon` / `registerIcons` /
+`iconFor` (icons by registered name), `useFrecency`, `motionTokens` (Arc's motion
+presets), and the types `CommandPaletteProps`, `PaletteSource`, `PaletteState`.
 The palette logic lives in the `usePalette` hook if you want to build a
 differently-styled shell over the same behaviour.
 
-## Styling
+## Styling: Arc
 
-Tailwind v4. Import the token sheet once, then override the `--ck-*` custom
-properties in your own `@theme`:
+The palette is drawn in the design language of [Arc](https://uiarc.dev): a neutral
+surface with a hairline border and one floating shadow, one-line rows with one
+highlight that glides between them, results grouped under their category, flat
+keycaps, pill-shaped args, weights 400 and 500 only. It moves with Arc's motion
+(`motion`, the library once called framer-motion): the panel rises in on a damped
+spring and leaves faster than it came, the body's height follows what is in it, and
+every animation has a reduced-motion branch that jumps to the end state.
+
+It reads **Arc's own CSS variables** (`--surface`, `--surface-muted`, `--foreground`,
+`--text-secondary`, `--text-muted`, `--border`, `--border-subtle`, `--border-strong`,
+`--accent`, `--accent-strong`, `--accent-subtle`, `--accent-foreground`, `--success`,
+`--warning`, `--danger`, `--radius-panel`, `--radius-control`, `--shadow-floating`,
+`--ease-standard`). An app that loads Arc's `foundation.css` gets the palette in its
+theme and accent, light or dark, with nothing to configure.
+
+An app without Arc gets Arc's neutral values as fallbacks, through `light-dark()`: set
+`color-scheme: dark` on a dark page and the palette is dark too. Import the sheet once
+(it also points Tailwind v4 at the palette's sources):
 
 ```css
+@import "tailwindcss";
 @import "@command-kernel/ui/theme.css";
 ```
 
-See `examples/playground/src/index.css` for the demo's palette.
+To change one thing, override its `--color-ck-*` (or `--radius-ck-*`, `--shadow-ck-*`)
+in your own `@theme`, e.g. `@theme { --color-ck-accent: #6366f1; }`. The accent is
+spent only on what is active: the arg being filled, the value in hand, the primary
+button, a held key. A fuzzy match is underlined; `.match-hl` is the hook to mark it your
+own way. See `examples/playground/src/index.css` for a host without Arc.
 
 ## Writing your own palette
 

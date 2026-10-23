@@ -9,14 +9,19 @@ import type {
 } from "@command-kernel/core";
 import { allowLabel, describeType, ruleForNode } from "@command-kernel/core";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { groupRanked } from "./group-rows.js";
 import type { ArgSession, PipeSession } from "./palette-types.js";
 import { usePaletteArgs } from "./usePaletteArgs.js";
 import { usePaletteFrames } from "./usePaletteFrames.js";
 import { usePaletteGate } from "./usePaletteGate.js";
 import { usePalettePipe } from "./usePalettePipe.js";
+import { type PaletteSource, usePaletteSources } from "./usePaletteSources.js";
 import { usePaletteSubjects } from "./usePaletteSubjects.js";
 
 export type { Mode } from "./palette-types.js";
+
+/** Everything `usePalette` returns: the state a palette renderer draws. */
+export type PaletteState = ReturnType<typeof usePalette>;
 
 /**
  * Jump straight into a command (a chord, a deeplink): its id, a nonce so the same jump
@@ -36,12 +41,22 @@ interface Hooks {
   trigger?: PaletteTrigger | null | undefined;
   /** entity types searched at the root alongside commands (see usePaletteSubjects) */
   subjects?: readonly string[] | undefined;
+  /** the host's own searches, run at the root after the commands (see usePaletteSources) */
+  sources?: readonly PaletteSource[] | undefined;
   onResult: (r: CommandResult) => void;
   onExecuted: (id: string) => void;
   onClose: () => void;
 }
 
 const NONE: readonly string[] = [];
+const NO_SOURCES: readonly PaletteSource[] = [];
+
+/** A source's rows after the rest, minus any the list already has (one row per id). */
+function withSources(rows: Ranked[], found: Ranked[]): Ranked[] {
+  if (found.length === 0) return rows;
+  const shown = new Set(rows.map((r) => r.node.id));
+  return [...rows, ...found.filter((r) => !shown.has(r.node.id))];
+}
 
 /**
  * Commands and things in ONE ranking, by the kernel's own ranker: "ada" puts Ada
@@ -70,6 +85,7 @@ export function usePalette({
   open,
   trigger,
   subjects,
+  sources,
   onResult,
   onExecuted,
   onClose,
@@ -111,9 +127,22 @@ export function usePalette({
     active: mode === "browse" && frames.length === 1,
     types: subjects ?? NONE,
   });
+  const found = usePaletteSources({
+    sources: sources ?? NO_SOURCES,
+    ctx,
+    query,
+    active: mode === "browse" && frames.length === 1,
+  });
+  // grouped by category (Arc's grouped results): the keyboard walks the order drawn
   const rows = useMemo(
-    () => (things.length > 0 ? withThings(kernel, frame.items, things, query, ctx) : ranked),
-    [things, ranked, kernel, frame.items, query, ctx],
+    () =>
+      groupRanked(
+        withSources(
+          things.length > 0 ? withThings(kernel, frame.items, things, query, ctx) : ranked,
+          found,
+        ),
+      ),
+    [things, ranked, found, kernel, frame.items, query, ctx],
   );
 
   const enterPipe = useCallback(
@@ -181,7 +210,11 @@ export function usePalette({
     proceedGate,
   });
 
-  const { pipeRows, pipeLoading, pick } = usePalettePipe({
+  const {
+    pipeRows: routed,
+    pipeLoading,
+    pick,
+  } = usePalettePipe({
     kernel,
     ctx,
     pipe,
@@ -189,6 +222,7 @@ export function usePalette({
     token,
     beginExecute,
   });
+  const pipeRows = useMemo(() => groupRanked(routed), [routed]);
 
   // a node that only stands for a value (a file, no run, no children) opens its actions
   const activate = useCallback(

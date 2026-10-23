@@ -93,38 +93,38 @@ export const defaultLabels: PaletteLabels = {
   root: "Commands",
   placeholder: "Search commands…",
   searchLabel: "Search commands",
-  noMatch: (query) => (query ? `nothing here matches “${query}”` : "nothing here yet"),
+  noMatch: (query) => (query ? `Nothing here matches “${query}”` : "Nothing here yet"),
 
   argCounter: (filled, total) => `${filled} of ${total}`,
-  addMore: "add… (↵ done)",
+  addMore: "Add… (↵ done)",
   argPlaceholder: "…",
   required: "required",
   optional: "optional",
-  resolving: "resolving…",
+  resolving: "Looking…",
   freeTextOption: (typed) => (
     <>
-      use “<span className="text-white/90">{typed}</span>”
+      Use “<span className="text-ck-fg">{typed}</span>”
     </>
   ),
-  startTyping: "start typing to search…",
-  typeValue: "type a value, then ↵",
-  noOption: (arg, typed) => `no ${arg} matches “${typed}”: pick one of the options`,
+  startTyping: "Start typing to search",
+  typeValue: "Type a value, then ↵",
+  noOption: (arg, typed) => `No ${arg} matches “${typed}”: pick one of the options`,
 
   pipePlaceholder: "Pipe into…",
   pipeInto: (value) => `Pipe ${value} into a command`,
   pipeCount: (value, count) =>
     count === 1 ? `${value}: 1 command can take it` : `${value}: ${count} commands can take it`,
-  pipeNothing: (value) => `no command takes ${value}`,
+  pipeNothing: (value) => `No command takes ${value}`,
   pipeLandsIn: (arg) => `→ ${arg}`,
 
   gateBlocked: "You can't run this here",
   // the checks below say why (a gate's reason, or the app's own rule, such as a link)
   gateConfirm: "Needs your OK before it runs",
-  check: (label, ok) => (ok ? label : `requires ${label}`),
-  yourRole: (role) => `you: ${role}`,
-  needsConfirm: "requires explicit confirm",
-  blockedHint: "back: your role cannot run this; the check above says who can",
-  confirmRun: "Confirm & run",
+  check: (label, ok) => (ok ? label : `Requires ${label}`),
+  yourRole: (role) => `You: ${role}`,
+  needsConfirm: "Asks for your OK every time",
+  blockedHint: "Your role cannot run this; the check above says who can",
+  confirmRun: "Confirm and run",
 
   hintSelect: "select",
   hintConfirm: "confirm",

@@ -7,7 +7,7 @@ import type {
   Kernel,
   Piped,
 } from "@command-kernel/core";
-import { missingArgs, outputOf, ruleForNode } from "@command-kernel/core";
+import { disabledReason, missingArgs, outputOf, ruleForNode } from "@command-kernel/core";
 import { useCallback, useState } from "react";
 import type { ArgSession, ConfirmSession, Mode, RunStart } from "./palette-types.js";
 
@@ -150,6 +150,19 @@ export function usePaletteGate({
   const beginExecute = useCallback(
     (node: CommandNode, start: RunStart = {}) => {
       const values = { ...(node.prefill ? node.prefill(ctx) : {}), ...start.values };
+      // a node that cannot run now says why at once, before any arg is asked for (the row
+      // already said it; the kernel would refuse the run anyway, after the args)
+      const off = disabledReason(node, ctx);
+      if (off !== null) {
+        const verdict = {
+          allowed: false,
+          needsConfirm: false,
+          checks: [{ label: off, ok: false }],
+        };
+        setMode("confirm");
+        setConfirm({ node, values, verdict, blocked: true, ...keyed(start.priorKey) });
+        return;
+      }
       // ANY missing required arg is collected, positional included - the kernel
       // refuses to run without them, so skipping the prompt just dead-ends.
       const missing = missingArgs(node, values);

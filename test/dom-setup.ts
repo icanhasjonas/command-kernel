@@ -40,7 +40,7 @@ const DOM_OVERRIDE = new Set([
 type Saved = Record<string, PropertyDescriptor | null>;
 let saved: Saved | null = null;
 // ONE window per process, reinstalled on every register: modules that already ran
-// (React DOM, Radix, framer-motion) keep the document they saw first, so a fresh
+// (React DOM, Radix, motion) keep the document they saw first, so a fresh
 // window after an unregister would leave them rendering into a detached one
 let shared: Window | null = null;
 
@@ -94,7 +94,7 @@ export function registerDom(): void {
 /**
  * Web Animations `cancel()` rejects `finished` with an AbortError AND sets its
  * [[PromiseIsHandled]] slot, so a browser never reports it as unhandled. happy-dom
- * (20.14) does the reject but skips the handled flag, so every framer-motion exit
+ * (20.14) does the reject but skips the handled flag, so every motion exit
  * animation cancelled on unmount surfaces as an "Unhandled error between tests".
  * Attaching a no-op catch before cancelling is the userland equivalent of that slot.
  */

@@ -1,10 +1,14 @@
 import type { ArgValues, CommandNode, GateVerdict } from "@command-kernel/core";
 import { argText } from "@command-kernel/core";
-import { motion } from "framer-motion";
 import { Check, ShieldAlert, ShieldX, X } from "lucide-react";
 import { Icon } from "./icon.js";
 import { Kbd } from "./Kbd.js";
 import type { PaletteLabels } from "./labels.js";
+import { PILL_LOOK, PILL_SHAPE } from "./Pill.js";
+
+/** Arc's buttons, at control height sm: the primary one is the accent, the other a hairline. */
+const BUTTON =
+  "inline-flex h-9 items-center justify-center whitespace-nowrap rounded-ck-control px-4 text-[14px] font-medium transition-[background-color,color,transform] duration-150 active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ck-accent/70 motion-reduce:transition-none motion-reduce:active:scale-100 max-sm:w-full";
 
 export function ConfirmPanel({
   node,
@@ -28,16 +32,28 @@ export function ConfirmPanel({
   onAlways: () => void;
 }) {
   return (
-    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="px-3 py-4">
-      <div className="flex items-center gap-2.5">
-        <span className="flex size-9 items-center justify-center rounded-lg border border-danger/40 bg-danger/10 text-ck-danger">
-          {blocked ? <ShieldX size={18} /> : <ShieldAlert size={18} />}
+    <div className="flex flex-col gap-4 px-4 pt-4 pb-4">
+      <div className="flex items-start gap-3">
+        {/* the shield carries the status: amber asks, red refuses */}
+        <span className={blocked ? "mt-0.5 text-ck-danger" : "mt-0.5 text-ck-warning"}>
+          {blocked ? (
+            <ShieldX size={20} strokeWidth={1.75} aria-hidden="true" />
+          ) : (
+            <ShieldAlert size={20} strokeWidth={1.75} aria-hidden="true" />
+          )}
         </span>
-        <div>
-          <div className="flex items-center gap-2 text-[14px] font-medium text-white/90">
-            <Icon name={node.icon} size={14} /> {node.title}
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 text-[14px] font-medium text-ck-fg">
+            <Icon
+              name={node.icon}
+              size={16}
+              strokeWidth={1.75}
+              aria-hidden="true"
+              className="text-ck-fg-muted"
+            />
+            <span className="truncate">{node.title}</span>
           </div>
-          <div className="text-[12px] text-white/40">
+          <div className="text-[12px] text-ck-fg-secondary">
             {blocked ? labels.gateBlocked : labels.gateConfirm}
           </div>
         </div>
@@ -45,51 +61,54 @@ export function ConfirmPanel({
 
       {/* what exactly is being approved: the grant will be bound to these values */}
       {Object.keys(values).length > 0 && (
-        <div className="mt-3 flex flex-wrap gap-1.5">
+        <div className="flex flex-wrap gap-1.5">
           {Object.entries(values).map(([k, v]) => (
-            <span
-              key={k}
-              className="rounded-md border border-white/10 bg-white/[0.03] px-2 py-0.5 font-mono text-[12px]"
-            >
-              <span className="text-white/45">{k}</span>{" "}
-              <span className="text-white/85">{argText(v)}</span>
+            <span key={k} className={`${PILL_SHAPE} ${PILL_LOOK.filled}`}>
+              <span className="text-ck-fg-muted">{k}</span>
+              <span className="truncate">{argText(v)}</span>
             </span>
           ))}
         </div>
       )}
 
-      <div className="mt-3 space-y-1.5">
+      <ul className="flex flex-col gap-1.5">
         {verdict.checks.map((c, i) => (
-          <div
+          <li
             // a verdict can legitimately carry two checks with the same label
             // biome-ignore lint/suspicious/noArrayIndexKey: positional, list is regenerated whole
             key={i}
-            className="flex items-center gap-2 text-[13px]"
+            className="flex items-center gap-2 text-[14px]"
           >
             {c.ok ? (
-              <Check size={14} className="text-ck-success" />
+              <Check size={16} strokeWidth={1.75} aria-hidden="true" className="text-ck-success" />
             ) : (
-              <X size={14} className="text-ck-danger" />
+              <X size={16} strokeWidth={1.75} aria-hidden="true" className="text-ck-danger" />
             )}
-            <span className={c.ok ? "text-white/70" : "text-ck-danger"}>
+            <span className={c.ok ? "text-ck-fg-secondary" : "text-ck-danger"}>
               {labels.check(c.label, c.ok)}
             </span>
             {!c.ok && (
-              <span className="ml-auto text-[12px] text-white/40">{labels.yourRole(role)}</span>
+              <span className="ml-auto text-[12px] text-ck-fg-muted">{labels.yourRole(role)}</span>
             )}
-          </div>
+          </li>
         ))}
         {node.gate?.confirm && (
-          <div className="flex items-center gap-2 text-[13px] text-white/70">
-            <ShieldAlert size={14} className="text-ck-warning" /> {labels.needsConfirm}
-          </div>
+          <li className="flex items-center gap-2 text-[14px] text-ck-fg-secondary">
+            <ShieldAlert
+              size={16}
+              strokeWidth={1.75}
+              aria-hidden="true"
+              className="text-ck-warning"
+            />
+            {labels.needsConfirm}
+          </li>
         )}
-      </div>
+      </ul>
 
       {/* narrow screens stack the two choices full width */}
-      <div className="mt-4 flex flex-wrap items-center gap-2 sm:gap-3">
+      <div className="flex flex-wrap items-center gap-2">
         {blocked ? (
-          <div className="flex items-center gap-2 text-[12px] text-white/40">
+          <div className="flex items-center gap-2 text-[12px] text-ck-fg-muted">
             <Kbd className="pointer-coarse:hidden">esc</Kbd> {labels.blockedHint}
           </div>
         ) : (
@@ -97,14 +116,14 @@ export function ConfirmPanel({
             <button
               type="button"
               onClick={onProceed}
-              className="whitespace-nowrap rounded-lg bg-pink px-3.5 py-2 text-[13px] font-semibold text-white shadow-ck-glow transition hover:bg-ck-accent-soft max-sm:w-full"
+              className={`${BUTTON} bg-ck-accent text-ck-accent-fg hover:bg-ck-accent-strong`}
             >
               {labels.confirmRun}
             </button>
             <button
               type="button"
               onClick={onAlways}
-              className="whitespace-nowrap rounded-lg border border-white/15 bg-white/[0.04] px-3 py-2 text-[12px] text-white/70 transition hover:bg-white/[0.08] hover:text-white/90 max-sm:w-full max-sm:truncate"
+              className={`${BUTTON} border border-ck-border bg-ck-surface text-ck-fg hover:bg-ck-surface-muted max-sm:truncate`}
             >
               {alwaysLabel}
             </button>
@@ -112,6 +131,6 @@ export function ConfirmPanel({
           </>
         )}
       </div>
-    </motion.div>
+    </div>
   );
 }

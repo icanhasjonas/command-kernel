@@ -1,29 +1,22 @@
 import {
-  argList,
-  argText,
   type CommandNode,
   type CommandResult,
   type Ctx,
-  isFilled,
+  disabledReason,
   type Kernel,
 } from "@command-kernel/core";
-import * as Dialog from "@radix-ui/react-dialog";
-import { AnimatePresence, motion } from "framer-motion";
-import { ChevronLeft, Loader2, Search, SearchX, Workflow } from "lucide-react";
-import { type KeyboardEvent, useEffect, useId, useRef, useState } from "react";
-import { ArgOptions } from "./ArgOptions.js";
-import { ConfirmPanel } from "./ConfirmPanel.js";
-import { cn } from "./cn.js";
-import { Icon } from "./icon.js";
-import { Kbd } from "./Kbd.js";
+import { type ReactNode, useEffect, useState } from "react";
 import { type PaletteLabelOverrides, resolveLabels } from "./labels.js";
-import { PaletteCrumbs } from "./PaletteCrumbs.js";
-import { Pill } from "./Pill.js";
-import { PipeList } from "./PipeList.js";
-import { ResultRow } from "./ResultRow.js";
-import { type PaletteTrigger, subjectLabel, usePalette } from "./usePalette.js";
+import { PaletteBody } from "./PaletteBody.js";
+import { PaletteDialog } from "./PaletteDialog.js";
+import { PaletteFooter } from "./PaletteFooter.js";
+import { PaletteHeader } from "./PaletteHeader.js";
+import { PaletteQuery } from "./PaletteQuery.js";
+import { type PaletteTrigger, usePalette } from "./usePalette.js";
+import { usePaletteKeys } from "./usePaletteKeys.js";
+import type { PaletteSource } from "./usePaletteSources.js";
 
-interface Props {
+export interface CommandPaletteProps {
   open: boolean;
   kernel: Kernel;
   ctx: Ctx;
@@ -35,6 +28,13 @@ interface Props {
    * A hit is a row for that thing: pick it and the palette lists what can take it.
    */
   subjects?: readonly string[];
+  /**
+   * The host's own searches (threads by text, orders by number), run at the root after the
+   * commands. Each hit is a CommandNode, so it runs, drills or pipes like any row.
+   */
+  sources?: readonly PaletteSource[];
+  /** something of the host's at the end of a row (a count, a state); `active` is the highlighted one */
+  rowAdornment?: (node: CommandNode, state: { active: boolean }) => ReactNode;
   /** every word the palette says; unset keys keep the English default */
   labels?: PaletteLabelOverrides;
   /** show each node's authoring `weight` in its row (an authoring diagnostic) */
@@ -42,6 +42,11 @@ interface Props {
   onClose: () => void;
   onResult: (r: CommandResult) => void;
   onExecuted: (id: string) => void;
+  /**
+   * The palette has closed (its exit is done) and is about to put focus back on the element
+   * that had it before it opened. Call `event.preventDefault()` to put focus somewhere yourself.
+   */
+  onCloseAutoFocus?: (event: Event) => void;
 }
 
 export function CommandPalette({
@@ -51,12 +56,15 @@ export function CommandPalette({
   roots,
   trigger,
   subjects,
+  sources,
+  rowAdornment,
   labels,
   showWeight = false,
   onClose,
   onResult,
   onExecuted,
-}: Props) {
+  onCloseAutoFocus,
+}: CommandPaletteProps) {
   const text = resolveLabels(labels);
   const p = usePalette({
     kernel,
@@ -65,16 +73,13 @@ export function CommandPalette({
     open,
     trigger,
     subjects,
+    sources,
     onResult,
     onExecuted,
     onClose,
   });
-  const browseRef = useRef<HTMLInputElement>(null);
-  // the input is a combobox over the result list while it shows one
-  const listId = useId();
-  const listed = p.mode === "browse" && p.ranked.length > 0;
-  const argRef = useRef<HTMLInputElement>(null);
   const [modHeld, setModHeld] = useState(false);
+  const keys = usePaletteKeys(p);
 
   useEffect(() => {
     const down = (e: globalThis.KeyboardEvent) =>
@@ -91,448 +96,53 @@ export function CommandPalette({
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: focus follows mode/arg
   useEffect(() => {
-    const t = setTimeout(() => (p.mode === "args" ? argRef : browseRef).current?.focus(), 10);
+    const t = setTimeout(
+      () => (p.mode === "args" ? keys.argRef : keys.browseRef).current?.focus(),
+      10,
+    );
     return () => clearTimeout(t);
   }, [p.mode, p.arg?.activeArg]);
 
-  const activeSpec = p.arg?.node.args?.find((a) => a.id === p.arg?.activeArg);
-  // a value typed by hand is offered only where the arg takes one: not a closed list, and
-  // not an entity that must exist (the kernel would refuse it anyway)
-  const freeText = activeSpec
-    ? activeSpec.kind !== "enum" && !(activeSpec.entity && !activeSpec.entity.open)
-    : false;
-  // typed something a closed arg has no option for: say so instead of going quiet
-  const typed = p.argQuery.trim().toLowerCase();
-  const unmatched =
-    !freeText &&
-    typed !== "" &&
-    !p.argLoading &&
-    (activeSpec?.enumValues
-      ? !activeSpec.enumValues.some((o) => o.label.toLowerCase().includes(typed))
-      : p.argOptions.length === 0);
-  // named args get a pill each; a positional arg only appears when it IS the one
-  // being collected (otherwise the query line is its input)
-  const namedArgs = (p.arg?.node.args ?? []).filter(
-    (a) => !a.positional || a.id === p.arg?.activeArg,
-  );
-  const filledCount = namedArgs.filter((a) => isFilled(p.arg?.values[a.id])).length;
-  const activeChips = activeSpec?.multiple ? argList(p.arg?.values[activeSpec.id]) : [];
-  // the value being piped, named, while the list shows what can take it
-  const inHand = p.mode === "pipe" && p.pipe ? subjectLabel(p.pipe.subject) : "";
-
-  // an arrow key since the last keystroke: the highlighted row is a choice, not a default
-  const [picked, setPicked] = useState(false);
-  const pendingCommit = useRef(false);
-
-  /** Enter on an arg: the highlighted row, else the typed value where the arg takes one. */
-  function commitArg() {
-    // a closed arg that matches nothing commits nothing until a row is actually chosen
-    const opt = unmatched && !picked ? undefined : p.argOptions[p.selected];
-    if (opt) return p.commitArg(opt.value);
-    if (freeText && p.argQuery.trim()) return p.commitArg(p.argQuery.trim());
-    // a multiple arg: Enter on an empty input means "done adding" -> advance
-    if (activeSpec?.multiple && !p.argQuery.trim()) return p.finishArg();
-  }
-
-  // biome-ignore lint/correctness/useExhaustiveDependencies: fires when the rows catch up
-  useEffect(() => {
-    if (!p.argOptionsFresh || !pendingCommit.current) return;
-    pendingCommit.current = false;
-    commitArg();
-  }, [p.argOptionsFresh]);
-
-  const pendingActivate = useRef<{ asPage: boolean } | null>(null);
-  // biome-ignore lint/correctness/useExhaustiveDependencies: fires when the rows catch up
-  useEffect(() => {
-    const pending = pendingActivate.current;
-    if (!p.rankedFresh || !pending) return;
-    pendingActivate.current = null;
-    const sel = p.ranked[p.selected];
-    if (sel && p.mode === "browse") p.activate(sel.node, pending.asPage);
-  }, [p.rankedFresh]);
-
-  function onKeyDown(e: KeyboardEvent) {
-    // typing again cancels an Enter that was waiting for the old query's rows
-    if (e.key.length === 1 || e.key === "Backspace") pendingActivate.current = null;
-    if (p.mode === "args" && (e.key === "ArrowDown" || e.key === "ArrowUp")) {
-      setPicked(true);
-      // nothing was highlighted: the first arrow lands on the first row
-      if (unmatched && !picked) {
-        e.preventDefault();
-        return p.setSelected(0);
-      }
-    }
-    const listLength =
-      p.mode === "args"
-        ? p.argOptions.length
-        : p.mode === "pipe"
-          ? p.pipeRows.length
-          : p.ranked.length;
-    if (e.key === "ArrowDown") {
-      e.preventDefault();
-      return p.move(1, listLength);
-    }
-    if (e.key === "ArrowUp") {
-      e.preventDefault();
-      return p.move(-1, listLength);
-    }
-    if (e.key === "Escape") {
-      e.preventDefault();
-      return p.back();
-    }
-
-    if (p.mode === "confirm") {
-      // typing means you moved on: the approval is dropped, and what you type is a new
-      // search, so Enter can never fire a gated run you had already turned away from
-      if (e.key.length === 1 && !e.metaKey && !e.ctrlKey) return p.dropConfirm();
-      if (e.key === "Enter" && !p.confirm?.blocked) p.confirmProceed();
-      return;
-    }
-
-    if (p.mode === "args") {
-      if (e.key === "Enter" || e.key === "Tab") {
-        e.preventDefault();
-        // the rows on screen were found for older text: commit once they catch up
-        if (!p.argOptionsFresh) {
-          pendingCommit.current = true;
-          return;
-        }
-        commitArg();
-      }
-      return;
-    }
-
-    if (p.mode === "pipe") {
-      const row = p.pipeRows[p.selected];
-      if ((e.key === "Enter" || e.key === "Tab") && row) {
-        e.preventDefault();
-        p.pick(row.action);
-      }
-      if (e.key === "Backspace" && p.query === "") {
-        e.preventDefault();
-        p.back();
-      }
-      return;
-    }
-
-    // browse
-    const sel = p.ranked[p.selected];
-    if (e.key === "Enter" && sel) {
-      e.preventDefault();
-      // people found for this query are still on their way: act once they are ranked in,
-      // not on the commands that happened to match first ("ada" is Ada, not "Load as")
-      if (!p.rankedFresh) {
-        pendingActivate.current = { asPage: e.metaKey || e.ctrlKey };
-        return;
-      }
-      return p.activate(sel.node, e.metaKey || e.ctrlKey);
-    }
-    // Tab pipes a row that stands for a value; on any other row it does nothing,
-    // rather than walk focus out of the search box
-    if (e.key === "Tab") {
-      e.preventDefault();
-      if (sel?.node.subject) return p.startPipe(sel.node.subject);
-    }
-    if (e.key === "ArrowRight" && sel?.node.resolve) {
-      e.preventDefault();
-      return void p.drill(sel.node);
-    }
-    if ((e.key === "ArrowLeft" || e.key === "Backspace") && p.query === "" && p.frames.length > 1) {
-      e.preventDefault();
-      return p.back();
-    }
-  }
+  const selectedNode = p.ranked[p.selected]?.node;
+  const extras = {
+    disabledReason: (n: CommandNode) => disabledReason(n, ctx),
+    adornment: rowAdornment,
+  };
 
   return (
-    <Dialog.Root open={open} onOpenChange={(o) => !o && onClose()}>
-      <AnimatePresence>
-        {open && (
-          <Dialog.Portal forceMount>
-            <Dialog.Overlay asChild>
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="fixed inset-0 z-50 bg-black/60"
-              />
-            </Dialog.Overlay>
-            <Dialog.Content
-              onEscapeKeyDown={(e) => e.preventDefault()}
-              onKeyDown={onKeyDown}
-              aria-describedby={undefined}
-              asChild
-            >
-              <motion.div
-                initial={{ opacity: 0, y: -12, scale: 0.97 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: -8, scale: 0.98 }}
-                transition={{ type: "spring", stiffness: 420, damping: 32 }}
-                className="-translate-x-1/2 fixed top-[14vh] left-1/2 z-50 w-[min(640px,92vw)] overflow-hidden rounded-2xl border border-white/10 bg-ck-glass shadow-ck-float backdrop-blur-xl"
-              >
-                <Dialog.Title className="sr-only">Command palette</Dialog.Title>
-
-                {/* breadcrumb + context */}
-                <div className="flex items-center justify-between gap-3 border-white/5 border-b px-4 py-2 text-[12px]">
-                  <div className="flex min-w-0 items-center gap-1">
-                    {/* Esc's twin for a touch screen, which has no Esc: one step back */}
-                    {(p.mode !== "browse" || p.frames.length > 1) && (
-                      <button
-                        type="button"
-                        onClick={p.back}
-                        aria-label={text.back}
-                        className="-ml-2 flex shrink-0 items-center rounded-md p-1 text-white/50 transition-colors hover:bg-white/[0.06] hover:text-white/90"
-                      >
-                        <ChevronLeft size={16} />
-                      </button>
-                    )}
-                    <PaletteCrumbs
-                      items={[
-                        ...p.frames.map((f) => f.node?.title ?? text.root),
-                        ...(p.pipe?.trail ?? []),
-                      ]}
-                    />
-                  </div>
-                  <span className="flex shrink-0 items-center gap-2 font-mono text-white/40">
-                    <span className="text-ck-accent-soft/80">
-                      {ctx.location.label ?? ctx.location.module}
-                    </span>
-                    <span className="text-white/20">·</span>
-                    <span>{ctx.user.role}</span>
-                  </span>
-                </div>
-
-                {/* input / arg pills */}
-                <div className="px-4 py-3">
-                  {p.mode === "args" && p.arg ? (
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="flex items-center gap-1.5 text-[13px] font-medium text-white/80">
-                        <Icon name={p.arg.node.icon} size={15} className="text-ck-accent-soft" />
-                        {p.arg.node.title}
-                      </span>
-                      {namedArgs.map((spec) => {
-                        const val = p.arg?.values[spec.id];
-                        if (spec.id === p.arg?.activeArg) {
-                          return (
-                            <span
-                              key={spec.id}
-                              className="inline-flex items-center gap-1.5 rounded-pill border border-ck-accent/60 bg-pink/15 px-2.5 py-1 shadow-[0_0_0_1px_rgba(228,19,98,0.35)]"
-                            >
-                              <span className="font-mono text-[12px] text-ck-accent-soft/70">
-                                {spec.label}
-                              </span>
-                              {/* accumulated values for a multiple (listOf) arg */}
-                              {activeChips.map((c) => (
-                                <span
-                                  key={c}
-                                  className="rounded bg-pink/25 px-1.5 py-0.5 font-mono text-[11px] text-ck-accent-soft"
-                                >
-                                  {c}
-                                </span>
-                              ))}
-                              <input
-                                ref={argRef}
-                                aria-label={spec.label}
-                                value={p.argQuery}
-                                onChange={(e) => {
-                                  p.setArgQuery(e.target.value);
-                                  p.setSelected(0);
-                                  setPicked(false);
-                                }}
-                                placeholder={
-                                  spec.multiple
-                                    ? text.addMore
-                                    : (spec.placeholder ?? text.argPlaceholder)
-                                }
-                                className="w-44 bg-transparent font-mono text-[12px] text-ck-accent-soft outline-none placeholder:text-ck-accent-soft/40"
-                              />
-                            </span>
-                          );
-                        }
-                        return (
-                          <Pill
-                            key={spec.id}
-                            label={spec.label}
-                            value={argText(val)}
-                            state={isFilled(val) ? "filled" : "empty"}
-                            requiredLabel={text.required}
-                            optionalLabel={text.optional}
-                            {...(spec.required !== undefined && { required: spec.required })}
-                          />
-                        );
-                      })}
-                      <span className="ml-auto font-mono text-[11px] text-white/35">
-                        {text.argCounter(filledCount, namedArgs.length)}
-                      </span>
-                      {p.arg.error && (
-                        <p role="alert" className="basis-full text-[12px] text-red-300">
-                          {p.arg.error}
-                        </p>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="flex min-h-[26px] items-center gap-2.5">
-                      {inHand ? (
-                        <span className="inline-flex max-w-[14rem] shrink-0 items-center gap-1.5 rounded-pill border border-ck-success/40 bg-ck-success/10 px-2.5 py-1 font-mono text-[12px] text-ck-success">
-                          <Workflow size={13} className="shrink-0" />
-                          <span className="truncate">{inHand}</span>
-                        </span>
-                      ) : (
-                        <Search size={17} className="shrink-0 text-white/40" />
-                      )}
-                      <input
-                        ref={browseRef}
-                        value={p.query}
-                        onChange={(e) => {
-                          // new text, however it arrived (keys, paste, IME): the confirm on
-                          // screen is dropped, so Enter cannot approve what you moved past
-                          if (p.mode === "confirm") p.dropConfirm();
-                          p.setQuery(e.target.value);
-                          p.setSelected(0);
-                        }}
-                        aria-label={inHand ? text.pipeInto(inHand) : text.searchLabel}
-                        {...(listed && {
-                          role: "combobox",
-                          "aria-expanded": true,
-                          "aria-controls": listId,
-                          "aria-autocomplete": "list" as const,
-                          "aria-activedescendant": `${listId}-${p.selected}`,
-                        })}
-                        placeholder={inHand ? text.pipePlaceholder : text.placeholder}
-                        className="min-w-0 flex-1 bg-transparent text-[15px] text-white/90 outline-none placeholder:text-white/30"
-                      />
-                      {p.resolving && <Loader2 size={15} className="animate-spin text-white/40" />}
-                      {/* the chip is visual; this says the same to a screen reader */}
-                      <span role="status" aria-live="polite" className="sr-only">
-                        {inHand && !p.pipeLoading ? text.pipeCount(inHand, p.pipeRows.length) : ""}
-                      </span>
-                    </div>
-                  )}
-                </div>
-
-                {/* body */}
-                <div className="border-white/5 border-t">
-                  {p.mode === "confirm" && p.confirm ? (
-                    <ConfirmPanel
-                      node={p.confirm.node}
-                      values={p.confirm.values}
-                      verdict={p.confirm.verdict}
-                      blocked={p.confirm.blocked}
-                      role={ctx.user.role}
-                      alwaysLabel={p.confirmAlwaysLabel}
-                      labels={text}
-                      onProceed={p.confirmProceed}
-                      onAlways={p.confirmAlways}
-                    />
-                  ) : p.mode === "args" ? (
-                    <ArgOptions
-                      options={p.argOptions}
-                      loading={p.argLoading}
-                      // nothing highlighted until an unmatched closed arg gets a real pick
-                      selected={unmatched && !picked ? -1 : p.selected}
-                      freeText={freeText}
-                      searchable={
-                        !!activeSpec &&
-                        (activeSpec.kind === "enum" ||
-                          activeSpec.kind === "entity" ||
-                          !!activeSpec.complete)
-                      }
-                      typed={p.argQuery}
-                      {...(unmatched &&
-                        activeSpec && {
-                          unmatched: text.noOption(activeSpec.label, p.argQuery.trim()),
-                        })}
-                      labels={text}
-                      onPick={p.commitArg}
-                      onHover={p.setSelected}
-                    />
-                  ) : p.mode === "pipe" ? (
-                    <PipeList
-                      rows={p.pipeRows}
-                      loading={p.pipeLoading}
-                      selected={p.selected}
-                      modHeld={modHeld}
-                      emptyText={text.pipeNothing(inHand)}
-                      landsIn={text.pipeLandsIn}
-                      onPick={(row) => p.pick(row.action)}
-                      onHover={p.setSelected}
-                    />
-                  ) : p.ranked.length === 0 ? (
-                    <div className="flex flex-col items-center gap-2 px-3 py-10 text-white/35">
-                      <SearchX size={22} />
-                      <span className="text-[13px]">{text.noMatch(p.query)}</span>
-                    </div>
-                  ) : (
-                    <div
-                      id={listId}
-                      role="listbox"
-                      aria-label={text.searchLabel}
-                      className="max-h-[44vh] overflow-y-auto px-2 py-2"
-                    >
-                      {p.ranked.map((item, i) => (
-                        <ResultRow
-                          key={item.node.id}
-                          id={`${listId}-${i}`}
-                          item={item}
-                          active={i === p.selected}
-                          modHeld={modHeld}
-                          showWeight={showWeight}
-                          onActivate={(exec) => p.activate(item.node, exec)}
-                          onHover={() => p.setSelected(i)}
-                        />
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                {/* footer: key hints, so none on a touch screen */}
-                <div className="flex items-center gap-3 border-white/5 border-t px-4 py-2 text-[11px] text-white/35 max-sm:hidden pointer-coarse:hidden">
-                  {/* a hint names a key that does something here, or it is not shown */}
-                  {!(p.mode === "confirm" && p.confirm?.blocked) && (
-                    <Hint
-                      k="↵"
-                      label={
-                        p.mode === "browse" || p.mode === "pipe"
-                          ? text.hintSelect
-                          : text.hintConfirm
-                      }
-                    />
-                  )}
-                  {/* keyboard-only hints wait for a screen wide enough to have a keyboard */}
-                  {p.mode === "browse" && p.ranked[p.selected]?.node.resolve && (
-                    <Hint k="→" label={text.hintDrill} keyboardOnly />
-                  )}
-                  {p.mode === "browse" && p.ranked[p.selected]?.node.subject && (
-                    <Hint k="tab" label={text.hintPipe} />
-                  )}
-                  {p.mode === "browse" && <Hint k="⌘↵" label={text.hintRunAsPage} keyboardOnly />}
-                  <Hint k="esc" label={p.mode === "confirm" ? text.hintCancel : text.hintBack} />
-                  <span
-                    className={cn(
-                      "ml-auto hidden items-center gap-1.5 whitespace-nowrap transition-opacity sm:flex",
-                      modHeld ? "opacity-100" : "opacity-50",
-                    )}
-                  >
-                    {text.chordHint(<Kbd glow={modHeld}>⌘</Kbd>)}
-                  </span>
-                </div>
-              </motion.div>
-            </Dialog.Content>
-          </Dialog.Portal>
-        )}
-      </AnimatePresence>
-    </Dialog.Root>
-  );
-}
-
-function Hint({ k, label, keyboardOnly }: { k: string; label: string; keyboardOnly?: boolean }) {
-  return (
-    <span
-      className={cn(
-        "items-center gap-1.5 whitespace-nowrap",
-        keyboardOnly ? "hidden sm:flex" : "flex",
-      )}
+    <PaletteDialog
+      open={open}
+      onClose={onClose}
+      onKeyDown={keys.onKeyDown}
+      onCloseAutoFocus={onCloseAutoFocus}
     >
-      <Kbd>{k}</Kbd> {label}
-    </span>
+      <PaletteHeader
+        crumbs={[...p.frames.map((f) => f.node?.title ?? text.root), ...(p.pipe?.trail ?? [])]}
+        canGoBack={p.mode !== "browse" || p.frames.length > 1}
+        backLabel={text.back}
+        where={ctx.location.label ?? ctx.location.module}
+        role={ctx.user.role}
+        onBack={p.back}
+      />
+      <PaletteQuery p={p} keys={keys} labels={text} />
+      <PaletteBody
+        p={p}
+        keys={keys}
+        ctx={ctx}
+        labels={text}
+        modHeld={modHeld}
+        showWeight={showWeight}
+        extras={extras}
+      />
+      <PaletteFooter
+        mode={p.mode}
+        blocked={Boolean(p.confirm?.blocked)}
+        empty={p.mode === "browse" && p.ranked.length === 0}
+        drillable={p.mode === "browse" && Boolean(selectedNode?.resolve)}
+        pipeable={p.mode === "browse" && Boolean(selectedNode?.subject)}
+        modHeld={modHeld}
+        labels={text}
+      />
+    </PaletteDialog>
   );
 }

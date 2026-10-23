@@ -24,6 +24,8 @@ const FRAMEWORK = [
   "react",
   "react-dom",
   "framer-motion",
+  "motion",
+  "motion/",
   "lucide-react",
   "@radix-ui/",
   "@opentui/",

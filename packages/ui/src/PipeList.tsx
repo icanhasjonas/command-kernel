@@ -1,5 +1,7 @@
 import { Loader2, Unplug } from "lucide-react";
-import { ResultRow } from "./ResultRow.js";
+import { useId } from "react";
+import { EmptyState } from "./EmptyState.js";
+import { ResultList, type RowExtras } from "./ResultList.js";
 import type { PipeRow } from "./usePalettePipe.js";
 
 /** Pipe mode's body: every command that takes the value in hand, or why none does. */
@@ -10,6 +12,7 @@ export function PipeList({
   modHeld,
   emptyText,
   landsIn,
+  extras,
   onPick,
   onHover,
 }: {
@@ -19,30 +22,28 @@ export function PipeList({
   modHeld: boolean;
   emptyText: string;
   landsIn: (arg: string) => string;
+  extras: RowExtras;
   onPick: (row: PipeRow) => void;
   onHover: (i: number) => void;
 }) {
+  const id = useId();
   if (rows.length === 0) {
-    return (
-      <div className="flex flex-col items-center gap-2 px-3 py-10 text-white/35">
-        {loading ? <Loader2 size={20} className="animate-spin" /> : <Unplug size={22} />}
-        {!loading && <span className="text-[13px]">{emptyText}</span>}
-      </div>
+    return loading ? (
+      <EmptyState icon={<Loader2 size={20} strokeWidth={1.75} className="animate-spin" />} />
+    ) : (
+      <EmptyState icon={<Unplug size={20} strokeWidth={1.75} />} text={emptyText} />
     );
   }
   return (
-    <div className="max-h-[44vh] overflow-y-auto px-2 py-2">
-      {rows.map((row, i) => (
-        <ResultRow
-          key={row.node.id}
-          item={row}
-          active={i === selected}
-          modHeld={modHeld}
-          landsIn={landsIn(row.action.arg.label)}
-          onActivate={() => onPick(row)}
-          onHover={() => onHover(i)}
-        />
-      ))}
-    </div>
+    <ResultList
+      id={id}
+      rows={rows}
+      selected={selected}
+      modHeld={modHeld}
+      landsIn={(row) => landsIn(row.action.arg.label)}
+      extras={extras}
+      onActivate={(row) => onPick(row)}
+      onHover={onHover}
+    />
   );
 }
