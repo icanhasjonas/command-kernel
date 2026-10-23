@@ -348,6 +348,28 @@ describe("the host's keys, footer, words and first query", () => {
       expect(el.getAttribute("class")).toContain("data-[state=closed]:pointer-events-none!");
   });
 
+  it("modal={false}: the host keeps the page modal, so the palette hides nothing of it", async () => {
+    log.length = 0;
+    const page = document.createElement("main");
+    page.textContent = "the page";
+    document.body.append(page);
+    mount({ modal: false });
+    await tick();
+    expect(document.body.querySelector('[role="dialog"]')).not.toBeNull();
+    // Radix's modal would aria-hide the page (and keep it so until its exit ends)
+    expect(page.getAttribute("aria-hidden")).toBeNull();
+    // its own backdrop is still there, and a press on it closes the palette
+    const backdrop = document.body.querySelector('[data-state="open"][aria-hidden="true"]');
+    expect(backdrop).not.toBeNull();
+    await tick(20);
+    fireEvent.pointerDown(backdrop as Element, { pointerType: "mouse", button: 0 });
+    fireEvent.mouseDown(backdrop as Element);
+    fireEvent.click(backdrop as Element);
+    await tick(30);
+    expect(log).toEqual(["close"]);
+    page.remove();
+  });
+
   it("the search box is a combobox even when nothing matches", async () => {
     mount({ initialQuery: "zzzz" });
     await tick();

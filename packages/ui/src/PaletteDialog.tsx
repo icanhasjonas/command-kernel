@@ -1,5 +1,5 @@
 import * as Dialog from "@radix-ui/react-dialog";
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { AnimatePresence, motion, useIsPresent, useReducedMotion } from "motion/react";
 import { type KeyboardEvent, type ReactNode, useRef } from "react";
 import { enter, instant, leave, motionTokens } from "./motion-tokens.js";
 
@@ -28,12 +28,38 @@ export function PaletteInline({
   );
 }
 
+const BACKDROP = "fixed inset-0 z-50 bg-ck-overlay backdrop-blur-[7px]";
+
+/**
+ * The backdrop of a palette whose host keeps the page modal itself (`modal={false}`): Radix
+ * draws none then. A click on it is outside the panel, so it closes the palette; leaving, it
+ * takes no click.
+ */
+function HostBackdrop({ reduce }: { reduce: boolean }) {
+  const present = useIsPresent();
+  return (
+    <motion.div
+      aria-hidden="true"
+      data-state={present ? "open" : "closed"}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0, transition: reduce ? instant : leave }}
+      transition={reduce ? instant : enter}
+      className={`${BACKDROP} data-[state=closed]:pointer-events-none`}
+    />
+  );
+}
+
 /**
  * The palette's modal layer, moving as Arc's dialog does: the overlay fades, the panel rises
  * 8px and settles on a damped spring, and leaves shorter and quieter than it came. Reduced
  * motion: a fade only. It also puts focus back where it was when it opened (Radix does that
  * only for a Dialog.Trigger, and the palette opens from a key). While it leaves, neither the
  * overlay nor the panel takes a click: a click on the page as the palette goes is the page's.
+ *
+ * `modal={false}` is for a host that keeps the page modal itself (an `inert` page): Radix then
+ * adds no focus trap, no aria-hidden on the page and no pointer lock. Radix keeps those until
+ * the exit ends, so a dialog the host opens as the palette goes would share the page with them.
  */
 export function PaletteDialog({
   open,
@@ -42,6 +68,7 @@ export function PaletteDialog({
   onCloseAutoFocus,
   title,
   description,
+  modal = true,
   children,
 }: {
   open: boolean;
@@ -51,6 +78,8 @@ export function PaletteDialog({
   /** the dialog's accessible name, and what it is for ("" for nothing) */
   title: string;
   description: string;
+  /** false: the host keeps the page modal itself (see above) */
+  modal?: boolean;
   children: ReactNode;
 }) {
   const reduce = useReducedMotion();
@@ -61,21 +90,25 @@ export function PaletteDialog({
   closeFocus.current = onCloseAutoFocus;
 
   return (
-    <Dialog.Root open={open} onOpenChange={(o) => !o && onClose()}>
+    <Dialog.Root open={open} onOpenChange={(o) => !o && onClose()} modal={modal}>
       <AnimatePresence>
         {open && (
           <Dialog.Portal forceMount>
-            <Dialog.Overlay asChild>
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0, transition: reduce ? instant : leave }}
-                transition={reduce ? instant : enter}
-                // leaving, it takes no click: one meant for the page under it reaches the page
-                // (important: Radix puts pointer-events: auto on the overlay itself)
-                className="fixed inset-0 z-50 bg-ck-overlay backdrop-blur-[7px] data-[state=closed]:pointer-events-none!"
-              />
-            </Dialog.Overlay>
+            {modal ? (
+              <Dialog.Overlay asChild>
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0, transition: reduce ? instant : leave }}
+                  transition={reduce ? instant : enter}
+                  // leaving, it takes no click: one meant for the page under it reaches the page
+                  // (important: Radix puts pointer-events: auto on the overlay itself)
+                  className={`${BACKDROP} data-[state=closed]:pointer-events-none!`}
+                />
+              </Dialog.Overlay>
+            ) : (
+              <HostBackdrop reduce={Boolean(reduce)} />
+            )}
             <Dialog.Content
               onEscapeKeyDown={(e) => e.preventDefault()}
               onKeyDown={onKeyDown}

@@ -62,6 +62,12 @@ export interface CommandPaletteProps {
    * page): no overlay, no focus trap, and it takes focus only when clicked.
    */
   inline?: boolean;
+  /**
+   * false: the host keeps the page modal itself (an `inert` page, its own focus rules). The
+   * palette still draws its backdrop, but adds no focus trap, no aria-hidden and no pointer
+   * lock, which Radix keeps until the exit ends. Default true.
+   */
+  modal?: boolean;
   onClose: () => void;
   onResult: (r: CommandResult) => void;
   onExecuted: (id: string) => void;
@@ -96,6 +102,7 @@ export function CommandPalette({
   labels,
   showWeight = false,
   inline = false,
+  modal = true,
   onClose,
   onResult,
   onExecuted,
@@ -206,6 +213,7 @@ export function CommandPalette({
       onCloseAutoFocus={onCloseAutoFocus}
       title={text.title}
       description={text.description}
+      modal={modal}
     >
       {body}
     </PaletteDialog>

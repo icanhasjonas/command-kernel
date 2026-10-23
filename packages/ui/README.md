@@ -218,6 +218,10 @@ interface CommandPaletteProps {
   an app with one role); `labels.title` and `labels.description` name the dialog; `labels.resultCount`
   is said to a screen reader as the rows for a typed query settle. The search box is a
   combobox whenever it is browsing, expanded while it shows rows.
+- **`modal={false}`** is for a host that keeps the page modal itself (an `inert` page, its own
+  focus rules). The palette still draws its backdrop (a press on it closes it), but Radix adds
+  no focus trap, no aria-hidden on the page and no pointer lock: those it keeps until the exit
+  ends, so a dialog the host opens as the palette goes would share the page with them.
 - **`inline`** draws the palette in place, open, as a panel on the page (a showcase, a docs
   page with several states side by side): no overlay, no focus trap, no focus taken.
 - **`useFrecency({ counts })`** counts only the runs `counts(id)` allows (leave out a thread
