@@ -328,6 +328,25 @@ describe("the host's keys, footer, words and first query", () => {
     expect(foot).toContain("close");
   });
 
+  it("leaving, it takes no click: the overlay and the panel let it through to the page", async () => {
+    const props = {
+      kernel: createKernel({ roots }),
+      ctx,
+      roots,
+      onClose: () => {},
+      onResult: () => {},
+      onExecuted: () => {},
+    };
+    const view = render(<CommandPalette open {...props} />);
+    await tick();
+    view.rerender(<CommandPalette open={false} {...props} />);
+    const leaving = [...document.body.querySelectorAll('[data-state="closed"]')];
+    // the exit is still playing: both are there, and neither takes a pointer
+    expect(leaving.length).toBeGreaterThanOrEqual(2);
+    for (const el of leaving)
+      expect(el.getAttribute("class")).toContain("data-[state=closed]:pointer-events-none");
+  });
+
   it("the search box is a combobox even when nothing matches", async () => {
     mount({ initialQuery: "zzzz" });
     await tick();

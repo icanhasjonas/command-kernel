@@ -32,7 +32,8 @@ export function PaletteInline({
  * The palette's modal layer, moving as Arc's dialog does: the overlay fades, the panel rises
  * 8px and settles on a damped spring, and leaves shorter and quieter than it came. Reduced
  * motion: a fade only. It also puts focus back where it was when it opened (Radix does that
- * only for a Dialog.Trigger, and the palette opens from a key).
+ * only for a Dialog.Trigger, and the palette opens from a key). While it leaves, neither the
+ * overlay nor the panel takes a click: a click on the page as the palette goes is the page's.
  */
 export function PaletteDialog({
   open,
@@ -70,7 +71,8 @@ export function PaletteDialog({
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0, transition: reduce ? instant : leave }}
                 transition={reduce ? instant : enter}
-                className="fixed inset-0 z-50 bg-ck-overlay backdrop-blur-[7px]"
+                // leaving, it takes no click: one meant for the page under it reaches the page
+                className="fixed inset-0 z-50 bg-ck-overlay backdrop-blur-[7px] data-[state=closed]:pointer-events-none"
               />
             </Dialog.Overlay>
             <Dialog.Content
@@ -108,7 +110,7 @@ export function PaletteDialog({
                       }
                 }
                 style={{ transformOrigin: "top center" }}
-                className={`-translate-x-1/2 fixed top-[14vh] left-1/2 z-50 w-[min(640px,92vw)] ${PANEL}`}
+                className={`-translate-x-1/2 fixed top-[14vh] left-1/2 z-50 w-[min(640px,92vw)] data-[state=closed]:pointer-events-none ${PANEL}`}
               >
                 <Dialog.Title className="sr-only">{title}</Dialog.Title>
                 {description && (
