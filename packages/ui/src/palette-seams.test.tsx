@@ -280,6 +280,17 @@ describe("the host's keys, footer, words and first query", () => {
     expect(document.body.querySelector('[role="status"]')?.textContent).toBe("1 result");
   });
 
+  it("the header says where and as whom in the host's words, or nothing", async () => {
+    mount({ labels: { context: (where) => `On ${where}` } });
+    await tick();
+    expect(document.body.textContent).toContain("On inbox");
+    expect(document.body.textContent).not.toContain("admin");
+    cleanup();
+    mount({ labels: { context: () => "" } });
+    await tick();
+    expect(document.body.textContent).not.toContain("inbox");
+  });
+
   it("the search box is a combobox even when nothing matches", async () => {
     mount({ initialQuery: "zzzz" });
     await tick();

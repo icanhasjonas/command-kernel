@@ -159,8 +159,7 @@ export function CommandPalette({
         crumbs={[...p.frames.map((f) => f.node?.title ?? text.root), ...(p.pipe?.trail ?? [])]}
         canGoBack={p.mode !== "browse" || p.frames.length > 1}
         backLabel={text.back}
-        where={ctx.location.label ?? ctx.location.module}
-        role={ctx.user.role}
+        context={text.context(ctx.location.label ?? ctx.location.module, ctx.user.role)}
         onBack={p.back}
       />
       <PaletteQuery p={p} keys={keys} labels={text} />

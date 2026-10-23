@@ -6,16 +6,14 @@ export function PaletteHeader({
   crumbs,
   canGoBack,
   backLabel,
-  where,
-  role,
+  context,
   onBack,
 }: {
   crumbs: string[];
   canGoBack: boolean;
   backLabel: string;
-  /** the host's location label */
-  where: string;
-  role: string;
+  /** where the palette was opened and as whom, in the host's words ("" for nothing) */
+  context: string;
   onBack: () => void;
 }) {
   return (
@@ -34,11 +32,7 @@ export function PaletteHeader({
         )}
         <PaletteCrumbs items={crumbs} />
       </div>
-      <span className="flex shrink-0 items-center gap-1.5 text-ck-fg-muted">
-        <span>{where}</span>
-        <span aria-hidden="true">·</span>
-        <span>{role}</span>
-      </span>
+      {context && <span className="shrink-0 truncate text-ck-fg-muted">{context}</span>}
     </div>
   );
 }

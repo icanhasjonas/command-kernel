@@ -213,7 +213,8 @@ interface CommandPaletteProps {
 - **`onKeyDown`** sees every key before the palette does; answer `true` to keep one (a help
   key, a key the host reserves). **`footer`** puts the host's controls at the footer's end,
   on touch screens too. **`initialQuery`** opens the palette on words already typed.
-- **Words:** `labels.title` and `labels.description` name the dialog; `labels.resultCount`
+- **Words:** `labels.context(where, role)` is the header's right end ("" leaves it out, for
+  an app with one role); `labels.title` and `labels.description` name the dialog; `labels.resultCount`
   is said to a screen reader as the rows for a typed query settle. The search box is a
   combobox whenever it is browsing, expanded while it shows rows.
 - **`useFrecency({ counts })`** counts only the runs `counts(id)` allows (leave out a thread

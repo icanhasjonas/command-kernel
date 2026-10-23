@@ -23,6 +23,11 @@ export interface PaletteLabels {
   // ── the browse frame ──────────────────────────────────────────────────────
   /** breadcrumb for the root frame - the closest thing to an app name */
   root: string;
+  /**
+   * The header's right end: where the palette was opened and as whom (the ctx's location
+   * label, else its module, and the user's role). "" leaves it out, for an app with one role.
+   */
+  context: (where: string, role: string) => string;
   /** search input placeholder */
   placeholder: string;
   /** accessible name for the search input (screen readers) */
@@ -101,6 +106,7 @@ export const defaultLabels: PaletteLabels = {
   title: "Command palette",
   description: "",
   root: "Commands",
+  context: (where, role) => `${where} · ${role}`,
   placeholder: "Search commands…",
   searchLabel: "Search commands",
   noMatch: (query) => (query ? `Nothing here matches “${query}”` : "Nothing here yet"),
