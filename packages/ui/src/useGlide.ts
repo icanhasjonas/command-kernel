@@ -28,6 +28,13 @@ function usePointerLast(): RefObject<boolean> {
   return pointer;
 }
 
+/** The list's scrollTop that shows a row (`top` and `height` in the list's own scroll space), moving as little as it can. */
+export function keepInView(scrollTop: number, view: number, top: number, height: number): number {
+  if (top < scrollTop) return top;
+  if (top + height > scrollTop + view) return Math.min(top, top + height - view);
+  return scrollTop;
+}
+
 export interface Glide {
   y: MotionValue<number>;
   height: MotionValue<number>;
@@ -80,7 +87,10 @@ export function useGlide(
     animate(height, node.offsetHeight, move);
     animate(opacity, 1, { duration: reduce ? 0 : 0.08 });
     shown.current = true;
-    if (!pointer.current) node.scrollIntoView?.({ block: "nearest" });
+    // the list scrolls itself, never the page around it (scrollIntoView moved every scroller up
+    // to the window: a page that shows a palette opened scrolled down to it)
+    if (!pointer.current)
+      list.scrollTop = keepInView(list.scrollTop, list.clientHeight, top, node.offsetHeight);
   }, [activeId, layoutKey, reduce, listRef, y, height, opacity, pointer]);
 
   return { y, height, opacity };
