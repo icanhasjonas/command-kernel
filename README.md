@@ -84,6 +84,20 @@ approval is owed; the model **cannot self-approve**.
 | [`examples/custom-ranker`](examples/custom-ranker) | SEAM 1: a prefix-first Ranker plugged in without forking | core |
 | [`examples/persistent-evidence`](examples/persistent-evidence) | SEAM 3+4: file-backed policy/evidence stores + the honest persistence story | core |
 
+`@command-kernel/wire` (REST + WebSocket transport) and `@command-kernel/react` ship from the same
+monorepo. Every package is on npm under the `command-kernel` org, all at one version
+(the root `package.json`'s).
+
+## Install
+
+```bash
+bun add @command-kernel/core                          # the engine
+bun add @command-kernel/ui @command-kernel/wire       # the palette, the transport
+```
+
+ESM only. What installs is the built `dist/` (types included); `@command-kernel/ui` also exports
+`@command-kernel/ui/theme.css`.
+
 ## Quick start
 
 ```ts
